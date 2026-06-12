@@ -123,6 +123,7 @@ const (
 	KeyDoorbellCancelled       = "notify.doorbell.cancelled"
 	KeyDoorbellReassigned      = "notify.doorbell.reassigned"
 	KeyDoorbellDone            = "notify.doorbell.done"
+	KeyDoorbellReflect         = "notify.doorbell.reflect"
 	KeyDoorbellRevive          = "notify.doorbell.revive"
 	KeyDoorbellWatchdogBlocked = "notify.doorbell.watchdog_blocked"
 	KeyDoorbellSchedule        = "notify.doorbell.schedule"

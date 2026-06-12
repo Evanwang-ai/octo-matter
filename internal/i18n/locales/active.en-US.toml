@@ -270,6 +270,9 @@ other = "🔄 \"{{.Title}}\" was reassigned"
 [notify.doorbell.done]
 other = "✅ \"{{.Title}}\" is done"
 
+[notify.doorbell.reflect]
+other = "🧠 \"{{.Title}}\" accepted — distill preferences: review the annotations and sendbacks on this matter, record reusable taste per your preference workflow, and note in the matter what you saved"
+
 [notify.doorbell.revive]
 other = "🔔 \"{{.Title}}\" is still waiting (reminder)"
 

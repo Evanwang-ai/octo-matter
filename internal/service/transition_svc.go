@@ -40,6 +40,7 @@ const (
 	DoorbellCancelled       = "matter.doorbell.cancelled"
 	DoorbellReassigned      = "matter.doorbell.reassigned"
 	DoorbellDone            = "matter.doorbell.done"
+	DoorbellReflect         = "matter.doorbell.reflect" // acceptance → 偏好沉淀 prompt
 	DoorbellRevive          = "matter.doorbell.watchdog_revive"
 	DoorbellWatchdogBlock   = "matter.doorbell.watchdog_blocked"
 	DoorbellSchedule        = "matter.doorbell.schedule"
@@ -465,9 +466,19 @@ func (s *TransitionService) route(ctx context.Context, r *repository.TxRepos, m,
 
 	case model.MatterStatusDone:
 		// FYI ring to the responsible party; 完成 itself is the human action.
+		// When the responsible party is a bot and the matter carried taste
+		// signals (圈点/打回), the ring becomes the SECI reflection prompt:
+		// distill preferences in the per-matter session (where the whole
+		// conversation already lives) — 偏好沉淀 v1, no server LLM involved.
+		key, event := i18n.KeyDoorbellDone, DoorbellDone
+		if strings.HasSuffix(m.LeaderOrEmpty(), "_bot") {
+			if n, err := r.Feedback.CountByMatter(ctx, m.ID); err == nil && n > 0 {
+				key, event = i18n.KeyDoorbellReflect, DoorbellReflect
+			}
+		}
 		eff.doorbells = append(eff.doorbells, doorbell{
-			target: m.LeaderOrEmpty(), event: DoorbellDone,
-			messageKey: i18n.KeyDoorbellDone, params: params,
+			target: m.LeaderOrEmpty(), event: event,
+			messageKey: key, params: params,
 		})
 	}
 	return eff, nil

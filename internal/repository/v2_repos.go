@@ -213,6 +213,15 @@ func (r *FeedbackRepo) Create(ctx context.Context, f *model.MatterFeedback) erro
 	return err
 }
 
+// CountByMatter reports how many taste signals (圈一笔/@反馈) this matter
+// accumulated — the gate for the acceptance-time reflection doorbell.
+func (r *FeedbackRepo) CountByMatter(ctx context.Context, matterID string) (int, error) {
+	var n int
+	err := r.runner.Select("COUNT(*)").From("matter_feedbacks").
+		Where("matter_id = ?", matterID).LoadOneContext(ctx, &n)
+	return n, err
+}
+
 func (r *FeedbackRepo) ListByMatter(ctx context.Context, matterID string, limit int) ([]*model.MatterFeedback, error) {
 	if limit <= 0 {
 		limit = 50

@@ -268,6 +268,9 @@ other = "🔄「{{.Title}}」已改派"
 [notify.doorbell.done]
 other = "✅「{{.Title}}」已完成"
 
+[notify.doorbell.reflect]
+other = "🧠「{{.Title}}」验收通过 — 该沉淀偏好了:回看这单的圈点与打回,按工作手册的偏好沉淀流程,把可复用的口味写进你的 preference 档,并在事项里留一句你记下了什么"
+
 [notify.doorbell.revive]
 other = "🔔「{{.Title}}」还等着处理(提醒)"
 
