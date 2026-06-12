@@ -16,14 +16,23 @@ set -euo pipefail
 
 DEPLOY_DIR="${DEPLOY_DIR:-/Users/evanwang/Desktop/工作/Create/My-ai-context/项目/Octo/Code/octo-deployment/docker}"
 BASE="${BASE:-http://localhost:28080}"
-OCTO_CLI="${OCTO_CLI:-/tmp/octo-cli}"
-BOT_UID="${BOT_UID:-27A53HvuZrF68c737e5_bot}"
+OCTO_CLI="${OCTO_CLI:-octo-cli}"
+# Default to the bot WITHOUT a live runtime so regression runs never wake a
+# real agent (token burn). Pass BOT_UID/BOT_PROFILE to drive a live bot.
+BOT_UID="${BOT_UID:-27A8InGz6zAae7ef483_bot}"
+BOT_PROFILE="${BOT_PROFILE:-test2}"
 PASS=0; FAIL=0
 
 say()  { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 okay() { printf '  ✅ %s\n' "$*"; PASS=$((PASS+1)); }
 bad()  { printf '  ❌ %s\n' "$*"; FAIL=$((FAIL+1)); }
 jqget(){ python3 -c "import json,sys;d=json.load(sys.stdin);print(d$1)"; }
+
+# Fixture ledgers — admin-created vs bot-created (delete permission is
+# creator-only), wiped in the self-cleanup trailer: no inbox residue.
+ADMIN_CREATED=(); BOT_CREATED=()
+trackA() { [ -n "$1" ] && ADMIN_CREATED+=("$1"); }
+trackB() { [ -n "$1" ] && BOT_CREATED+=("$1"); }
 
 # ---- identities -----------------------------------------------------------
 ADMIN_PWD=$(grep '^OCTO_ADMIN_PWD=' "$DEPLOY_DIR/.env" | cut -d= -f2-)
@@ -33,17 +42,12 @@ SPACE=$(curl -s "$BASE/api/v1/space/my" -H "token: $TOKEN" | jqget "[0]['space_i
 H=(-H "token: $TOKEN" -H "X-Space-Id: $SPACE" -H 'Content-Type: application/json')
 API="$BASE/matter/api/v1"
 
-export OCTO_API_BASE_URL="$BASE/matter"
-export OCTO_SPACE_ID="$SPACE"
-export OCTO_BOT_TOKEN=$(python3 -c "
-import json,os
-d=json.load(open(os.path.expanduser('~/.openclaw/openclaw.json')))
-print(d['channels']['octo']['accounts']['$BOT_UID']['botToken'])")
-
+# Credentials come from the encrypted octo-cli profile (see AGENT_SETUP.md);
+# no token ever touches env vars or the command line.
 bot() { # bot <METHOD> <PATH> [--data JSON] [--params JSON] → envelope on stdout
   # octo-cli exits non-zero on its error taxonomy (FORBIDDEN/CONFLICT/...);
   # several cases assert exactly those errors, so don't let set -e eat them.
-  "$OCTO_CLI" api "$@" 2>&1 || true
+  "$OCTO_CLI" --profile "$BOT_PROFILE" api "$@" 2>&1 || true
 }
 botfield() { # botfield <json> <pyexpr>
   echo "$1" | jqget "$2" 2>/dev/null || echo ""
@@ -63,6 +67,7 @@ M1=$(curl -s "${H[@]}" -X POST "$API/matters" -d "{
   \"brief_output_spec\":\"一页 markdown,按仓库分节\",
   \"leader_uid\":\"$BOT_UID\",\"assignee_ids\":[\"$BOT_UID\"]}" | jqget "['id']")
 [ -n "$M1" ] && okay "人:立事项并交给 bot (M1=$M1)" || { bad "create failed"; exit 1; }
+trackA "$M1"
 
 # bot 读单(同时消费门铃)
 R=$(bot GET "/api/v1/matters/$M1")
@@ -113,6 +118,7 @@ M2=$(curl -s "${H[@]}" -X POST "$API/matters" -d "{
   \"description\":\"撒网三路:准确性 / 完整性 / 示例可运行性\",
   \"leader_uid\":\"$BOT_UID\"}" | jqget "['id']")
 okay "人:立撒网父单交给 bot Leader (M2=$M2)"
+trackA "$M2"
 curl -s "${H[@]}" -X PUT "$API/matters/$M2/status" -d '{"status":"in_progress"}' > /dev/null
 
 # bot Leader 派 3 路(幂等键 parent+step)
@@ -122,7 +128,7 @@ for i in 1 2 3; do
   R=$(bot POST /api/v1/matters --data "{\"title\":\"评审角度 $i:$ANGLE\",\"parent_matter_id\":\"$M2\",\"step_id\":\"s$i\",\"step_order\":$i,\"leader_uid\":\"$BOT_UID\",\"assignee_ids\":[\"$BOT_UID\"]}")
   CID=$(botfield "$R" "['data']['id']")
   [ -n "$CID" ] && okay "bot Leader:派出第 $i 路 ($CID)" || bad "dispatch $i: $(echo "$R"|head -c 150)"
-  CHILD_IDS+=("$CID")
+  CHILD_IDS+=("$CID"); trackB "$CID"
 done
 # 幂等重派
 R=$(bot POST /api/v1/matters --data "{\"title\":\"重复派活\",\"parent_matter_id\":\"$M2\",\"step_id\":\"s1\"}")
@@ -159,13 +165,15 @@ ST=$(curl -s "${H[@]}" -X PUT "$API/matters/$M2/status" -d '{"status":"done"}' |
 say "CASE 3 · 改派围栏:旧负责 bot 的回写被专用错误码拦下"
 # ===========================================================================
 M3=$(curl -s "${H[@]}" -X POST "$API/matters" -d "{\"title\":\"长跑任务:监控周报\",\"leader_uid\":\"$BOT_UID\",\"assignee_ids\":[\"$BOT_UID\"]}" | jqget "['id']")
+trackA "$M3"
 R=$(bot GET "/api/v1/matters/$M3"); EPOCH=$(botfield "$R" "['data']['assignment_epoch']")
 bot PUT "/api/v1/matters/$M3/status" --data "{\"status\":\"in_progress\",\"assignment_epoch\":$EPOCH}" >/dev/null
 okay "bot:认领 (epoch=$EPOCH)"
-# 人改派给 测试 bot,并把旧 bot 从协作里摘掉
-curl -s "${H[@]}" -X PUT "$API/matters/$M3" -d '{"leader_uid":"27A8InGz6zAae7ef483_bot"}' > /dev/null
+# 人改派(收回自管),并把旧 bot 从协作里摘掉 — 改派对象是谁不影响围栏,
+# 用 admin 自己可避免敲响任何真 bot 的门铃。
+curl -s "${H[@]}" -X PUT "$API/matters/$M3" -d '{"leader_uid":"admin"}' > /dev/null
 curl -s "${H[@]}" -X DELETE "$API/matters/$M3/assignees/$BOT_UID" > /dev/null
-okay "人:改派给 测试 bot (epoch+1, 摘除旧协作)"
+okay "人:改派收回 (epoch+1, 摘除旧协作)"
 R=$(bot PUT "/api/v1/matters/$M3/status" --data "{\"status\":\"review\",\"assignment_epoch\":$EPOCH,\"summary\":\"迟到的回写\"}")
 CODE=$(botfield "$R" "['error']['code']")
 [ "$CODE" = "EPOCH_STALE" ] && okay "围栏:旧 epoch 回写 → EPOCH_STALE (agent 收到即停)" || bad "fencing got: $CODE / $(echo "$R"|head -c 200)"
@@ -179,6 +187,18 @@ N=$(botfield "$R" "['data'].__len__()")
 R=$(bot GET /api/v1/agents/stats --params "{\"uids\":\"$BOT_UID\"}")
 DONE=$(botfield "$R" "['data']['stats']['$BOT_UID']['done']")
 okay "bot:查询自己的战绩 (已办成 $DONE 件 — AgentCard 赚来半同源)"
+
+say "self-cleanup (fixtures leave no trace)"
+CLEAN_OK=1
+for (( idx=${#BOT_CREATED[@]}-1 ; idx>=0 ; idx-- )); do
+  R=$(bot DELETE "/api/v1/matters/${BOT_CREATED[idx]}")
+  echo "$R" | grep -q '"ok": true' || { echo "  ⚠️ bot delete ${BOT_CREATED[idx]} failed"; CLEAN_OK=0; }
+done
+for (( idx=${#ADMIN_CREATED[@]}-1 ; idx>=0 ; idx-- )); do
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' "${H[@]}" -X DELETE "$API/matters/${ADMIN_CREATED[idx]}")
+  [ "$CODE" = "204" ] || { echo "  ⚠️ admin delete ${ADMIN_CREATED[idx]} → $CODE"; CLEAN_OK=0; }
+done
+[ "$CLEAN_OK" = "1" ] && okay "all fixtures deleted ($((${#ADMIN_CREATED[@]}+${#BOT_CREATED[@]})) matters)" || bad "cleanup incomplete"
 
 printf '\n\033[1mRESULT: %d passed, %d failed\033[0m\n' "$PASS" "$FAIL"
 [ "$FAIL" = "0" ]

@@ -18,6 +18,11 @@ bad()  { printf '  ❌ %s\n' "$*"; FAIL=$((FAIL+1)); }
 
 jqget() { python3 -c "import json,sys;d=json.load(sys.stdin);print(d$1)"; }
 
+# Fixture ledger — every matter this run creates gets tracked and deleted in
+# the self-cleanup trailer, so smoke runs leave NO trace in the inbox.
+CREATED=()
+track() { [ -n "$1" ] && CREATED+=("$1"); }
+
 ADMIN_PWD=$(grep '^OCTO_ADMIN_PWD=' "$DEPLOY_DIR/.env" | cut -d= -f2-)
 
 say "login"
@@ -35,20 +40,30 @@ curl -sf "$BASE/matter/health" >/dev/null && okay "/matter/health" || bad "/matt
 curl -sf "$BASE/matter/health/ready" >/dev/null && okay "/matter/health/ready" || bad "/matter/health/ready"
 
 say "project"
-PROJ=$(curl -s "${H[@]}" -X POST "$API/projects" -d '{"name":"v2冒烟项目","description":"smoke"}' | jqget "['id']")
-[ -n "$PROJ" ] && okay "project created: $PROJ" || bad "project create"
+# reuse the smoke project if it exists (projects have no delete API; one is enough)
+PROJ=$(curl -s "${H[@]}" "$API/projects" | python3 -c "
+import json,sys
+for p in json.load(sys.stdin).get('data',[]):
+    if p.get('name')=='v2冒烟项目': print(p['id']); break")
+if [ -n "$PROJ" ]; then
+  okay "project reused: $PROJ"
+else
+  PROJ=$(curl -s "${H[@]}" -X POST "$API/projects" -d '{"name":"v2冒烟项目","description":"smoke"}' | jqget "['id']")
+  [ -n "$PROJ" ] && okay "project created: $PROJ" || bad "project create"
+fi
 
 say "swarm parent + 3 children (撒网)"
 PARENT=$(curl -s "${H[@]}" -X POST "$API/matters" \
   -d "{\"title\":\"撒网验收:三路并行\",\"mode\":\"swarm\",\"project_id\":\"$PROJ\",\"leader_uid\":\"admin\"}" | jqget "['id']")
 [ -n "$PARENT" ] && okay "parent: $PARENT" || { bad "parent create"; exit 1; }
+track "$PARENT"
 
 CHILD_IDS=()
 for i in 1 2 3; do
   CID=$(curl -s "${H[@]}" -X POST "$API/matters" \
     -d "{\"title\":\"子任务 $i\",\"parent_matter_id\":\"$PARENT\",\"step_id\":\"s$i\",\"step_order\":$i,\"leader_uid\":\"admin\"}" | jqget "['id']")
   [ -n "$CID" ] && okay "child s$i: $CID" || bad "child s$i create"
-  CHILD_IDS+=("$CID")
+  CHILD_IDS+=("$CID"); track "$CID"
 done
 
 # Idempotent re-dispatch: same (parent, step_id) returns the existing row.
@@ -96,6 +111,7 @@ ST=$(curl -s "${H[@]}" -X PUT "$API/matters/$PARENT/status" -d '{"status":"done"
 
 say "blocked needs a reason"
 BL=$(curl -s "${H[@]}" -X POST "$API/matters" -d '{"title":"会卡住的活","leader_uid":"admin"}' | jqget "['id']")
+track "$BL"
 curl -s "${H[@]}" -X PUT "$API/matters/$BL/status" -d '{"status":"in_progress"}' >/dev/null
 CODE=$(curl -s "${H[@]}" -X PUT "$API/matters/$BL/status" -d '{"status":"blocked"}' | jqget "['error']['code']" 2>/dev/null || echo none)
 [ "$CODE" = "VALIDATION_ERROR" ] && okay "blocked without reason rejected" || bad "blocked-no-reason got $CODE"
@@ -115,12 +131,20 @@ say "doorbell outbox → dispatcher → octo-server notify"
 # Self-rings are suppressed (producer == target), so the bell only sounds when
 # actor ≠ target: pick a space member that is not the admin actor (the test
 # bot) as leader. Skip honestly when the space has no second member.
+# Prefer a bot WITHOUT a live runtime (27A8InGz… has none locally) so smoke
+# runs never wake a real agent and burn tokens; fall back to any non-admin.
 BOT_UID=$(curl -s "$BASE/api/v1/space/$SPACE/members?limit=50" -H "token: $TOKEN" \
-  | python3 -c "import json,sys;ms=json.load(sys.stdin);print(next((m['uid'] for m in ms if m['uid']!='admin'),''))")
+  | python3 -c "
+import json,sys
+ms=json.load(sys.stdin)
+uids=[m['uid'] for m in ms]
+print('27A8InGz6zAae7ef483_bot' if '27A8InGz6zAae7ef483_bot' in uids
+      else next((u for u in uids if u!='admin'),''))")
 if [ -n "$BOT_UID" ]; then
   BELLM=$(curl -s "${H[@]}" -X POST "$API/matters" \
     -d "{\"title\":\"门铃验收:派给 bot\",\"leader_uid\":\"$BOT_UID\"}" | jqget "['id']")
   [ -n "$BELLM" ] && okay "matter assigned to $BOT_UID" || bad "doorbell matter create"
+  track "$BELLM"
   sleep 8
   ROW=$(docker exec octo-mysql-1 sh -c "MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" mysql -u root -N -e \"SELECT state, event FROM matter_outbox WHERE matter_id='$BELLM' ORDER BY created_at DESC LIMIT 1\" octo_matter" 2>/dev/null || echo "?")
   echo "  outbox row: $ROW"
@@ -142,6 +166,7 @@ say "brief fields (约束/输出要求) round-trip"
 BRIEFM=$(curl -s "${H[@]}" -X POST "$API/matters" \
   -d '{"title":"带 Brief 的活","description":"目标","brief_constraints":"不许用外部数据","brief_output_spec":"一页纸 markdown"}')
 BID=$(echo "$BRIEFM" | jqget "['id']")
+track "$BID"
 BC=$(curl -s "${H[@]}" "$API/matters/$BID" | jqget "['brief_constraints']")
 [ "$BC" = "不许用外部数据" ] && okay "brief_constraints persisted" || bad "brief got: $BC"
 
@@ -185,6 +210,18 @@ HTTPCODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/matter/api/v1/i
 say "UI served"
 HTTPCODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/matter/ui/")
 [ "$HTTPCODE" = "200" ] && okay "/matter/ui/ → 200" || bad "/matter/ui/ → $HTTPCODE"
+
+say "self-cleanup (fixtures leave no trace)"
+# children first, then parents — soft delete, creator=admin throughout
+CLEANED=0
+for (( idx=${#CREATED[@]}-1 ; idx>=0 ; idx-- )); do
+  ID="${CREATED[idx]}"
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' "${H[@]}" -X DELETE "$API/matters/$ID")
+  if [ "$CODE" = "204" ]; then CLEANED=$((CLEANED+1)); else echo "  ⚠️ delete $ID → $CODE"; fi
+done
+[ "$CLEANED" = "${#CREATED[@]}" ] && okay "deleted $CLEANED/${#CREATED[@]} fixtures" || bad "cleanup incomplete: $CLEANED/${#CREATED[@]}"
+GONE=$(curl -s "${H[@]}" "$API/matters/$PARENT" | jqget "['error']['code']" 2>/dev/null || echo "")
+[ "$GONE" = "MATTER_NOT_FOUND" ] && okay "fixtures unreachable after delete" || bad "parent still readable: $GONE"
 
 printf '\n\033[1mRESULT: %d passed, %d failed\033[0m\n' "$PASS" "$FAIL"
 [ "$FAIL" = "0" ]
