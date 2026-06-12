@@ -29,6 +29,9 @@ type MatterFilter struct {
 	// which extends visibility (OR clause) for callers proven to be channel
 	// members. Service layer applies the same IM membership gating.
 	ChannelID *string
+	// SeqNo resolves the human-facing M-<n> reference to the row (agents and
+	// deep links speak UUID; people speak seq).
+	SeqNo             *uint64
 	DeadlineBefore    *time.Time
 	DeadlineAfter     *time.Time
 	Query             *string
@@ -184,6 +187,9 @@ func (r *MatterRepo) ListBySpace(ctx context.Context, spaceID string, filter Mat
 	}
 	if filter.ScheduleID != nil {
 		q = q.Where("schedule_id = ?", *filter.ScheduleID)
+	}
+	if filter.SeqNo != nil {
+		q = q.Where("seq_no = ?", *filter.SeqNo)
 	}
 	if filter.SourceChannelType != nil {
 		q = q.Where("source_channel_type = ?", *filter.SourceChannelType)

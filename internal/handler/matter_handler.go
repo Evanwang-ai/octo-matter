@@ -284,6 +284,11 @@ func (h *MatterHandler) List(c *gin.Context) {
 	if query != "" {
 		filter.Query = &query
 	}
+	if seqStr := c.Query("seq"); seqStr != "" {
+		if n, perr := strconv.ParseUint(seqStr, 10, 64); perr == nil {
+			filter.SeqNo = &n
+		}
+	}
 	if leaderID := c.Query("leader_id"); leaderID != "" {
 		if leaderID == "me" {
 			leaderID = uid(c)

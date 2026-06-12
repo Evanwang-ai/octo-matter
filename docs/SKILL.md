@@ -37,6 +37,10 @@ metadata:
 octo-cli api GET /api/v1/matters/<matter_id>
 ```
 
+人提到「M-42」这类编号而你没有 UUID 时,用编号查:
+`octo-cli api GET /api/v1/matters --params '{"seq":42}'` → data[0].id。
+**别凭记忆猜某个编号对应什么事——编号一律查了再说。**
+
 「项目新增共享上下文」类通知(带 project_id):读
 `octo-cli api GET /api/v1/projects/<project_id>/sources` 看新增了什么,
 判断是否影响你手头该项目下的事项(必要时补子任务/更新计划);没影响就不动。
