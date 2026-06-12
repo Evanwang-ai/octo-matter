@@ -38,6 +38,42 @@ func (h *MatterHandler) consumeDoorbells(c *gin.Context, matterID string) {
 	}
 }
 
+// BotChannels lists the conversations a bot can post into — data for the
+// automation "send result to" picker (no human ever types a channel id).
+// Owner-gated: 执行类委托只能选我创建的 bot (PRD 4.3 鉴权通则).
+func (h *MatterHandler) BotChannels(c *gin.Context) {
+	botUID := c.Param("uid")
+	if botUID == "" {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	owned := false
+	for _, u := range relatedUIDs(c) {
+		if u == botUID {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		failKey(c, http.StatusForbidden, "FORBIDDEN", i18n.KeyMatterView, nil)
+		return
+	}
+	lister, can := h.notifier.(notification.BotGroupLister)
+	if !can {
+		ok(c, gin.H{"data": []notification.BotGroup{}})
+		return
+	}
+	groups, err := lister.ListBotGroups(botUID)
+	if err != nil {
+		failKey(c, http.StatusBadGateway, "UPSTREAM_ERROR", i18n.KeyInvalidRequest, nil)
+		return
+	}
+	if groups == nil {
+		groups = []notification.BotGroup{}
+	}
+	ok(c, gin.H{"data": groups})
+}
+
 // createMatterSourceMsgRef accepts the client's existing payload shape — the
 // full message object mirroring /v1/matters/extract's `msgs` field. Only
 // message_id is read here; any companion fields (content, from_uid, ...) are

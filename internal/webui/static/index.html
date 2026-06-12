@@ -2918,9 +2918,12 @@ function openScheduleModal(s){
       + '<div class="am-quiet" id="amProjScope"></div>'
       + '<div id="amTargetWrap" style="display:none"><div class="am-label">结果发送到</div>'
       + '<div class="am-target">'
-      + '<input class="matter-input" id="amChId" placeholder="会话 ID" value="' + esc(s && s.target_channel_id ? s.target_channel_id : "") + '">'
-      + '<input class="matter-input" id="amChName" placeholder="显示名(可空)" value="' + esc(s && s.target_channel_name ? s.target_channel_name : "") + '">'
-      + '<div class="am-quiet">粘贴目标会话 ID(频道列表接口未接,见缺口清单)</div>'
+      + '<select class="am-select" id="amChSel">'
+      + (s && s.target_channel_id
+          ? '<option value="' + esc(s.target_channel_id) + '" selected>' + esc(s.target_channel_name || s.target_channel_id) + "</option>"
+          : '<option value="">选一个群(执行 bot 所在的群)</option>')
+      + "</select>"
+      + '<div class="am-quiet">结果会以这个 bot 的身份发进选中的群</div>'
       + "</div></div>"
       + '<div class="am-label">重复</div>'
       + '<div id="amSimpleWrap">'
@@ -3036,6 +3039,29 @@ function openScheduleModal(s){
         }).catch(function(e){ btn.disabled = false; errToast(e); });
       };
     }
+    // 目标群下拉:打开时按当前执行 bot 拉它所在的群(owner 鉴权,服务端代理)
+    var chSel = $("#amChSel");
+    if (chSel){
+      var chLoadedFor = "";
+      chSel.addEventListener("mousedown", function(){
+        if (!d.executor){ toast("先选执行方 bot,再挑发到哪个群"); return; }
+        if (chLoadedFor === d.executor) return;
+        var keep = chSel.value;
+        api("/bots/" + encodeURIComponent(d.executor) + "/channels").then(function(json){
+          var list = (json && json.data) || [];
+          chLoadedFor = d.executor;
+          var opts = '<option value="">选一个群(执行 bot 所在的群)</option>';
+          list.forEach(function(g){
+            opts += '<option value="' + esc(g.group_no) + '"' + (g.group_no === keep ? " selected" : "") + ">" + esc(g.name || g.group_no) + "</option>";
+          });
+          if (keep && !list.some(function(g){ return g.group_no === keep; })){
+            opts += '<option value="' + esc(keep) + '" selected>' + esc(($("#amChSel option[selected]") || {}).textContent || keep) + "</option>";
+          }
+          chSel.innerHTML = opts;
+          if (!list.length) toast("这个 bot 还没加进任何群 — 先去 IM 里拉它进群");
+        }).catch(function(){ toast("群列表拉不到,稍后再试"); });
+      });
+    }
     $("#amSave").onclick = function(){
       var title = $("#amName").value.trim();
       if (!title){ $("#amNameErr").style.display = "block"; $("#amName").focus(); return; }
@@ -3049,8 +3075,9 @@ function openScheduleModal(s){
         timezone: d.tz,
         output_mode: d.out,
         runbook: $("#amRunbook").value.trim(),
-        target_channel_id: d.out === "runonly" ? $("#amChId").value.trim() : "",
-        target_channel_name: d.out === "runonly" ? $("#amChName").value.trim() : ""
+        target_channel_id: d.out === "runonly" ? ($("#amChSel") ? $("#amChSel").value : "") : "",
+        target_channel_name: d.out === "runonly" && $("#amChSel") && $("#amChSel").selectedIndex >= 0 && $("#amChSel").value
+          ? $("#amChSel").options[$("#amChSel").selectedIndex].textContent : ""
       };
       var pj = $("#amProj").value;
       if (pj) body.project_id = pj;
