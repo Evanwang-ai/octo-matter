@@ -76,7 +76,7 @@ func setupV2IT(t *testing.T) *v2IT {
 	tx := repository.NewTxManager(sess)
 	transition := NewTransitionService(matters, assignees, tx, "/matter/ui")
 	matterSvc := NewMatterService(matters, assignees, participants, channels, activity, tx, nil)
-	v2 := NewV2Service(matters, assignees, participants, projects, projectSources, feedbacks, outbox, summaries, activity, tx, transition, matterSvc, nil)
+	v2 := NewV2Service(matters, assignees, participants, projects, projectSources, feedbacks, outbox, summaries, activity, repository.NewAgentCardRepo(sess), tx, transition, matterSvc, nil)
 	return &v2IT{matters: matters, assignees: assignees, outbox: outbox,
 		feedbacks: feedbacks, activity: activity, tx: tx,
 		transition: transition, matterSvc: matterSvc, v2: v2}

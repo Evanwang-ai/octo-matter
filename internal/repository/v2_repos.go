@@ -115,22 +115,33 @@ func (r *OutboxRepo) Enqueue(ctx context.Context, row *model.OutboxRow) error {
 func (r *OutboxRepo) Due(ctx context.Context, limit int, redeliver time.Duration) ([]*model.OutboxRow, error) {
 	now := time.Now()
 	var out []*model.OutboxRow
+	// Delivered-but-unconsumed re-rings back off exponentially per redelivery
+	// (doc 02.5 未消费按指数退避重发): window = redeliver * 2^retry_count,
+	// capped at 2^5 (~5h20m on the default 10m) so an ignored 「该你了」 nags
+	// gently, not every 10 minutes forever.
 	_, err := r.runner.SelectBySql(`
 		SELECT * FROM matter_outbox
 		WHERE (state = ? AND next_retry_at <= ?)
-		   OR (state = ? AND updated_at <= ?)
+		   OR (state = ? AND updated_at <= DATE_SUB(?, INTERVAL
+		         (? * POW(2, LEAST(retry_count, 5))) SECOND))
 		ORDER BY next_retry_at ASC
 		LIMIT ?`,
-		model.OutboxPending, now, model.OutboxDelivered, now.Add(-redeliver), limit,
+		model.OutboxPending, now, model.OutboxDelivered, now,
+		int(redeliver.Seconds()), limit,
 	).LoadContext(ctx, &out)
 	return out, err
 }
 
 func (r *OutboxRepo) MarkDelivered(ctx context.Context, id string) error {
-	_, err := r.runner.Update("matter_outbox").
-		Set("state", model.OutboxDelivered).
-		Set("updated_at", time.Now()).
-		Where("id = ?", id).ExecContext(ctx)
+	// retry_count doubles as the redelivery counter for delivered rows —
+	// each successful re-ring widens the next backoff window (see Due).
+	_, err := r.runner.UpdateBySql(`
+		UPDATE matter_outbox
+		SET state = ?, retry_count = IF(state = ?, retry_count + 1, retry_count),
+		    updated_at = ?
+		WHERE id = ?`,
+		model.OutboxDelivered, model.OutboxDelivered, time.Now(), id,
+	).ExecContext(ctx)
 	return err
 }
 
