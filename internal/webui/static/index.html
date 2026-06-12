@@ -1165,6 +1165,12 @@
   .ac-btn:hover { background: var(--fill-2); }
   .ac-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   .ac-btn.primary:hover { background: var(--accent-2); }
+  .ac-tagline { font-size: 14px; font-weight: 600; margin: 4px 0 6px; }
+  .ac-desc { font-size: 12.5px; color: rgba(28,28,35,.72); line-height: 1.6; margin-bottom: 8px; }
+  .ac-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+  .ac-chips.dim .ac-chip { opacity: .65; }
+  .ac-chip { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; background: var(--fill-2, #f1f2f4); border: 1px solid rgba(28,28,35,.08); }
+  .ac-edit-link { font-size: 12px; color: var(--accent, #2563eb); cursor: pointer; }
   .ac-unreported {
     margin-top: 14px; border: 1px dashed var(--border); border-radius: 10px; background: var(--fill-1);
     padding: 11px 12px; font-size: 12px; color: var(--text-3); line-height: 1.7;
@@ -4477,6 +4483,38 @@ function openSubMatterModal(opts){
 function acRowsHTML(items, mapRow){
   return '<div class="ac-rows">' + items.map(mapRow).join("") + "</div>";
 }
+function openCardEditor(uidStr){
+  api("/agent-cards/" + encodeURIComponent(uidStr)).then(function(v){
+    var d = (v && v.declared) || {};
+    var mo = $("#modal");
+    mo.className = "modal";
+    mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">编辑名片 · ' + esc(uname(uidStr)) + '</div></div>'
+      + '<button class="modal-x" id="mx" type="button">×</button></div>'
+      + '<div class="modal-body"><div class="matter-form">'
+      + '<div class="matter-field"><label>一句话(亲签)</label><input class="matter-input" id="ceTag" maxlength="200" placeholder="例如: 说完就走,结果回来。" value="' + esc(d.tagline || "") + '"></div>'
+      + '<div class="matter-field"><label>介绍</label><textarea class="matter-textarea" id="ceDesc" maxlength="4000" placeholder="它是干嘛的、什么活儿该找它">' + esc(d.description || "") + "</textarea></div>"
+      + '<div class="matter-field"><label>技能(每行一条)</label><textarea class="matter-textarea" id="ceSkills" placeholder="整理文档\n数据统计">' + esc((d.skills || []).join("\n")) + "</textarea></div>"
+      + '<div class="matter-field"><label>能连的系统(每行一条)</label><textarea class="matter-textarea" id="ceSys">' + esc((d.systems || []).join("\n")) + "</textarea></div>"
+      + "</div></div>"
+      + '<div class="modal-foot"><div class="matter-error" id="ceErr" style="margin-right:auto"></div>'
+      + '<button class="ff-cancel" id="ceCancel" type="button">取消</button>'
+      + '<button class="ff-save blue" id="ceSave" type="button">保存</button></div>';
+    openModal();
+    $("#mx").onclick = closeModal;
+    $("#ceCancel").onclick = function(){ openAgentCard(uidStr); };
+    $("#ceSave").onclick = function(){
+      var lines = function(sel){ return $(sel).value.split("\n").map(function(x){ return x.trim(); }).filter(Boolean); };
+      var body = { tagline: $("#ceTag").value.trim() || null, description: $("#ceDesc").value.trim() || null,
+                   skills: lines("#ceSkills"), systems: lines("#ceSys") };
+      var btn = $("#ceSave"); btn.disabled = true; btn.textContent = "保存中…";
+      api("/agent-cards/" + encodeURIComponent(uidStr), { method: "PUT", body: body }).then(function(){
+        toast("名片更新了", { icon: "🪪" });
+        openAgentCard(uidStr);
+      }).catch(function(e){ errToast(e); btn.disabled = false; btn.textContent = "保存"; });
+    };
+  }).catch(errToast);
+}
+
 function openAgentCard(uidStr){
   if (!uidStr) return;
   var mo = $("#modal");
@@ -4526,8 +4564,10 @@ function openAgentCard(uidStr){
             })
           : '<div class="ac-empty">还没有写入的偏好</div>')
         + "</div>";
-      // 声明半(Agent 文件/读写范围/权限/能力边界/当前接入)没有数据来源 → 统一一块「未上报」,不放假值
-      html += '<div class="ac-unreported">声明信息未上报 — 接入 AgentCard 平台身份层后点亮(Agent 文件 / 读写范围 / 权限 / 能力边界 / 当前接入)</div>';
+      // 声明半: creator 手写的名片(/agent-cards/:uid),异步填充
+      html += '<div class="ac-sec"><div class="ac-sec-title"><span>名片(主人写的)</span>'
+        + (mine ? '<span class="ac-edit-link" id="acEditCard" role="button" tabindex="0">编辑</span>' : "")
+        + '</div><div id="acDecl"><div class="ac-empty">查名片…</div></div></div>';
     }
     var btns = [];
     if (onDetail) btns.push('<button class="ac-btn primary" id="acMention" type="button">@ 到当前事项</button>');
@@ -4553,6 +4593,23 @@ function openAgentCard(uidStr){
     });
     var ac = $("#acChat");
     if (ac) ac.addEventListener("click", function(){ toast("打开会话:接口未接"); });
+    if (bot){
+      api("/agent-cards/" + encodeURIComponent(uidStr)).then(function(v){
+        var d = v && v.declared;
+        var box = $("#acDecl"); if (!box) return;
+        if (d && (d.tagline || d.description || (d.skills || []).length)){
+          box.innerHTML =
+            (d.tagline ? '<div class="ac-tagline">“' + esc(d.tagline) + '”</div>' : "")
+            + (d.description ? '<div class="ac-desc">' + esc(d.description) + "</div>" : "")
+            + ((d.skills || []).length ? '<div class="ac-chips">' + d.skills.map(function(x){ return '<span class="ac-chip">' + esc(x) + "</span>"; }).join("") + "</div>" : "")
+            + ((d.systems || []).length ? '<div class="ac-chips dim">' + d.systems.map(function(x){ return '<span class="ac-chip">' + esc(x) + "</span>"; }).join("") + "</div>" : "");
+        } else {
+          box.innerHTML = '<div class="ac-empty">' + (mine ? "还没写名片 — 一句话+技能,让同事(和别的 agent)知道找它干嘛" : "主人还没给它写名片") + "</div>";
+        }
+      }).catch(function(){ var box = $("#acDecl"); if (box) box.innerHTML = '<div class="ac-empty">名片读不到,稍后再试</div>'; });
+      var ed = $("#acEditCard");
+      if (ed) ed.addEventListener("click", function(){ openCardEditor(uidStr); });
+    }
   };
   if (cache.stats[uidStr]){ fill(cache.stats[uidStr]); return; }
   api("/agents/stats", { params: { uids: uidStr } }).then(function(json){

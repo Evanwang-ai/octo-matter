@@ -513,3 +513,69 @@ func (h *V2Handler) AgentStats(c *gin.Context) {
 	}
 	ok(c, gin.H{"stats": stats})
 }
+
+// --- AgentCard (声明半可编辑,赚来半派生) ---------------------------------
+
+type agentCardPutReq struct {
+	Tagline     *string  `json:"tagline" binding:"omitempty,max=200"`
+	Description *string  `json:"description" binding:"omitempty,max=4000"`
+	Skills      []string `json:"skills" binding:"omitempty,max=30,dive,max=100"`
+	Systems     []string `json:"systems" binding:"omitempty,max=30,dive,max=100"`
+}
+
+// AgentCardGet returns both halves; any space member may look at a card
+// (读开放 — doc 00.5 读/操作分离).
+func (h *V2Handler) AgentCardGet(c *gin.Context) {
+	botUID := c.Param("uid")
+	if botUID == "" {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	view, err := h.v2.GetAgentCard(c.Request.Context(), spaceID(c), botUID)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, view)
+}
+
+// AgentCardPut upserts the declared half — only the bot's creator may write
+// (PRD 4.3 鉴权通则: 执行类委托与名片都归 creator).
+func (h *V2Handler) AgentCardPut(c *gin.Context) {
+	botUID := c.Param("uid")
+	if botUID == "" {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	owned := false
+	for _, u := range relatedUIDs(c) {
+		if u == botUID {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		failKey(c, http.StatusForbidden, "FORBIDDEN", i18n.KeyMatterView, nil)
+		return
+	}
+	var req agentCardPutReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	card := &model.MatterAgentCard{
+		BotUID: botUID, SpaceID: spaceID(c), OwnerUID: uid(c),
+		Tagline: req.Tagline, Description: req.Description,
+		Skills: model.JSONStringSlice(req.Skills), Systems: model.JSONStringSlice(req.Systems),
+	}
+	if err := h.v2.PutAgentCard(c.Request.Context(), card); err != nil {
+		respondErr(c, err)
+		return
+	}
+	view, err := h.v2.GetAgentCard(c.Request.Context(), spaceID(c), botUID)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, view)
+}

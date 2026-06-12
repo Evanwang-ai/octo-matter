@@ -28,6 +28,7 @@ type V2Service struct {
 	outbox         *repository.OutboxRepo
 	summaries      *repository.SummaryRepo
 	activity       *repository.ActivityRepo
+	cards          *repository.AgentCardRepo
 	tx             *repository.TxManager
 	transition     *TransitionService
 	matterSvc      *MatterService
@@ -44,6 +45,7 @@ func NewV2Service(
 	outbox *repository.OutboxRepo,
 	summaries *repository.SummaryRepo,
 	activity *repository.ActivityRepo,
+	cards *repository.AgentCardRepo,
 	tx *repository.TxManager,
 	transition *TransitionService,
 	matterSvc *MatterService,
@@ -53,7 +55,7 @@ func NewV2Service(
 		matters: matters, assignees: assignees, participants: participants,
 		projects: projects, projectSources: projectSources,
 		feedbacks: feedbacks, outbox: outbox,
-		summaries: summaries, activity: activity, tx: tx,
+		summaries: summaries, activity: activity, cards: cards, tx: tx,
 		transition: transition, matterSvc: matterSvc, llm: llmCaller,
 	}
 }
@@ -823,3 +825,31 @@ func (s *V2Service) EnqueueAssignedDoorbell(ctx context.Context, m *model.Matter
 }
 
 var _ = time.Now // keep time import if refactors drop direct uses
+
+// ---------------------------------------------------------------------------
+// AgentCard (declared half stored, earned half derived — doc 04 §五)
+// ---------------------------------------------------------------------------
+
+// AgentCardView merges both halves for one bot.
+type AgentCardView struct {
+	Declared *model.MatterAgentCard `json:"declared"`
+	Earned   *repository.AgentStat  `json:"earned"`
+}
+
+func (s *V2Service) GetAgentCard(ctx context.Context, spaceID, botUID string) (*AgentCardView, error) {
+	declared, err := s.cards.Get(ctx, botUID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	stats, err := s.AgentStats(ctx, spaceID, []string{botUID})
+	if err != nil {
+		return nil, err
+	}
+	return &AgentCardView{Declared: declared, Earned: stats[botUID]}, nil
+}
+
+// PutAgentCard upserts the declared half. Owner gate is the handler's job
+// (caller must own the bot); the service stamps the owner for the record.
+func (s *V2Service) PutAgentCard(ctx context.Context, card *model.MatterAgentCard) error {
+	return s.cards.Upsert(ctx, card)
+}

@@ -61,6 +61,7 @@ func main() {
 	outboxRepo := repository.NewOutboxRepo(sess)
 	feedbackRepo := repository.NewFeedbackRepo(sess)
 	summaryRepo := repository.NewSummaryRepo(sess)
+	agentCardRepo := repository.NewAgentCardRepo(sess)
 	scheduleRepo := repository.NewScheduleRepo(sess)
 	projectSourceRepo := repository.NewProjectSourceRepo(sess)
 	botTaskRepo := repository.NewBotTaskRepo(sess)
@@ -125,7 +126,7 @@ func main() {
 		v2LLM = llmClient
 	}
 	v2Svc := service.NewV2Service(matterRepo, assigneeRepo, participantRepo, projectRepo, projectSourceRepo,
-		feedbackRepo, outboxRepo, summaryRepo, activityRepo, txMgr, transitionSvc, matterSvc, v2LLM)
+		feedbackRepo, outboxRepo, summaryRepo, activityRepo, agentCardRepo, txMgr, transitionSvc, matterSvc, v2LLM)
 	botTaskSvc := service.NewBotTaskService(botTaskRepo, matterRepo, timelineRepo, activityRepo, transitionSvc)
 	scheduleSvc := service.NewScheduleService(scheduleRepo, matterRepo, matterSvc, v2Svc, transitionSvc, cfg.ScheduleTick)
 

@@ -154,3 +154,18 @@ type MatterBotTask struct {
 	CreatedAt     time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt     time.Time `db:"updated_at" json:"updated_at"`
 }
+
+// MatterAgentCard is the DECLARED half of an AgentCard (doc 04 §五):
+// creator-curated identity — what this bot is for, which skills it offers,
+// which external systems it can reach. The earned half (acceptance stats,
+// authorized preference summaries) is derived live and never stored here.
+type MatterAgentCard struct {
+	BotUID      string          `db:"bot_uid" json:"bot_uid"`
+	SpaceID     string          `db:"space_id" json:"space_id"`
+	OwnerUID    string          `db:"owner_uid" json:"owner_uid"`
+	Tagline     *string         `db:"tagline" json:"tagline,omitempty"`
+	Description *string         `db:"description" json:"description,omitempty"`
+	Skills      JSONStringSlice `db:"skills" json:"skills"`
+	Systems     JSONStringSlice `db:"systems" json:"systems"`
+	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
+}
