@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -533,34 +534,38 @@ func (s *TimelineService) createFromMessages(ctx context.Context, in TimelineInp
 		return nil, nil, err
 	}
 
-	prompt, err := s.prompts.Get(ctx, promptExtractProgress)
-	if err != nil {
-		return nil, nil, fmt.Errorf("load extract_progress prompt: %w", err)
+	// LLM is sugar here, not substance: the lossless operation is "quote the
+	// selected messages into the record". When the LLM is unconfigured or
+	// failing, degrade to the verbatim digest instead of breaking the IM
+	// sync button (设计 06 §9.3: 来源=聊天记录引用;原文不是假数据).
+	var v timelineValidated
+	if s.llm != nil {
+		prompt, perr := s.prompts.Get(ctx, promptExtractProgress)
+		if perr != nil {
+			return nil, nil, fmt.Errorf("load extract_progress prompt: %w", perr)
+		}
+		systemPrompt, rerr := renderTimelineSystemPrompt(prompt, matter, assignees, recent, in)
+		if rerr != nil {
+			return nil, nil, fmt.Errorf("render extract_progress prompt: %w", rerr)
+		}
+		userPrompt := buildMessagesPrompt(in.Messages)
+		// No explicit temperature pin here — progress extraction tolerates
+		// the gateway default.
+		raw, lerr := s.llm.CallTool(ctx, systemPrompt, userPrompt, prompt.Tool, llm.WithSystemPromptCache())
+		if lerr == nil {
+			var args timelineToolArgs
+			if uerr := json.Unmarshal([]byte(raw), &args); uerr == nil && strings.TrimSpace(args.Content) != "" {
+				v = validateTimelineArgs(args, in.Messages)
+			} else {
+				v = verbatimTimelineArgs(in)
+			}
+		} else {
+			log.Printf("[WARN] timeline LLM degrade to verbatim matter=%s: %v", in.MatterID, lerr)
+			v = verbatimTimelineArgs(in)
+		}
+	} else {
+		v = verbatimTimelineArgs(in)
 	}
-	systemPrompt, err := renderTimelineSystemPrompt(prompt, matter, assignees, recent, in)
-	if err != nil {
-		return nil, nil, fmt.Errorf("render extract_progress prompt: %w", err)
-	}
-	userPrompt := buildMessagesPrompt(in.Messages)
-
-	// No explicit temperature pin here — progress extraction tolerates the
-	// gateway default. The extract-matter path pins 0.2 for stable title
-	// naming, but timeline outputs are summary-style strings without a
-	// "right answer" the model needs to converge on. Revisit if A/B data
-	// shows otherwise.
-	raw, err := s.llm.CallTool(ctx, systemPrompt, userPrompt, prompt.Tool, llm.WithSystemPromptCache())
-	if err != nil {
-		return nil, nil, fmt.Errorf("llm extract_matter_progress: %w", err)
-	}
-	var args timelineToolArgs
-	if err := json.Unmarshal([]byte(raw), &args); err != nil {
-		return nil, nil, fmt.Errorf("llm extract_matter_progress: invalid arguments: %w", err)
-	}
-	if strings.TrimSpace(args.Content) == "" {
-		return nil, nil, fmt.Errorf("llm extract_matter_progress: empty content: %w", llm.ErrEmptyToolCall)
-	}
-
-	v := validateTimelineArgs(args, in.Messages)
 
 	content := strings.TrimSpace(v.Content)
 	sourceChannelID := in.ChannelID
@@ -602,11 +607,8 @@ func (s *TimelineService) createFromMessages(ctx context.Context, in TimelineInp
 			if cerr := cs.Create(ctx, mc); cerr != nil {
 				return cerr
 			}
-			fetched, ferr2 := cs.FindByMatterAndChannelID(ctx, in.MatterID, in.ChannelID)
-			if ferr2 != nil {
-				return ferr2
-			}
-			mc = fetched
+			// mc is fully built above (uuid assigned app-side) — no re-fetch
+			// roundtrip needed.
 		}
 		entry.ChannelID = &mc.ID
 		if err := ts.Create(ctx, entry); err != nil {
@@ -817,4 +819,41 @@ func renderTimelineSystemPrompt(prompt promptstore.Prompt, matter *model.Matter,
 // (smart-summary input). No access check: callers gate access themselves.
 func (s *TimelineService) RecentEntries(ctx context.Context, matterID string, limit int) ([]*model.TimelineEntry, error) {
 	return s.timelineRepo.ListRecentByMatter(ctx, matterID, limit)
+}
+
+// verbatimTimelineArgs is the LLM-free shape of a message sync: quote the
+// selected messages losslessly. Upgrades to a summarized digest automatically
+// once an LLM is configured — same entry schema either way.
+func verbatimTimelineArgs(in TimelineInput) timelineValidated {
+	var b strings.Builder
+	src := ""
+	if in.ChannelName != nil && *in.ChannelName != "" {
+		src = *in.ChannelName
+	}
+	if src == "" {
+		src = "会话"
+	}
+	fmt.Fprintf(&b, "从「%s」引入 %d 条消息:\n", src, len(in.Messages))
+	ids := make([]string, 0, len(in.Messages))
+	uids := make([]string, 0, 4)
+	seen := map[string]bool{}
+	for _, m := range in.Messages {
+		who := m.FromUname
+		if who == "" {
+			who = m.FromUID
+		}
+		line := strings.TrimSpace(m.Content)
+		if len(line) > 300 {
+			line = line[:300] + "…"
+		}
+		fmt.Fprintf(&b, "> %s: %s\n", who, line)
+		if m.MessageID != "" {
+			ids = append(ids, m.MessageID)
+		}
+		if m.FromUID != "" && !seen[m.FromUID] {
+			seen[m.FromUID] = true
+			uids = append(uids, m.FromUID)
+		}
+	}
+	return timelineValidated{Content: b.String(), SourceMsgs: ids, RelatedUIDs: uids}
 }

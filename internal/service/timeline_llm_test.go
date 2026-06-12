@@ -266,17 +266,19 @@ func TestCreateFromMessages_HappyPath(t *testing.T) {
 	}
 }
 
-// TestCreateFromMessages_LLMEmptyToolCall asserts that the sentinel
-// llm.ErrEmptyToolCall is preserved through the wrap chain so the handler can
-// emit 422 LLM_EMPTY_EXTRACTION via errors.Is.
+// TestCreateFromMessages_LLMEmptyToolCall pins the degrade contract: an
+// empty tool call falls back to the verbatim digest instead of failing.
 func TestCreateFromMessages_LLMEmptyToolCall(t *testing.T) {
 	llmStub := &stubLLM{err: llm.ErrEmptyToolCall}
 	repo := newFakeTimelineRepo()
 	svc := newLLMTimelineSvc(t, llmStub, repo, nil)
 
-	_, _, err := svc.CreateEntry(context.Background(), baseLLMInput())
-	if !errors.Is(err, llm.ErrEmptyToolCall) {
-		t.Fatalf("expected wrap of llm.ErrEmptyToolCall, got %v", err)
+	entry, _, err := svc.CreateEntry(context.Background(), baseLLMInput())
+	if err != nil {
+		t.Fatalf("degrade contract: expected verbatim fallback, got %v", err)
+	}
+	if entry == nil || entry.Content == nil || *entry.Content == "" {
+		t.Fatalf("verbatim entry missing content: %+v", entry)
 	}
 }
 
@@ -285,12 +287,12 @@ func TestCreateFromMessages_LLMInvalidJSON(t *testing.T) {
 	repo := newFakeTimelineRepo()
 	svc := newLLMTimelineSvc(t, llmStub, repo, nil)
 
-	_, _, err := svc.CreateEntry(context.Background(), baseLLMInput())
-	if err == nil {
-		t.Fatal("expected error")
+	entry, _, err := svc.CreateEntry(context.Background(), baseLLMInput())
+	if err != nil {
+		t.Fatalf("degrade contract: invalid LLM JSON must fall back to verbatim, got %v", err)
 	}
-	if !strings.Contains(err.Error(), "invalid arguments") {
-		t.Errorf("expected wrap with 'invalid arguments': %v", err)
+	if entry == nil || entry.Content == nil || *entry.Content == "" {
+		t.Fatalf("verbatim entry missing content: %+v", entry)
 	}
 }
 
@@ -304,24 +306,30 @@ func TestCreateFromMessages_LLMEmptyContent(t *testing.T) {
 	repo := newFakeTimelineRepo()
 	svc := newLLMTimelineSvc(t, llmStub, repo, nil)
 
-	_, _, err := svc.CreateEntry(context.Background(), baseLLMInput())
-	if !errors.Is(err, llm.ErrEmptyToolCall) {
-		t.Fatalf("expected wrap of llm.ErrEmptyToolCall for empty content, got %v", err)
+	entry, _, err := svc.CreateEntry(context.Background(), baseLLMInput())
+	if err != nil {
+		t.Fatalf("degrade contract: empty content must fall back to verbatim, got %v", err)
+	}
+	if entry == nil || entry.Content == nil || *entry.Content == "" {
+		t.Fatalf("verbatim entry missing content: %+v", entry)
 	}
 }
 
 func TestCreateFromMessages_LLMUpstreamErrorPropagates(t *testing.T) {
+	// 2026-06-12 contract change: an upstream LLM failure degrades to the
+	// verbatim digest instead of breaking the sync (the IM button must work
+	// with no/sick LLM; extract keeps its honest-error contract).
 	upstream := errors.New("llm: upstream status 503")
 	llmStub := &stubLLM{err: upstream}
 	repo := newFakeTimelineRepo()
 	svc := newLLMTimelineSvc(t, llmStub, repo, nil)
 
-	_, _, err := svc.CreateEntry(context.Background(), baseLLMInput())
-	if err == nil || !strings.Contains(err.Error(), "extract_matter_progress") {
-		t.Fatalf("expected wrapped llm error, got: %v", err)
+	entry, _, err := svc.CreateEntry(context.Background(), baseLLMInput())
+	if err != nil {
+		t.Fatalf("degrade contract: expected verbatim fallback on upstream error, got %v", err)
 	}
-	if !errors.Is(err, upstream) {
-		t.Errorf("upstream error should be wrapped via %%w, got: %v", err)
+	if entry == nil || entry.Content == nil || *entry.Content == "" {
+		t.Fatalf("verbatim entry missing content: %+v", entry)
 	}
 }
 

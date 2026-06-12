@@ -280,10 +280,12 @@ func TestTimelineService_ListEntries_NoFilterReturnsAll(t *testing.T) {
 	}
 }
 
-// TestTimelineService_EmptyToolCall_PreservesSentinel mirrors the extract test
-// for the timeline LLM path. Covers both the no-tool-call error and the
-// empty/whitespace-content tool result.
-func TestTimelineService_EmptyToolCall_PreservesSentinel(t *testing.T) {
+// TestTimelineService_EmptyToolCall_DegradesToVerbatim pins the 2026-06-12
+// contract change: a failing/empty LLM must NOT break the IM message-sync
+// button — the entry degrades to the lossless verbatim digest (设计 06 §9.3:
+// 来源=聊天记录引用). Extract keeps its honest-error contract; this is the
+// timeline path only.
+func TestTimelineService_EmptyToolCall_DegradesToVerbatim(t *testing.T) {
 	cases := []struct {
 		name string
 		stub stubLLMCaller
@@ -309,18 +311,22 @@ func TestTimelineService_EmptyToolCall_PreservesSentinel(t *testing.T) {
 				newFakeAssigneeRepo(),
 				nil,
 			)
-			_, _, err := svc.CreateEntry(context.Background(), TimelineInput{
+			entry, _, err := svc.CreateEntry(context.Background(), TimelineInput{
 				MatterID:       "t1",
 				SpaceID:        "sp1",
 				ActorUID:       "u1",
 				ParticipantUID: "u1",
 				CallerUIDs:     []string{"u1"},
+				CallerToken:    "user-tok", // user path: link gate allows the auto-link
 				ChannelType:    1,
 				ChannelID:      "ch-1",
 				Messages:       []ExtractMessage{{MessageID: "m1", FromUID: "u1", Content: "hi"}},
 			})
-			if !errors.Is(err, llm.ErrEmptyToolCall) {
-				t.Fatalf("expected error to wrap llm.ErrEmptyToolCall, got %v", err)
+			if err != nil {
+				t.Fatalf("degrade contract: sync must succeed without LLM, got %v", err)
+			}
+			if entry == nil || entry.Content == nil || !strings.Contains(*entry.Content, "hi") {
+				t.Fatalf("verbatim digest must quote the message, got %+v", entry)
 			}
 		})
 	}
