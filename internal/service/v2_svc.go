@@ -647,8 +647,12 @@ func (s *V2Service) AgentStats(ctx context.Context, spaceID string, uids []strin
 			if p.Scope != nil {
 				scope = *p.Scope
 			}
+			content := ""
+			if p.Content != nil {
+				content = *p.Content
+			}
 			st.Preferences = append(st.Preferences, repository.AgentPrefItem{
-				SummaryID: p.ID, MatterID: p.MatterID, Scope: scope, UpdatedAt: p.UpdatedAt,
+				SummaryID: p.ID, MatterID: p.MatterID, Scope: scope, Content: content, UpdatedAt: p.UpdatedAt,
 			})
 		}
 	}

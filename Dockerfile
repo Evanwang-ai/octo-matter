@@ -1,5 +1,8 @@
-# syntax=docker/dockerfile:1
-
+# No `# syntax=` directive on purpose: this Dockerfile uses no BuildKit-only
+# features (no RUN --mount, heredocs, COPY --link), and the directive forces
+# BuildKit to pull docker/dockerfile:1 from the registry on every build — which
+# fails closed when the configured mirror flakes (observed: EOF from the USTC
+# mirror mid-session). The built-in frontend builds this file identically.
 FROM golang:1.25-alpine AS builder
 WORKDIR /app
 

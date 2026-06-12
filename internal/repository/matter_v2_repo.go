@@ -241,6 +241,7 @@ type AgentPrefItem struct {
 	SummaryID string    `json:"summary_id"`
 	MatterID  string    `json:"matter_id"`
 	Scope     string    `json:"scope,omitempty"`
+	Content   string    `json:"content,omitempty"` // the distilled rule, so the human sees WHAT the bot learned
 	UpdatedAt time.Time `json:"updated_at"`
 }
 

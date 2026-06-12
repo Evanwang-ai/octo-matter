@@ -205,9 +205,10 @@ modules/runtime/bot_task.go):
   - `DELETE /api/v1/projects/:id/sources/:sid` (source author or project creator)
 - `GET /agents/stats` per-uid shape grew: `in_progress` count, `current`
   (live matters, ≤5) and `preferences` (authorized smart-summaries targeting
-  the uid: `{summary_id, matter_id, scope, updated_at}`) — the real halves of
-  the AgentCard. Declaration-half fields (权限/能力边界/接入) have no source
-  in OCTO yet → render the prototype's 未上报 state.
+  the uid: `{summary_id, matter_id, scope, content, updated_at}`) — the real
+  halves of the AgentCard. `content` is the distilled rule itself so the UI can
+  show WHAT the bot learned (人看一眼,不是只看 scope.preference.md 文件名).
+  Declaration-half fields (权限/能力边界/接入) come from `/agent-cards/:uid`.
 
 ## octo-server same-origin APIs the UI may call directly
 
@@ -215,9 +216,11 @@ Behind nginx everything shares one origin, so the embedded UI can call
 octo-server with the same `token` header:
 
 - `GET /api/v1/space/my` → spaces (auto space discovery)
-- `GET /api/v1/space/:id/members?limit=200` → `[{uid,name,role,robot}]` —
+- `GET /api/v1/space/:id/members?limit=200` → `[{uid,name,role,robot,owner_uid}]` —
   THE uid→display-name map and the assignee/executor picker datasource
-  (`robot:1` rows are bots).
+  (`robot:1` rows are bots; `owner_uid` = the bot's creator, empty for humans).
+  The UI uses `owner_uid == auth.uid` to show 「你创建的」 and unlock the
+  agent-card editor — without it the declared-half sovereignty is unreachable.
 
 ## Embedded UI
 

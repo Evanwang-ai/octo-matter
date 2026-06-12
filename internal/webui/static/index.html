@@ -1164,6 +1164,13 @@
   .ac-rows { display: grid; gap: 4px; }
   .ac-row { display: flex; align-items: center; gap: 7px; min-height: 32px; padding: 4px 8px; border-radius: 8px; cursor: pointer; transition: .15s; }
   .ac-row:hover { background: var(--accent-tint); }
+  .ac-pref { display: flex; flex-direction: column; gap: 3px; padding: 7px 8px; border-radius: 8px; cursor: pointer; transition: .15s; }
+  .ac-pref:hover { background: var(--accent-tint); }
+  .ac-pref .apf-top { display: flex; align-items: center; gap: 6px; }
+  .ac-pref .apf-scope { font-size: 10.5px; font-weight: 650; color: var(--accent); background: var(--accent-tint); border-radius: 4px; padding: 1px 6px; flex: 0 0 auto; }
+  .ac-pref .apf-top .ar-when { margin-left: auto; }
+  .ac-pref .apf-rule { font-size: 12.5px; line-height: 1.5; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ac-pref .apf-rule.none { color: var(--text-4); font-style: italic; }
   .ac-row .ar-id { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); flex: 0 0 auto; }
   .ac-row .ar-t { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--text); }
   .ac-row .ar-when { font-family: var(--mono); font-size: 10px; color: var(--text-4); flex: 0 0 auto; }
@@ -1721,6 +1728,17 @@ function srcLabel(name){
   var s = String(name).trim();
   if (/^[0-9a-f]{32}$/i.test(s) || /^[0-9a-f-]{36}$/i.test(s)) return "来源会话";
   return s;
+}
+/* 偏好规则预览:草案体例是「P-NNN 标题: rule…」,抽出标题/规则那行给人看一眼,
+   而不是只显示 "scope.preference.md" 文件名(人看不出虾到底学了啥)。 */
+function prefRulePreview(content){
+  if (!content) return "";
+  var lines = String(content).split("\n").map(function(s){ return s.trim(); }).filter(Boolean);
+  if (!lines.length) return "";
+  // 优先取 "P-006 公告文案要短句口号感: 写..." 这样的首行;去掉 P-NNN 前缀
+  var first = lines[0].replace(/^P-\d+\s*\[?[a-z]*\]?\s*/i, "").trim();
+  if (first.length > 60) first = first.slice(0, 58) + "…";
+  return first;
 }
 /* ---------------- format ---------------- */
 function fmtTime(iso){
@@ -4666,15 +4684,17 @@ function openAgentCard(uidStr){
       + '<div class="ac-sec"><div class="ac-sec-title"><span>已验证记录</span>' + (s.done ? "<span>" + s.done + " 件</span>" : "") + "</div>"
       + (recent.length ? acRowsHTML(recent.slice(0, 5), rowM) : '<div class="ac-empty">还没有验证过的交回</div>') + "</div>";
     if (bot){
-      html += '<div class="ac-sec"><div class="ac-sec-title"><span>preference 文件</span></div>'
+      html += '<div class="ac-sec"><div class="ac-sec-title"><span>它学到的偏好</span>' + (prefs.length ? "<span>" + prefs.length + " 条</span>" : "") + "</div>"
         + (prefs.length
           ? acRowsHTML(prefs, function(p){
-              return '<div class="ac-row" data-open-matter="' + esc(p.matter_id) + '" role="link" tabindex="0">'
-                + '<span class="ar-t" style="font-family:var(--mono);font-size:11.5px">' + esc((p.scope || "综合") + ".preference.md") + "</span>"
-                + (p.updated_at ? '<span class="ar-when">' + esc(fmtShortDate(p.updated_at)) + "</span>" : "")
+              var rule = prefRulePreview(p.content);
+              return '<div class="ac-pref" data-open-matter="' + esc(p.matter_id) + '" role="link" tabindex="0" title="' + esc(p.content || "") + '">'
+                + '<div class="apf-top"><span class="apf-scope">' + esc(p.scope || "综合") + "</span>"
+                + (p.updated_at ? '<span class="ar-when">' + esc(fmtShortDate(p.updated_at)) + "</span>" : "") + "</div>"
+                + (rule ? '<div class="apf-rule">' + esc(rule) + "</div>" : '<div class="apf-rule none">点开看完整偏好</div>')
                 + "</div>";
             })
-          : '<div class="ac-empty">还没有写入的偏好</div>')
+          : '<div class="ac-empty">还没有沉淀的偏好</div>')
         + "</div>";
       // 声明半: creator 手写的名片(/agent-cards/:uid),异步填充
       html += '<div class="ac-sec"><div class="ac-sec-title"><span>名片(主人写的)</span>'
