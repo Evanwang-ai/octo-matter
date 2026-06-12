@@ -101,9 +101,9 @@
   .modnav-h { display: flex; align-items: center; gap: 10px; height: 64px; flex: 0 0 64px; padding: 18px 16px 12px; }
   .modnav-h .mh-title { font-size: 20px; line-height: 28px; font-weight: 650; color: var(--text); }
   .modnav-h .mh-ws {
-    max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    font-size: 10px; line-height: 16px; font-weight: 500; color: rgba(28,28,35,.4);
-    padding: 0 6px; border-radius: 4px; background: rgba(28,28,35,.06); font-family: var(--mono);
+    max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 11px; line-height: 18px; font-weight: 550; color: rgba(28,28,35,.45);
+    padding: 0 7px; border-radius: 5px; background: rgba(28,28,35,.06);
   }
   .modnav-h .mh-spacer { flex: 1; }
   .modnav-h .mh-add {
@@ -289,7 +289,7 @@
   .inbox-table-head {
     display: grid;
     grid-template-columns: minmax(300px, 1fr) 104px minmax(170px, 220px) 92px;
-    column-gap: 24px; align-items: center; padding: 0 18px 9px;
+    column-gap: 24px; align-items: center; padding: 0 18px 9px 44px;
     color: var(--text-4); font-size: 12px; font-weight: 650; border-bottom: 1px solid var(--border);
   }
   .inbox-table-head span:nth-child(4) { text-align: right; }
@@ -298,16 +298,15 @@
     position: relative; display: grid;
     grid-template-columns: minmax(300px, 1fr) 104px minmax(170px, 220px) 92px;
     grid-template-areas: "main code assignee date";
-    align-items: center; column-gap: 24px; min-height: 68px; padding: 12px 18px;
+    align-items: center; column-gap: 24px; min-height: 68px; padding: 12px 18px 12px 44px;
     background: var(--panel); border: 0; border-bottom: 1px solid var(--border-soft);
     cursor: pointer; transition: background .15s; overflow: hidden;
   }
   .mrow:hover { background: var(--fill-1); }
   .mrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .mrow.has-kids { padding-left: 42px; }
   .mrow[data-status="cancelled"], .mrow[data-status="archived"] { opacity: .6; }
   .row-exp {
-    position: absolute; left: 5px; top: 50%; transform: translateY(-50%);
+    position: absolute; left: 7px; top: 50%; transform: translateY(-50%);
     width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
     border: 1px solid transparent; background: transparent; border-radius: 8px;
     color: var(--text-2); font-size: 13px; cursor: pointer;
@@ -315,11 +314,11 @@
   .row-exp:hover { background: var(--fill-3); color: var(--text); }
   .row-exp:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .mrow.m-child { padding-left: 64px; }
-  .mrow.m-child .m-title { font-weight: 550; }
+  .mrow.m-child .m-title { font-weight: 500; }
   .mrow.m-none { cursor: default; color: var(--text-4); font-size: 12.5px; min-height: 44px; padding-left: 64px; background: #fafafb; display: flex; align-items: center; }
   .mrow .m-main { grid-area: main; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .mrow .m-title {
-    min-width: 0; line-height: 22px; font-size: 15px; font-weight: 600; color: var(--text);
+    min-width: 0; line-height: 22px; font-size: 14.5px; font-weight: 550; color: var(--text);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .mrow .m-subline { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11.5px; line-height: 16px; color: var(--text-3); }
@@ -350,7 +349,7 @@
   .pv-assignee:hover { background: var(--fill-3); }
   .pv-assignee .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
   .mrow .m-datecol {
-    grid-area: date; color: var(--text); font-family: var(--mono); font-size: 13px; font-weight: 600;
+    grid-area: date; color: var(--text-2); font-size: 12.5px; font-weight: 500;
     text-align: right; white-space: nowrap;
   }
 
@@ -1548,11 +1547,33 @@ function discoverSpace(){
     if (Array.isArray(list) && list.length && list[0].space_id){
       try { localStorage.setItem("currentSpaceId", list[0].space_id); } catch (e) {}
       auth.space = list[0].space_id;
+      rememberSpaceName(list[0].space_id, list[0].name);
       return true;
     }
     return false;
   }).catch(function(){ return false; })
     .finally(function(){ spaceDiscovering = false; });
+}
+/* 空间名:小白不该看见十六进制 ID。名字缓存在 localStorage,缺了就懒解析一次。 */
+function rememberSpaceName(id, name){
+  if (id && name){ try { localStorage.setItem("spaceName:" + id, name); } catch (e) {} }
+}
+function spaceName(){
+  if (!auth.space) return "";
+  var n = "";
+  try { n = localStorage.getItem("spaceName:" + auth.space) || ""; } catch (e) {}
+  return n;
+}
+var spaceNameResolving = false;
+function resolveSpaceName(){
+  if (!auth.token || !auth.space || spaceName() || spaceNameResolving) return;
+  spaceNameResolving = true;
+  fetch("/api/v1/space/my", { headers: { token: auth.token } }).then(function(res){
+    return res.ok ? res.json() : [];
+  }).then(function(list){
+    (Array.isArray(list) ? list : []).forEach(function(s){ rememberSpaceName(s.space_id, s.name); });
+    if (spaceName()) paintIdentity();
+  }).catch(function(){}).finally(function(){ spaceNameResolving = false; });
 }
 function isMe(uidStr){ return !!auth.uid && uidStr === auth.uid; }
 
@@ -1717,8 +1738,14 @@ function fmtShortDate(iso){
   if (!iso) return "";
   var t = new Date(iso);
   if (isNaN(t.getTime())) return "";
-  var md = (t.getMonth() + 1) + "/" + pad2(t.getDate());
-  return t.getFullYear() === new Date().getFullYear() ? md : t.getFullYear() + "/" + md;
+  var now = new Date();
+  if (t.toDateString() === now.toDateString()) return "今天";
+  var y = new Date(now); y.setDate(now.getDate() - 1);
+  if (t.toDateString() === y.toDateString()) return "昨天";
+  var days = Math.floor((now - t) / 864e5);
+  if (days > 1 && days < 7) return days + " 天前";
+  var md = (t.getMonth() + 1) + "月" + t.getDate() + "日";
+  return t.getFullYear() === now.getFullYear() ? md : t.getFullYear() + "年" + md;
 }
 function fmtYM(iso){
   if (!iso) return "";
@@ -1921,8 +1948,9 @@ function paintIdentity(){
   me.classList.toggle("off", !authReady());
   me.title = authReady() ? ((auth.name || auth.uid || "已连接") + " · 点开改连接") : "未连接 · 点开填 token";
   var chip = $("#spaceChip");
-  chip.textContent = auth.space ? auth.space.slice(0, 10) : "未连接";
-  chip.title = auth.space ? ("空间 " + auth.space) : "还没选空间";
+  chip.textContent = auth.space ? (spaceName() || "我的空间") : "未连接";
+  chip.title = auth.space ? ("空间 " + (spaceName() || auth.space)) : "还没选空间";
+  if (auth.space && !spaceName()) resolveSpaceName();
 }
 
 /* ---------------- inspector show/hide ---------------- */

@@ -15,8 +15,9 @@ okay() { printf '  ✅ %s\n' "$*"; }
 say()  { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 
 sql() {
+  # No stderr swallow: a broken query must scream, not fake a green check.
   docker exec octo-mysql-1 sh -c \
-    "MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" mysql -u root -N -e \"$1\" octo_matter" 2>/dev/null
+    "MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" mysql -u root --default-character-set=utf8mb4 -N -e \"$1\" octo_matter"
 }
 
 say "outbox health"
@@ -62,6 +63,15 @@ if [ "${NFAIL:-0}" -gt 0 ]; then
   note "$NFAIL channel send/registration failures in the last 30m"
 else
   okay "no channel send failures in the last 30m"
+fi
+
+say "mojibake sentinel (双重编码的汉字)"
+NMOJI=$(sql "SELECT COUNT(*) FROM matters WHERE deleted_at IS NULL AND (title REGEXP 'æ|è|ç|ä¸' OR IFNULL(source_name,'') REGEXP 'æ|è|ç|ä¸' OR IFNULL(description,'') REGEXP 'æ|è|ç|ä¸');")
+if [ "${NMOJI:-0}" -gt 0 ]; then
+  sql "SELECT CONCAT('      M-', seq_no, ' title=', LEFT(title,30), ' src=', IFNULL(LEFT(source_name,20),'')) FROM matters WHERE deleted_at IS NULL AND (title REGEXP 'æ|è|ç|ä¸' OR IFNULL(source_name,'') REGEXP 'æ|è|ç|ä¸' OR IFNULL(description,'') REGEXP 'æ|è|ç|ä¸') LIMIT 5;"
+  note "$NMOJI matter(s) carry double-encoded UTF-8 (likely agent-side LANG/locale) — repair with CONVERT(BINARY CONVERT(col USING latin1) USING utf8mb4)"
+else
+  okay "no mojibake in titles/sources/briefs"
 fi
 
 say "model gateway (agent 的脑子还付得起钱吗)"
