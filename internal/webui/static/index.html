@@ -1636,8 +1636,21 @@ function toast(msg, opts){
   clearTimeout(toastTimer);
   toastTimer = setTimeout(function(){ t.classList.remove("show"); }, opts.err ? 8000 : (opts.ms || 2200));
 }
+/* 错误码翻译成人话(P3:别把 VERSION_CONFLICT 这种内部词甩给用户)。
+   没收录的码回退到服务端 message(已是中文),绝不露原始码。 */
+var ERR_HUMAN = {
+  VERSION_CONFLICT: "这单刚被改过 — 刷新看看最新状态再操作",
+  EPOCH_STALE: "这活已经改派了,不用再做了",
+  CHILDREN_NOT_TERMINAL: "还有子任务没收口 — 先把它们验收掉",
+  FORBIDDEN: "这一步不归你做(权限不够)",
+  MATTER_NOT_FOUND: "这单找不到了,可能已被删除",
+  LLM_NOT_CONFIGURED: "智能提炼还没接入(缺模型钥匙),其他功能不受影响",
+  UPSTREAM_ERROR: "后台服务暂时没应答,稍等再试",
+  AUTH_UNAVAILABLE: "登录服务暂时连不上,稍等再试"
+};
 function errToast(e){
-  toast((e && e.message) || "出错了", { err: true, title: (e && e.code) || "" });
+  var human = e && e.code && ERR_HUMAN[e.code];
+  toast(human || (e && e.message) || "出错了,稍后再试", { err: true });
 }
 
 /* ---------------- format ---------------- */
@@ -2934,7 +2947,7 @@ function openScheduleModal(s){
       + "</div></div>"
       + '<div id="amAdvWrap" style="display:none"><input class="matter-input" id="amCronRaw" style="font-family:var(--mono)" placeholder="分 时 日 月 周,例如 0 9 * * *" value="' + esc(d.cronRaw) + '"></div>'
       + '<div class="am-cronline" id="amNextLine"></div>'
-      + '<div class="am-cronline">cron <code id="amCronPreview"></code><span class="am-advlink" id="amAdvLink"></span></div>'
+      + '<div class="am-cronline"><span id="amCronShow" style="display:none">cron <code id="amCronPreview"></code> </span><span class="am-advlink" id="amAdvLink"></span></div>'
       + '<div class="am-label">最近运行</div>'
       + '<div class="am-runsbox" id="amRuns"><div class="auto-run-line">还没跑过</div></div>'
       + "</div></div>"
@@ -2973,6 +2986,8 @@ function openScheduleModal(s){
       $("#amSimpleWrap").style.display = d.adv ? "none" : "";
       $("#amAdvWrap").style.display = d.adv ? "" : "none";
       $("#amAdvLink").textContent = d.adv ? "改回简单选择" : "高级:直接写 cron";
+      // cron 原文只给高级模式看(P3/P16:小白只需要「下次运行」那句人话)
+      $("#amCronShow").style.display = d.adv ? "" : "none";
       $("#amRepLabel").textContent = repLabel(d.rep);
       $("#amTimeLabel").textContent = d.time;
       $("#amCronPreview").textContent = curCron() || "—";
@@ -4260,7 +4275,7 @@ function buildNewMatterModal(opts){
     + liveProjects().map(function(p){
       return '<option value="' + esc(p.id) + '"' + (opts.projectId === p.id ? " selected" : "") + ">" + esc(p.name) + "</option>";
     }).join("");
-  var modeOpts = '<option value="">留空</option>' + ["split", "swarm", "roundtable", "pipeline", "critic"].map(function(k){
+  var modeOpts = '<option value="">单干(默认)</option>' + ["split", "swarm", "roundtable", "pipeline", "critic"].map(function(k){
     return '<option value="' + k + '">' + MODE_NAME[k] + "</option>";
   }).join("");
   mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">新建事项</div></div>'
@@ -4287,7 +4302,7 @@ function buildNewMatterModal(opts){
     + '<div class="dl-box" id="nmDl" role="button" tabindex="0"></div>'
     + '<div class="f-err">得定一个截止时间</div></div>'
     + '<div class="matter-field"><label>协作模式</label><select class="matter-select" id="nmMode">' + modeOpts + "</select>"
-    + '<div class="hint">往下派活时按这个方式分工(可留空)</div></div>'
+    + '<div class="hint">要拆给多人/多个 bot 协作才需要选;一个人能干完就保持单干</div></div>'
     + "</div></div>"
     + '<div class="modal-foot"><div class="matter-error" id="nmErr" style="margin-right:auto"></div>'
     + '<button class="ff-cancel" id="nmCancel" type="button">取消</button>'
