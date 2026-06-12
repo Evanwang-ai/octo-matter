@@ -215,6 +215,15 @@ if [ -n "$BOT_UID" ]; then
   AC=$(curl -s "${H[@]}" "$API/agent-cards/$BOT_UID")
   echo "$AC" | grep -q '"earned"' && okay "agent card merges earned half" || bad "agent card: $(echo "$AC"|head -c 120)"
 fi
+# Sovereignty chain: members API must surface owner_uid for bots, else the
+# UI can never tell who owns a bot and the card editor stays unreachable.
+OWNER_FIELD=$(curl -s "$BASE/api/v1/space/$SPACE/members?limit=50" -H "token: $TOKEN" \
+  | python3 -c "import json,sys; ms=json.load(sys.stdin); b=next((m for m in ms if m.get('robot')==1), None); print(b.get('owner_uid','MISSING') if b else 'NO_BOT')")
+case "$OWNER_FIELD" in
+  MISSING) bad "members API dropped owner_uid for bots (card editor unreachable)";;
+  NO_BOT)  echo "  ℹ️ no bot in space — owner_uid path covered by unit only";;
+  *)       okay "members API exposes bot owner_uid ($OWNER_FIELD)";;
+esac
 CODE=$(curl -s "${H[@]}" -X PUT "$API/agent-cards/not_my_bot_uid" -d '{"tagline":"x"}' | jqget "['error']['code']" 2>/dev/null || echo none)
 [ "$CODE" = "FORBIDDEN" ] && okay "card write is owner-gated (FORBIDDEN for foreign uid)" || bad "card gate got $CODE"
 CODE=$(curl -s "${H[@]}" -X PUT "$API/agent-cards/not_my_bot_uid" -d '{"visibility":"banana"}' | jqget "['error']['code']" 2>/dev/null || echo none)
@@ -230,6 +239,13 @@ CODE=$(curl -s "${H[@]}" -X POST "$API/matters/$DONE_ID/summary" | jqget "['erro
 say "internal surface rejects without token"
 HTTPCODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/matter/api/v1/internal/bot-tasks" -d '{}')
 [ "$HTTPCODE" = "401" ] && okay "internal API fails closed (401)" || bad "internal no-token got $HTTPCODE"
+
+say "space isolation: forged/foreign space is a verdict (403), not an outage (503)"
+HTTPCODE=$(curl -s -o /dev/null -w '%{http_code}' "$API/matters?limit=1" \
+  -H "token: $TOKEN" -H "X-Space-Id: ffffffffffffffffffffffffffffffff")
+[ "$HTTPCODE" = "403" ] && okay "forged space → 403 (not 503 retry-bait)" || bad "forged space got $HTTPCODE (want 403)"
+HTTPCODE=$(curl -s -o /dev/null -w '%{http_code}' "$API/matters?limit=1" -H "token: $TOKEN")
+[ "$HTTPCODE" = "400" ] && okay "missing X-Space-Id → 400" || bad "missing space header got $HTTPCODE (want 400)"
 
 say "UI served"
 HTTPCODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/matter/ui/")
