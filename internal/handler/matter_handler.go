@@ -201,6 +201,24 @@ func (h *MatterHandler) Create(c *gin.Context) {
 			groupType := uint8(2)
 			matter.SourceChannelType = &groupType
 		}
+		// - agents only see channel IDs in their sessions, so source_name often
+		//   arrives as the raw uuid, garbled, or missing (live: M-158 mojibake,
+		//   M-207 uuid-as-name). The server can ask octo-server for the real
+		//   conversation name — resolve instead of trusting the guess.
+		if matter.SourceChannelID != nil && *matter.SourceChannelID != "" &&
+			(matter.SourceName == nil || *matter.SourceName == "" || strings.EqualFold(*matter.SourceName, *matter.SourceChannelID)) {
+			if lister, ok := h.notifier.(notification.BotGroupLister); ok {
+				if groups, err := lister.ListBotGroups(userID); err == nil {
+					for _, g := range groups {
+						if g.GroupNo == *matter.SourceChannelID && g.Name != "" {
+							name := g.Name
+							matter.SourceName = &name
+							break
+						}
+					}
+				}
+			}
+		}
 	}
 	if matter.SourceChannelID != nil && *matter.SourceChannelID != "" {
 		if err := h.svc.RequireChannelMember(c.Request.Context(), callerToken(c), *matter.SourceChannelID, relatedUIDs(c)); err != nil {
