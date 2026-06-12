@@ -30,6 +30,16 @@ jqget(){ python3 -c "import json,sys;d=json.load(sys.stdin);print(d$1)"; }
 
 # Fixture ledgers — admin-created vs bot-created (delete permission is
 # creator-only), wiped in the self-cleanup trailer: no inbox residue.
+
+# park_bells <matter_id> — silence a fixture's doorbells before the 3s
+# dispatcher tick wakes a LIVE agent (the worker bot has a runtime now;
+# regression must not burn its tokens). The deliberate delivery test rings
+# for real and parks AFTER its assert.
+park_bells() {
+  docker exec octo-mysql-1 sh -c "MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" mysql -u root -e \
+    \"UPDATE matter_outbox SET state='consumed', updated_at=NOW() \
+      WHERE matter_id='$1' AND state IN ('pending','delivered')\" octo_matter" 2>/dev/null || true
+}
 ADMIN_CREATED=(); BOT_CREATED=()
 trackA() { [ -n "$1" ] && ADMIN_CREATED+=("$1"); }
 trackB() { [ -n "$1" ] && BOT_CREATED+=("$1"); }
@@ -67,7 +77,7 @@ M1=$(curl -s "${H[@]}" -X POST "$API/matters" -d "{
   \"brief_output_spec\":\"一页 markdown,按仓库分节\",
   \"leader_uid\":\"$BOT_UID\",\"assignee_ids\":[\"$BOT_UID\"]}" | jqget "['id']")
 [ -n "$M1" ] && okay "人:立事项并交给 bot (M1=$M1)" || { bad "create failed"; exit 1; }
-trackA "$M1"
+trackA "$M1"; park_bells "$M1"
 
 # bot 读单(同时消费门铃)
 R=$(bot GET "/api/v1/matters/$M1")
@@ -118,7 +128,7 @@ M2=$(curl -s "${H[@]}" -X POST "$API/matters" -d "{
   \"description\":\"撒网三路:准确性 / 完整性 / 示例可运行性\",
   \"leader_uid\":\"$BOT_UID\"}" | jqget "['id']")
 okay "人:立撒网父单交给 bot Leader (M2=$M2)"
-trackA "$M2"
+trackA "$M2"; park_bells "$M2"
 curl -s "${H[@]}" -X PUT "$API/matters/$M2/status" -d '{"status":"in_progress"}' > /dev/null
 
 # bot Leader 派 3 路(幂等键 parent+step)
@@ -128,7 +138,7 @@ for i in 1 2 3; do
   R=$(bot POST /api/v1/matters --data "{\"title\":\"评审角度 $i:$ANGLE\",\"parent_matter_id\":\"$M2\",\"step_id\":\"s$i\",\"step_order\":$i,\"leader_uid\":\"$BOT_UID\",\"assignee_ids\":[\"$BOT_UID\"]}")
   CID=$(botfield "$R" "['data']['id']")
   [ -n "$CID" ] && okay "bot Leader:派出第 $i 路 ($CID)" || bad "dispatch $i: $(echo "$R"|head -c 150)"
-  CHILD_IDS+=("$CID"); trackB "$CID"
+  CHILD_IDS+=("$CID"); trackB "$CID"; park_bells "$CID"
 done
 # 幂等重派
 R=$(bot POST /api/v1/matters --data "{\"title\":\"重复派活\",\"parent_matter_id\":\"$M2\",\"step_id\":\"s1\"}")
@@ -165,7 +175,7 @@ ST=$(curl -s "${H[@]}" -X PUT "$API/matters/$M2/status" -d '{"status":"done"}' |
 say "CASE 3 · 改派围栏:旧负责 bot 的回写被专用错误码拦下"
 # ===========================================================================
 M3=$(curl -s "${H[@]}" -X POST "$API/matters" -d "{\"title\":\"长跑任务:监控周报\",\"leader_uid\":\"$BOT_UID\",\"assignee_ids\":[\"$BOT_UID\"]}" | jqget "['id']")
-trackA "$M3"
+trackA "$M3"; park_bells "$M3"
 R=$(bot GET "/api/v1/matters/$M3"); EPOCH=$(botfield "$R" "['data']['assignment_epoch']")
 bot PUT "/api/v1/matters/$M3/status" --data "{\"status\":\"in_progress\",\"assignment_epoch\":$EPOCH}" >/dev/null
 okay "bot:认领 (epoch=$EPOCH)"

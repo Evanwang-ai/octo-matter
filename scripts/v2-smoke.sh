@@ -21,6 +21,17 @@ jqget() { python3 -c "import json,sys;d=json.load(sys.stdin);print(d$1)"; }
 # Fixture ledger — every matter this run creates gets tracked and deleted in
 # the self-cleanup trailer, so smoke runs leave NO trace in the inbox.
 CREATED=()
+
+# park_bells <matter_id> — silence a fixture's doorbells before the 3s
+# dispatcher tick wakes a LIVE agent (the worker bot has a runtime now;
+# regression must not burn its tokens). The deliberate delivery test rings
+# for real and parks AFTER its assert.
+park_bells() {
+  docker exec octo-mysql-1 sh -c "MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" mysql -u root -e \
+    \"UPDATE matter_outbox SET state='consumed', updated_at=NOW() \
+      WHERE matter_id='$1' AND state IN ('pending','delivered')\" octo_matter" 2>/dev/null || true
+}
+
 track() { [ -n "$1" ] && CREATED+=("$1"); }
 
 ADMIN_PWD=$(grep '^OCTO_ADMIN_PWD=' "$DEPLOY_DIR/.env" | cut -d= -f2-)
@@ -56,14 +67,14 @@ say "swarm parent + 3 children (撒网)"
 PARENT=$(curl -s "${H[@]}" -X POST "$API/matters" \
   -d "{\"title\":\"撒网验收:三路并行\",\"mode\":\"swarm\",\"project_id\":\"$PROJ\",\"leader_uid\":\"admin\"}" | jqget "['id']")
 [ -n "$PARENT" ] && okay "parent: $PARENT" || { bad "parent create"; exit 1; }
-track "$PARENT"
+track "$PARENT"; park_bells "$PARENT"
 
 CHILD_IDS=()
 for i in 1 2 3; do
   CID=$(curl -s "${H[@]}" -X POST "$API/matters" \
     -d "{\"title\":\"子任务 $i\",\"parent_matter_id\":\"$PARENT\",\"step_id\":\"s$i\",\"step_order\":$i,\"leader_uid\":\"admin\"}" | jqget "['id']")
   [ -n "$CID" ] && okay "child s$i: $CID" || bad "child s$i create"
-  CHILD_IDS+=("$CID"); track "$CID"
+  CHILD_IDS+=("$CID"); track "$CID"; park_bells "$CID"
 done
 
 # Idempotent re-dispatch: same (parent, step_id) returns the existing row.
@@ -111,7 +122,7 @@ ST=$(curl -s "${H[@]}" -X PUT "$API/matters/$PARENT/status" -d '{"status":"done"
 
 say "blocked needs a reason"
 BL=$(curl -s "${H[@]}" -X POST "$API/matters" -d '{"title":"会卡住的活","leader_uid":"admin"}' | jqget "['id']")
-track "$BL"
+track "$BL"; park_bells "$BL"
 curl -s "${H[@]}" -X PUT "$API/matters/$BL/status" -d '{"status":"in_progress"}' >/dev/null
 CODE=$(curl -s "${H[@]}" -X PUT "$API/matters/$BL/status" -d '{"status":"blocked"}' | jqget "['error']['code']" 2>/dev/null || echo none)
 [ "$CODE" = "VALIDATION_ERROR" ] && okay "blocked without reason rejected" || bad "blocked-no-reason got $CODE"
@@ -153,6 +164,7 @@ if [ -n "$BOT_UID" ]; then
     pending*) bad "doorbell stuck pending (dispatcher or notify failing)" ;;
     *) bad "no doorbell row found" ;;
   esac
+  park_bells "$BELLM"  # delivery asserted — stop re-rings to the live bot
 else
   echo "  ℹ️ no second space member — doorbell delivery covered by integration tests only"
 fi
@@ -166,7 +178,7 @@ say "brief fields (约束/输出要求) round-trip"
 BRIEFM=$(curl -s "${H[@]}" -X POST "$API/matters" \
   -d '{"title":"带 Brief 的活","description":"目标","brief_constraints":"不许用外部数据","brief_output_spec":"一页纸 markdown"}')
 BID=$(echo "$BRIEFM" | jqget "['id']")
-track "$BID"
+track "$BID"; park_bells "$BID"
 BC=$(curl -s "${H[@]}" "$API/matters/$BID" | jqget "['brief_constraints']")
 [ "$BC" = "不许用外部数据" ] && okay "brief_constraints persisted" || bad "brief got: $BC"
 
