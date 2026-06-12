@@ -794,6 +794,9 @@
   .md .md-code { background: var(--chip, #f1f2f4); border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, monospace; font-size: 12.5px; }
   .md .md-pre { background: var(--chip, #f1f2f4); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font-family: ui-monospace, monospace; font-size: 12.5px; line-height: 1.6; white-space: pre; margin: 6px 0; }
   .md .md-gap { height: 8px; }
+  .md .md-table { border-collapse: collapse; margin: 8px 0; font-size: 12.5px; max-width: 100%; display: block; overflow-x: auto; }
+  .md .md-table th, .md .md-table td { border: 1px solid rgba(28,28,35,.12); padding: 5px 10px; text-align: left; vertical-align: top; }
+  .md .md-table th { background: var(--fill-2, #f1f2f4); font-weight: 600; }
   .md a { color: var(--accent, #2563eb); text-decoration: none; }
   .md a:hover { text-decoration: underline; }
   .attach-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
@@ -1470,10 +1473,30 @@ function mdHTML(src){
     return "<pre class=\"md-pre\">" + code.replace(/^\n+|\n+$/g, "") + "</pre>";
   });
   var lines = t.split("\n");
-  var out = [], list = null;
+  var out = [], list = null, tbl = null;
   function closeList(){ if (list){ out.push("</" + list + ">"); list = null; } }
+  function cells(row){
+    return row.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map(function(x){ return x.trim(); });
+  }
+  function flushTable(){
+    if (!tbl) return;
+    if (tbl.length >= 2 && /^[\s|:\-]+$/.test(tbl[1])){
+      var html = '<table class="md-table"><tr>' + cells(tbl[0]).map(function(c){ return "<th>" + c + "</th>"; }).join("") + "</tr>";
+      tbl.slice(2).forEach(function(r){
+        html += "<tr>" + cells(r).map(function(c){ return "<td>" + c + "</td>"; }).join("") + "</tr>";
+      });
+      out.push(html + "</table>");
+    } else {
+      tbl.forEach(function(r){ out.push("<div>" + r + "</div>"); });
+    }
+    tbl = null;
+  }
   lines.forEach(function(ln){
-    if (/^<pre/.test(ln) || /<\/pre>$/.test(ln)){ closeList(); out.push(ln); return; }
+    if (/^<pre/.test(ln) || /<\/pre>$/.test(ln)){ closeList(); flushTable(); out.push(ln); return; }
+    if (/^\s*\|.*\|\s*$/.test(ln)){ closeList(); (tbl = tbl || []).push(ln
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/`([^`]+)`/g, "<code class=\"md-code\">$1</code>")); return; }
+    flushTable();
     var inline = ln
       .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
       .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>")
@@ -1490,6 +1513,7 @@ function mdHTML(src){
     out.push("<div>" + inline + "</div>");
   });
   closeList();
+  flushTable();
   return '<div class="md">' + out.join("") + "</div>";
 }
 
