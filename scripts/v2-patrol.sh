@@ -64,5 +64,28 @@ else
   okay "no channel send failures in the last 30m"
 fi
 
+say "model gateway (agent 的脑子还付得起钱吗)"
+LLMRPT=$(tail -c 300000 ~/.openclaw/logs/gateway.err.log 2>/dev/null | python3 -c "
+import sys, datetime
+cut = int(sys.argv[1]); n = 0; last = ''
+for ln in sys.stdin:
+    if ('FailoverError' in ln or '预扣费' in ln or 'model fallback' in ln) and 'candidate_failed' not in ln[:40]:
+        try:
+            t = datetime.datetime.fromisoformat(ln.split(' ', 1)[0]).timestamp()
+        except Exception:
+            continue
+        if t >= cut:
+            n += 1; last = ln.strip()[:170]
+print(n)
+if last: print('      ' + last)
+" "$CUTOFF")
+NLLM=$(echo "$LLMRPT" | head -1)
+if [ "${NLLM:-0}" -gt 0 ]; then
+  echo "$LLMRPT" | tail -n +2
+  note "$NLLM model-gateway failures in 30m — agents may be UNABLE TO THINK (credit/auth); top up or switch provider"
+else
+  okay "model gateway answering (no failover/credit errors in 30m)"
+fi
+
 printf '\n\033[1mPATROL: %d finding(s)\033[0m\n' "$FINDINGS"
 [ "$FINDINGS" = "0" ]
