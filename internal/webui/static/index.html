@@ -1713,6 +1713,15 @@ function errToast(e){
   toast(human || (e && e.message) || "出错了,稍后再试", { err: true });
 }
 
+/* 来源名兜底:历史单子可能把裸频道 id(32 位 hex)或 uuid 当名字存了
+   (创建侧解析修复之前的存量)。给用户看哈希违反易用性宪法 —— 长得像
+   id 就退回「来源会话」。新单子已在服务端解析真名,这里只兜底。 */
+function srcLabel(name){
+  if (!name) return "";
+  var s = String(name).trim();
+  if (/^[0-9a-f]{32}$/i.test(s) || /^[0-9a-f-]{36}$/i.test(s)) return "来源会话";
+  return s;
+}
 /* ---------------- format ---------------- */
 function fmtTime(iso){
   if (!iso) return "";
@@ -1901,8 +1910,8 @@ function setTopSourceChip(m){
   el.setAttribute("role", "button");
   el.setAttribute("tabindex", "0");
   el.title = "来源会话";
-  el.innerHTML = CHAT_SVG + '<span class="nm">' + esc(m.source_name) + "</span>";
-  el.addEventListener("click", function(){ toast("来源会话:" + m.source_name, { icon: "💬" }); });
+  el.innerHTML = CHAT_SVG + '<span class="nm">' + esc(srcLabel(m.source_name)) + "</span>";
+  el.addEventListener("click", function(){ toast("来源会话:" + srcLabel(m.source_name), { icon: "💬" }); });
   tr.insertBefore(el, tr.firstChild);
 }
 function closeDrawer(){
@@ -2140,7 +2149,7 @@ function rowHTML(m, opts){
   var leader = m.leader || m.assignees[0] || "";
   var pj = m.project_id ? '<span class="m-project">' + esc(projName(m.project_id) || "项目") + "</span>" : "";
   var src = m.source_name
-    ? '<span class="m-dotsep">·</span><span class="src-chip" data-src="' + esc(m.source_name) + '" title="来源会话" role="button">' + CHAT_SVG + '<span class="sc-nm">' + esc(m.source_name) + "</span></span>"
+    ? '<span class="m-dotsep">·</span><span class="src-chip" data-src="' + esc(m.source_name) + '" title="来源会话" role="button">' + CHAT_SVG + '<span class="sc-nm">' + esc(srcLabel(m.source_name)) + "</span></span>"
     : "";
   return '<div class="mrow' + (opts.child ? " m-child" : "") + (canExpand ? " has-kids" : "") + '" data-id="' + esc(m.id) + '" data-status="' + esc(m.status) + '" role="link" tabindex="0" aria-label="' + esc(m.title) + '">'
     + exp
@@ -2333,7 +2342,7 @@ function boardCardHTML(m){
   var others = m.assignees.filter(function(u){ return u !== who; }).length;
   var block = m.status === "blocked"
     ? '<div class="bc-block-line" title="' + esc(m.block_reason_text || "") + '">● ' + esc(silentFor(m) || "卡住了") + "</div>" : "";
-  var src = m.source_name ? '<div class="bc-src">' + CHAT_SVG + '<span class="sc-nm">' + esc(m.source_name) + "</span></div>" : "";
+  var src = m.source_name ? '<div class="bc-src">' + CHAT_SVG + '<span class="sc-nm">' + esc(srcLabel(m.source_name)) + "</span></div>" : "";
   return '<div class="bcard" draggable="true" data-id="' + esc(m.id) + '" role="link" tabindex="0">'
     + '<div class="bc-card-top"><span class="bc-card-id">' + esc(seqLabel(m)) + '</span><span class="bc-date" title="创建于 ' + esc(fmtFull(m.created_at)) + '">' + CAL_SVG + esc(fmtShortDate(m.created_at)) + "</span></div>"
     + '<div class="bc-title" title="' + esc(m.title) + '">' + esc(m.title) + "</div>" + block
@@ -3336,7 +3345,7 @@ function briefHTML(m){
   var goal = firstLine(desc).trim();
   var rest = desc.slice(firstLine(desc).length).replace(/^\n+/, "");
   var srcLine = '<div class="brief-source-line"><span class="src-ic"></span><span class="src-main">'
-    + (m.source_name ? "来自 <b>" + esc(m.source_name) + "</b> · " : "")
+    + (m.source_name ? "来自 <b>" + esc(srcLabel(m.source_name)) + "</b> · " : "")
     + '<span data-uid="' + esc(m.creator_id) + '" style="cursor:pointer"><b>' + esc(uname(m.creator_id)) + "</b></span>"
     + " - " + esc(fmtShortDate(m.created_at))
     + "</span></div>";
@@ -3891,7 +3900,7 @@ function paintInspector(){
       + (written ? '<div class="banner-note">写入 agent 记忆的通道未接,已记录授权</div>' : "");
   }
   var srcRow = m.source_name
-    ? '<div class="prow"><span class="pk">来源</span><span class="pv">' + esc(m.source_name)
+    ? '<div class="prow"><span class="pk">来源</span><span class="pv">' + esc(srcLabel(m.source_name))
       + '<button class="src-send" id="srcSendBtn" type="button">发回</button></span></div>'
     : "";
   var progRows = progressRowsHTML();
@@ -3958,7 +3967,7 @@ function bindInspector(){
   if (srcSend) srcSend.addEventListener("click", function(){
     srcSend.disabled = true;
     api("/matters/" + cur.id + "/send-back", { method: "POST", body: {} }).then(function(){
-      toast("发回去了 — " + (cur.m.source_name || "来源会话") + "里马上能看到", { icon: "📨" });
+      toast("发回去了 — " + srcLabel(cur.m.source_name || "来源会话") + "里马上能看到", { icon: "📨" });
     }).catch(errToast).then(function(){ srcSend.disabled = false; });
   });
   var more = $("#trailMore");
