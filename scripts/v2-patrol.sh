@@ -40,13 +40,28 @@ NSTUCK=$(sql "SELECT COUNT(*) FROM matters WHERE deleted_at IS NULL AND leader_u
 [ "${NSTUCK:-0}" = "0" ] && okay "no bot-led matter silent >2h"
 
 say "openclaw channel send failures (last 30m)"
-FAILS=$(grep -c "$(date -v-30M '+%Y-%m-%dT%H' 2>/dev/null || date '+%Y-%m-%dT%H')" ~/.openclaw/logs/gateway.err.log 2>/dev/null | head -1 || echo 0)
-RECENT=$(tail -c 100000 ~/.openclaw/logs/gateway.err.log 2>/dev/null | grep -cE 'send failed|registration failed' || true)
-if [ "${RECENT:-0}" -gt 0 ]; then
-  tail -c 100000 ~/.openclaw/logs/gateway.err.log | grep -E 'send failed|registration failed' | tail -2 | sed 's/^/      /'
-  note "$RECENT send/registration failures in recent gateway.err.log window"
+CUTOFF=$(date -u -v-30M '+%s' 2>/dev/null || date -u -d '30 min ago' '+%s')
+FAILRPT=$(tail -c 300000 ~/.openclaw/logs/gateway.err.log 2>/dev/null | python3 -c "
+import sys, datetime
+cut = int(sys.argv[1]); n = 0; last = []
+for ln in sys.stdin:
+    if 'send failed' in ln or 'registration failed' in ln:
+        try:
+            t = datetime.datetime.fromisoformat(ln.split(' ', 1)[0]).timestamp()
+        except Exception:
+            continue
+        if t >= cut:
+            n += 1; last.append(ln.strip()[:160])
+print(n)
+for l in last[-2:]:
+    print('      ' + l)
+" "$CUTOFF")
+NFAIL=$(echo "$FAILRPT" | head -1)
+if [ "${NFAIL:-0}" -gt 0 ]; then
+  echo "$FAILRPT" | tail -n +2
+  note "$NFAIL channel send/registration failures in the last 30m"
 else
-  okay "no recent channel send failures"
+  okay "no channel send failures in the last 30m"
 fi
 
 printf '\n\033[1mPATROL: %d finding(s)\033[0m\n' "$FINDINGS"

@@ -284,7 +284,7 @@ func (h *MatterHandler) List(c *gin.Context) {
 	if query != "" {
 		filter.Query = &query
 	}
-	if seqStr := c.Query("seq"); seqStr != "" {
+	if seqStr := c.DefaultQuery("seq", c.Query("seq_no")); seqStr != "" {
 		if n, perr := strconv.ParseUint(seqStr, 10, 64); perr == nil {
 			filter.SeqNo = &n
 		}
