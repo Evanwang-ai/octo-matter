@@ -306,6 +306,18 @@ func SpaceMiddleware(octoIMURL string) gin.HandlerFunc {
 			resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
 				log.Printf("SpaceMiddleware: octoim space check returned status %d", resp.StatusCode)
+				// A 4xx is a verdict, not an outage: the caller is not a member
+				// of this space, or the space does not exist. Surfacing it as a
+				// 503 UPSTREAM_ERROR tells the client "transient, retry" when the
+				// truth is "permanent, you don't have access" — so a forged or
+				// stale X-Space-Id looked like a flaky service. Map 4xx → 403
+				// (cache the negative verdict like the positive one); reserve
+				// 503 for genuine upstream 5xx / network failures.
+				if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+					cache.set(cacheKey, false, 60*time.Second)
+					i18n.RespondError(c, http.StatusForbidden, "SPACE_FORBIDDEN", i18n.KeySpaceForbidden, nil, nil)
+					return
+				}
 				i18n.RespondError(c, http.StatusServiceUnavailable, "UPSTREAM_ERROR", i18n.KeySpaceUnavailable, nil, nil)
 				return
 			}
