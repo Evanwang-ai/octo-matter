@@ -3719,6 +3719,8 @@ function controlLine(m){
   if (m.status === "in_progress") return { cls: "", label: "处理中", main: doer ? ("已 @ " + doer + " · 正在做") : "正在做 — 还没人认领" };
   if (m.status === "review"){
     if (isMe(m.creator_id)) return { cls: "taste", label: "该你了", main: "该你了 — 待你品鉴" };
+    // 虾立的单虾不能自我验收(守卫硬规则)——等的是人,别把虾名挂横幅上
+    if (isBot(m.creator_id)) return { cls: "taste", label: "待品鉴", main: "活交回来了 — 等人来品鉴" };
     return { cls: "taste", label: "待品鉴", main: "等 " + uname(m.creator_id) + " 品鉴" };
   }
   if (m.status === "blocked") return { cls: "block", label: "受阻", main: "卡住了:" + (m.block_reason_text || "没说原因") };
