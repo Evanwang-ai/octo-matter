@@ -864,10 +864,16 @@ type AgentCardView struct {
 	Earned   *repository.AgentStat  `json:"earned"`
 }
 
-func (s *V2Service) GetAgentCard(ctx context.Context, spaceID, botUID string) (*AgentCardView, error) {
+// GetAgentCard merges the halves. callerUIDs gates the declared half:
+// visibility=private hides it from everyone but the owner (earned stays
+// public — 战绩是公共事实, doc 04 §五).
+func (s *V2Service) GetAgentCard(ctx context.Context, spaceID, botUID string, callerUIDs []string) (*AgentCardView, error) {
 	declared, err := s.cards.Get(ctx, botUID, spaceID)
 	if err != nil {
 		return nil, err
+	}
+	if declared != nil && declared.Visibility == "private" && !containsUID(callerUIDs, declared.OwnerUID) && !containsUID(callerUIDs, botUID) {
+		declared = nil // 主人设为私密 — 对外如同未填写
 	}
 	stats, err := s.AgentStats(ctx, spaceID, []string{botUID})
 	if err != nil {
@@ -879,6 +885,12 @@ func (s *V2Service) GetAgentCard(ctx context.Context, spaceID, botUID string) (*
 // PutAgentCard upserts the declared half. Owner gate is the handler's job
 // (caller must own the bot); the service stamps the owner for the record.
 func (s *V2Service) PutAgentCard(ctx context.Context, card *model.MatterAgentCard) error {
+	if card.Visibility == "" {
+		card.Visibility = "space"
+	}
+	if card.Visibility != "space" && card.Visibility != "private" {
+		return apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
 	return s.cards.Upsert(ctx, card)
 }
 

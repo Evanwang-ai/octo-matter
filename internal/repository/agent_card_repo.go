@@ -35,14 +35,15 @@ func (r *AgentCardRepo) Upsert(ctx context.Context, c *model.MatterAgentCard) er
 	c.UpdatedAt = time.Now()
 	_, err := r.runner.UpdateBySql(`
 		INSERT INTO matter_agent_cards
-			(bot_uid, space_id, owner_uid, tagline, description, skills, systems, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			(bot_uid, space_id, owner_uid, tagline, description, skills, systems, visibility, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
 			owner_uid = VALUES(owner_uid), tagline = VALUES(tagline),
 			description = VALUES(description), skills = VALUES(skills),
-			systems = VALUES(systems), updated_at = VALUES(updated_at)`,
+			systems = VALUES(systems), visibility = VALUES(visibility),
+			updated_at = VALUES(updated_at)`,
 		c.BotUID, c.SpaceID, c.OwnerUID, c.Tagline, c.Description,
-		c.Skills, c.Systems, c.UpdatedAt,
+		c.Skills, c.Systems, c.Visibility, c.UpdatedAt,
 	).ExecContext(ctx)
 	return err
 }

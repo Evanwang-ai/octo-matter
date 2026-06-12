@@ -546,6 +546,7 @@ func (h *V2Handler) AgentStats(c *gin.Context) {
 // --- AgentCard (声明半可编辑,赚来半派生) ---------------------------------
 
 type agentCardPutReq struct {
+	Visibility  string   `json:"visibility" binding:"omitempty,oneof=space private"`
 	Tagline     *string  `json:"tagline" binding:"omitempty,max=200"`
 	Description *string  `json:"description" binding:"omitempty,max=4000"`
 	Skills      []string `json:"skills" binding:"omitempty,max=30,dive,max=100"`
@@ -560,7 +561,7 @@ func (h *V2Handler) AgentCardGet(c *gin.Context) {
 		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
 		return
 	}
-	view, err := h.v2.GetAgentCard(c.Request.Context(), spaceID(c), botUID)
+	view, err := h.v2.GetAgentCard(c.Request.Context(), spaceID(c), botUID, relatedUIDs(c))
 	if err != nil {
 		respondErr(c, err)
 		return
@@ -596,12 +597,13 @@ func (h *V2Handler) AgentCardPut(c *gin.Context) {
 		BotUID: botUID, SpaceID: spaceID(c), OwnerUID: uid(c),
 		Tagline: req.Tagline, Description: req.Description,
 		Skills: model.JSONStringSlice(req.Skills), Systems: model.JSONStringSlice(req.Systems),
+		Visibility: req.Visibility,
 	}
 	if err := h.v2.PutAgentCard(c.Request.Context(), card); err != nil {
 		respondErr(c, err)
 		return
 	}
-	view, err := h.v2.GetAgentCard(c.Request.Context(), spaceID(c), botUID)
+	view, err := h.v2.GetAgentCard(c.Request.Context(), spaceID(c), botUID, relatedUIDs(c))
 	if err != nil {
 		respondErr(c, err)
 		return

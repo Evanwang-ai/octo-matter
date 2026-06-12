@@ -167,5 +167,7 @@ type MatterAgentCard struct {
 	Description *string         `db:"description" json:"description,omitempty"`
 	Skills      JSONStringSlice `db:"skills" json:"skills"`
 	Systems     JSONStringSlice `db:"systems" json:"systems"`
-	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
+	// Visibility: space(默认,全空间可见) | private(声明半仅主人可见)。
+	Visibility string    `db:"visibility" json:"visibility"`
+	UpdatedAt  time.Time `db:"updated_at" json:"updated_at"`
 }
