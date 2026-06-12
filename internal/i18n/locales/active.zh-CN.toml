@@ -280,6 +280,18 @@ other = "这单没有来源会话 — 不知道该发回哪里"
 [err.matter.sendback_no_bot]
 other = "这单的负责人不是 bot — 没有可代言的身份发回群里"
 
+[err.matter.summary_only_leader_bot]
+other = "只有这单的负责 bot 能提交偏好草案"
+
+[notify.doorbell.summary_draft]
+other = "🧠「{{.Title}}」的负责 agent 想把这单的偏好记进档案 — 草案等你过目(批准后才会转正)"
+
+[notify.doorbell.summary_approved]
+other = "✅「{{.Title}}」的偏好草案获准 — 把对应条目从 candidate 转 confirmed"
+
+[notify.doorbell.summary_rejected]
+other = "🚫「{{.Title}}」的偏好草案被否 — 删掉对应 candidate,别再按它行事"
+
 [notify.doorbell.revive]
 other = "🔔「{{.Title}}」还等着处理(提醒)"
 

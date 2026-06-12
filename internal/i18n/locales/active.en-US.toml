@@ -282,6 +282,18 @@ other = "This matter has no source conversation to send back to"
 [err.matter.sendback_no_bot]
 other = "The responsible party is not a bot — no identity to post as"
 
+[err.matter.summary_only_leader_bot]
+other = "Only the responsible bot may submit a preference draft"
+
+[notify.doorbell.summary_draft]
+other = "🧠 The agent on \"{{.Title}}\" wants to save preferences from this matter — draft awaiting your approval"
+
+[notify.doorbell.summary_approved]
+other = "✅ Preference draft on \"{{.Title}}\" approved — flip the candidate entry to confirmed"
+
+[notify.doorbell.summary_rejected]
+other = "🚫 Preference draft on \"{{.Title}}\" rejected — drop the candidate entry"
+
 [notify.doorbell.revive]
 other = "🔔 \"{{.Title}}\" is still waiting (reminder)"
 

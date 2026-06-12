@@ -832,6 +832,17 @@ func (s *V2Service) ResolveSummary(ctx context.Context, matterID, spaceID, summa
 		map[string]any{"summary_id": sum.ID, "target_bot": sum.TargetBotUID}); err != nil {
 		log.Printf("[WARN] summary activity failed matter=%s: %v", m.ID, err)
 	}
+	// Close the 护栏4 loop: the bot learns the verdict by doorbell and can
+	// flip its candidate entry to confirmed (authorize) or drop it (discard).
+	if sum.TargetBotUID != nil && *sum.TargetBotUID != "" {
+		key := i18n.KeyDoorbellSummaryApproved
+		event := "matter.doorbell.summary_approved"
+		if action == "discard" {
+			key, event = i18n.KeyDoorbellSummaryRejected, "matter.doorbell.summary_rejected"
+		}
+		params := map[string]any{"Title": m.Title, "Seq": m.SeqNo, "Actor": actorUID}
+		_ = s.transition.EnqueueStandalone(ctx, m, actorUID, *sum.TargetBotUID, event, key, params)
+	}
 	return sum, nil
 }
 
@@ -904,4 +915,32 @@ func (s *V2Service) SendBack(ctx context.Context, id, spaceID string, callerUIDs
 // ListAgentCards returns the declared roster for the space.
 func (s *V2Service) ListAgentCards(ctx context.Context, spaceID string) ([]*model.MatterAgentCard, error) {
 	return s.cards.ListBySpace(ctx, spaceID)
+}
+
+// SubmitSummaryDraft lets the RESPONSIBLE BOT submit its own distilled
+// preference text as a draft awaiting the owner's authorization (护栏4:
+// 偏好写入常驻记忆前必须人审;服务端无 LLM — 蒸馏是 agent 自己做的)。
+func (s *V2Service) SubmitSummaryDraft(ctx context.Context, matterID, spaceID string, actorUID, content string) (*model.MatterSummary, error) {
+	m, err := s.matters.GetByID(ctx, matterID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	if actorUID == "" || actorUID != m.LeaderOrEmpty() || !strings.HasSuffix(actorUID, "_bot") {
+		return nil, apperr.Forbidden(i18n.KeySummaryOnlyLeaderBot)
+	}
+	content = strings.TrimSpace(content)
+	if content == "" || len(content) > 4000 {
+		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
+	sum := &model.MatterSummary{
+		MatterID: m.ID, SpaceID: m.SpaceID, Status: model.SummaryDraft,
+		Content: &content, TargetBotUID: &actorUID, CreatedBy: actorUID,
+	}
+	if err := s.summaries.Create(ctx, sum); err != nil {
+		return nil, err
+	}
+	params := map[string]any{"Title": m.Title, "Seq": m.SeqNo, "Actor": actorUID}
+	_ = s.transition.EnqueueStandalone(ctx, m, actorUID, m.CreatorID,
+		"matter.doorbell.summary_draft", i18n.KeyDoorbellSummaryDraft, params)
+	return sum, nil
 }

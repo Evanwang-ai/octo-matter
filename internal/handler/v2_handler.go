@@ -168,6 +168,22 @@ func (h *V2Handler) GenerateSummary(c *gin.Context) {
 		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
 		return
 	}
+	// Bot-authored draft path (护栏4): a body with content is the responsible
+	// bot submitting its own distilled preference for owner approval — no
+	// server LLM involved. Empty body keeps the LLM generation path.
+	var draftReq struct {
+		Content string `json:"content"`
+	}
+	_ = c.ShouldBindJSON(&draftReq)
+	if strings.TrimSpace(draftReq.Content) != "" {
+		sum, err := h.v2.SubmitSummaryDraft(c.Request.Context(), id, spaceID(c), uid(c), draftReq.Content)
+		if err != nil {
+			respondErr(c, err)
+			return
+		}
+		created(c, sum)
+		return
+	}
 	var entries []*model.TimelineEntry
 	if h.timeline != nil {
 		entries, _ = h.timeline.RecentEntries(c.Request.Context(), id, 30)
