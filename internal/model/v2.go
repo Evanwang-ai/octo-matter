@@ -28,6 +28,12 @@ const (
 	OutboxDead      = "dead"
 )
 
+// OutboxEventHomecoming rows are NOT personal doorbells: target_uid is the
+// SENDER identity (the bot the dispatcher posts as, into the matter's source
+// conversation). They must never be parked by the read-consumption hook —
+// only the dispatcher closes them after a successful post.
+const OutboxEventHomecoming = "matter.homecoming"
+
 // OutboxRow is one doorbell awaiting (or done with) delivery.
 type OutboxRow struct {
 	ID          string     `db:"id" json:"id"`

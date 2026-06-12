@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/Mininglamp-OSS/octo-matter/internal/i18n"
@@ -92,8 +94,20 @@ func (e *Engine) dispatchOnce(ctx context.Context) {
 		if row.Params != nil {
 			_ = json.Unmarshal([]byte(*row.Params), &params)
 		}
-		err := e.bell.SendDoorbell(row.SpaceID, row.Event, row.ActorUID, row.TargetUID, row.MessageKey, params)
+		var err error
+		if row.Event == DoorbellHomecoming {
+			err = e.sendHomecoming(row, params)
+		} else {
+			err = e.bell.SendDoorbell(row.SpaceID, row.Event, row.ActorUID, row.TargetUID, row.MessageKey, params)
+		}
 		if err == nil {
+			if row.Event == DoorbellHomecoming {
+				// posted into the source conversation — done, never re-ring
+				if uerr := e.outbox.MarkConsumedByID(ctx, row.ID); uerr != nil {
+					log.Printf("[engine] outbox mark consumed failed id=%s: %v", row.ID, uerr)
+				}
+				continue
+			}
 			if uerr := e.outbox.MarkDelivered(ctx, row.ID); uerr != nil {
 				log.Printf("[engine] outbox mark delivered failed id=%s: %v", row.ID, uerr)
 			}
@@ -110,6 +124,56 @@ func (e *Engine) dispatchOnce(ctx context.Context) {
 			e.escalateDead(ctx, row)
 		}
 	}
+}
+
+// sendHomecoming posts the matter's progress into its source conversation AS
+// the responsible bot (row.TargetUID doubles as the sender identity). Text is
+// composed here in plain human language — the source thread is a chat, not a
+// notification center.
+func (e *Engine) sendHomecoming(row *model.OutboxRow, params map[string]any) error {
+	cs, ok := e.bell.(notification.ChannelSender)
+	if !ok {
+		return nil // notifications off (noop sender): drop silently, never retry
+	}
+	channelID, _ := params["channel_id"].(string)
+	if channelID == "" {
+		return nil
+	}
+	channelType := uint8(2)
+	if v, ok := params["channel_type"].(float64); ok && v > 0 {
+		channelType = uint8(v)
+	}
+	title, _ := params["Title"].(string)
+	edge, _ := params["Edge"].(string)
+	reason, _ := params["Reason"].(string)
+	summary, _ := params["Summary"].(string)
+	seq := ""
+	if v, ok := params["seq_no"].(float64); ok {
+		seq = fmt.Sprintf("M-%d ", int64(v))
+	}
+	var text string
+	var mention []string
+	switch {
+	case strings.HasSuffix(edge, "->review"):
+		text = fmt.Sprintf("✅ %s「%s」干完了,等你验收", seq, title)
+		if summary != "" {
+			text += "\n" + summary
+		}
+		if creator, _ := params["creator_id"].(string); creator != "" {
+			mention = []string{creator}
+		}
+	case strings.HasSuffix(edge, "->blocked"):
+		text = fmt.Sprintf("⚠️ %s「%s」卡住了", seq, title)
+		if reason != "" {
+			text += ":" + reason
+		}
+		if creator, _ := params["creator_id"].(string); creator != "" {
+			mention = []string{creator}
+		}
+	default:
+		text = fmt.Sprintf("%s「%s」有新进展", seq, title)
+	}
+	return cs.SendChannelMessage(row.TargetUID, channelID, channelType, text, mention)
 }
 
 func (e *Engine) escalateDead(ctx context.Context, row *model.OutboxRow) {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Mininglamp-OSS/octo-matter/internal/apperr"
 	"github.com/Mininglamp-OSS/octo-matter/internal/i18n"
@@ -26,6 +27,12 @@ const (
 	DoorbellAssigned        = "matter.doorbell.assigned"
 	DoorbellHandedBack      = "matter.doorbell.handed_back"       // parent→review → creator 「该你了」
 	DoorbellChildHandedBack = "matter.doorbell.child_handed_back" // child→review → parent leader
+	// DoorbellHomecoming is not a personal doorbell: the dispatcher posts it
+	// into the matter's SOURCE CONVERSATION as the responsible bot (PRD §5
+	// 审核中/受阻自动发回来源会话; done stays a manual send-back in v1).
+	// Aliased to the model constant so the repo's consumption-hook exemption
+	// can never drift from the event the router writes.
+	DoorbellHomecoming = model.OutboxEventHomecoming
 	DoorbellNextSegment     = "matter.doorbell.next_segment"      // pipeline k → k+1
 	DoorbellVerify          = "matter.doorbell.verify"            // critic generator → verifier
 	DoorbellFeedback        = "matter.doorbell.feedback"          // 圈一笔 → 负责人
@@ -211,8 +218,11 @@ func (s *TransitionService) Apply(ctx context.Context, in TransitionInput) (*mod
 			return err
 		}
 		for _, d := range eff.doorbells {
-			if d.target == "" || d.target == in.ActorUID {
-				continue // 防自激: producer == target ⇒ 不发 (doc 02.5)
+			// 防自激: producer == target ⇒ 不发 (doc 02.5)。Homecoming is
+			// exempt — its target is the SENDER identity (the bot posting its
+			// own progress into the source conversation), not a recipient.
+			if d.target == "" || (d.target == in.ActorUID && d.event != DoorbellHomecoming) {
+				continue
 			}
 			if err := enqueueDoorbell(ctx, r.Outbox, m, in.ActorUID, d); err != nil {
 				return err
@@ -355,6 +365,9 @@ func (s *TransitionService) route(ctx context.Context, r *repository.TxRepos, m,
 				target: m.CreatorID, event: DoorbellHandedBack,
 				messageKey: i18n.KeyDoorbellHandedBack, params: params,
 			})
+			if hb := homecomingBell(m, in, params); hb != nil {
+				eff.doorbells = append(eff.doorbells, *hb)
+			}
 			return eff, nil
 		}
 		mode := ""
@@ -416,6 +429,11 @@ func (s *TransitionService) route(ctx context.Context, r *repository.TxRepos, m,
 			eff.doorbells = append(eff.doorbells, doorbell{
 				target: m.CreatorID, event: event, messageKey: key, params: params,
 			})
+			if in.Target == model.MatterStatusBlocked {
+				if hb := homecomingBell(m, in, params); hb != nil {
+					eff.doorbells = append(eff.doorbells, *hb)
+				}
+			}
 		}
 		if in.Target == model.MatterStatusCancelled {
 			eff.doorbells = append(eff.doorbells, doorbell{
@@ -501,6 +519,32 @@ func (s *TransitionService) doorbellParamsFor(m *model.Matter, from model.Matter
 		"Reason": in.Reason,
 	}
 	return p
+}
+
+// homecomingBell builds the auto send-back row for a TOP-LEVEL matter
+// entering review/blocked, when the matter knows its source conversation and
+// the responsible party is a bot (= the sender identity octo-server will
+// post as). Nil when any leg is missing — homecoming is best-effort sugar,
+// never a transition blocker.
+func homecomingBell(m *model.Matter, in TransitionInput, params map[string]any) *doorbell {
+	if m.SourceChannelID == nil || *m.SourceChannelID == "" || m.SourceChannelType == nil {
+		return nil
+	}
+	leader := m.LeaderOrEmpty()
+	if !strings.HasSuffix(leader, "_bot") {
+		return nil
+	}
+	p := make(map[string]any, len(params)+4)
+	for k, v := range params {
+		p[k] = v
+	}
+	p["channel_id"] = *m.SourceChannelID
+	p["channel_type"] = *m.SourceChannelType
+	p["creator_id"] = m.CreatorID
+	if in.Summary != "" {
+		p["Summary"] = in.Summary
+	}
+	return &doorbell{target: leader, event: DoorbellHomecoming, params: p}
 }
 
 // enqueueDoorbell writes one outbox row. params gains the deep link and the

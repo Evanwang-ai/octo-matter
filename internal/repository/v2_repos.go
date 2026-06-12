@@ -160,9 +160,19 @@ func (r *OutboxRepo) MarkConsumed(ctx context.Context, matterID string, uids []s
 	}
 	_, err := r.runner.UpdateBySql(`
 		UPDATE matter_outbox SET state = ?, updated_at = ?
-		WHERE matter_id = ? AND target_uid IN ? AND state IN (?, ?)`,
+		WHERE matter_id = ? AND target_uid IN ? AND state IN (?, ?) AND event <> ?`,
 		model.OutboxConsumed, time.Now(), matterID, uids,
-		model.OutboxPending, model.OutboxDelivered,
+		model.OutboxPending, model.OutboxDelivered, model.OutboxEventHomecoming,
+	).ExecContext(ctx)
+	return err
+}
+
+// MarkConsumedByID parks ONE row (homecoming sends have no agent-consumption
+// semantics — once posted, the row is done; re-rings would double-post).
+func (r *OutboxRepo) MarkConsumedByID(ctx context.Context, id string) error {
+	_, err := r.runner.UpdateBySql(`
+		UPDATE matter_outbox SET state = ?, updated_at = ? WHERE id = ?`,
+		model.OutboxConsumed, time.Now(), id,
 	).ExecContext(ctx)
 	return err
 }
