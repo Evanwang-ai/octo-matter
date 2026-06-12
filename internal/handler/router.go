@@ -2,11 +2,15 @@ package handler
 
 import (
 	"context"
+	"io/fs"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/Mininglamp-OSS/octo-matter/docs"
 	"github.com/Mininglamp-OSS/octo-matter/internal/i18n"
 	"github.com/Mininglamp-OSS/octo-matter/internal/middleware"
+	"github.com/Mininglamp-OSS/octo-matter/internal/webui"
 	"github.com/gin-gonic/gin"
 )
 
@@ -41,6 +45,8 @@ func SetupRouter(
 	authMW gin.HandlerFunc,
 	spaceMW gin.HandlerFunc,
 	ready ReadinessCheck,
+	v2H *V2Handler,
+	internalH *InternalHandler,
 ) *gin.Engine {
 	r := gin.Default()
 	// RequestID first, then early language negotiation so even auth-stage
@@ -50,6 +56,13 @@ func SetupRouter(
 
 	// Health
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
+
+	// Agent operating manual (doc 09 B5: SKILL.md 是 agent 的脸). Public like
+	// /health — it contains no secrets, and a bot should be able to fetch it
+	// before it has figured anything else out.
+	r.GET("/skill.md", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/markdown; charset=utf-8", docs.SkillMD)
+	})
 	r.GET("/health/ready", func(c *gin.Context) {
 		if ready != nil {
 			if err := ready(); err != nil {
@@ -97,7 +110,78 @@ func SetupRouter(
 
 		matters.GET("/:id/activities", activityH.List)
 		matters.GET("/:id/outputs", outputsH.List)
+
+		// v2: feedback (圈一笔) / touch / tree / join / smart summary
+		if v2H != nil {
+			matters.POST("/:id/feedback", v2H.CreateFeedback)
+			matters.GET("/:id/feedback", v2H.ListFeedback)
+			matters.POST("/:id/touch", v2H.Touch)
+			matters.GET("/:id/tree", v2H.Tree)
+			matters.POST("/:id/join", v2H.Join)
+			matters.POST("/:id/summary", v2H.GenerateSummary)
+			matters.GET("/:id/summary", v2H.GetSummary)
+			matters.PUT("/:id/summary/:sid", v2H.ResolveSummary)
+		}
 	}
+
+	if v2H != nil {
+		projects := api.Group("/projects")
+		{
+			projects.POST("", v2H.CreateProject)
+			projects.GET("", v2H.ListProjects)
+			projects.PUT("/:id", v2H.UpdateProject)
+			projects.GET("/:id/sources", v2H.ListProjectSources)
+			projects.POST("/:id/sources", v2H.AddProjectSource)
+			projects.DELETE("/:id/sources/:sid", v2H.DeleteProjectSource)
+		}
+		schedules := api.Group("/schedules")
+		{
+			schedules.POST("", v2H.CreateSchedule)
+			schedules.GET("", v2H.ListSchedules)
+			schedules.PUT("/:id", v2H.UpdateSchedule)
+			schedules.DELETE("/:id", v2H.DeleteSchedule)
+		}
+		api.GET("/agents/stats", v2H.AgentStats)
+	}
+
+	// Internal surface (X-Internal-Token): the writeback endpoints octo-fleet
+	// codes against plus the relocated bot-task queue. Registered OUTSIDE the
+	// auth/space middleware chain — token auth is the gate.
+	if internalH != nil {
+		internal := r.Group("/api/v1/internal", internalH.Auth())
+		{
+			internal.POST("/matters/:id/timeline", internalH.PostTimeline)
+			internal.POST("/matters/:id/activities", internalH.PostActivity)
+			internal.POST("/bot-tasks", internalH.CreateBotTask)
+			internal.POST("/bot-tasks/claim", internalH.ClaimBotTasks)
+			internal.POST("/bot-tasks/:id/ack", internalH.AckBotTask)
+			internal.GET("/bot-tasks", internalH.ListBotTasks)
+		}
+	}
+
+	// Embedded workspace UI. Same-origin with octo-web behind nginx /matter/,
+	// so the SPA reuses the login token from localStorage.
+	// gin's tree forbids a literal "/ui/" beside the catch-all, so the
+	// wildcard route serves index.html for the bare prefix itself. The index
+	// bytes are written directly: http.ServeFile 301-redirects any path that
+	// resolves to a file literally named index.html, which would loop here.
+	uiFS := http.FS(webui.FS())
+	indexHTML, indexErr := fs.ReadFile(webui.FS(), "index.html")
+	if indexErr != nil {
+		panic(indexErr) // embedded at compile time; absence is a build bug
+	}
+	serveIndex := func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
+	}
+	r.GET("/ui", func(c *gin.Context) { c.Redirect(http.StatusMovedPermanently, "ui/") })
+	r.GET("/ui/*path", func(c *gin.Context) {
+		p := strings.TrimPrefix(c.Param("path"), "/")
+		if p == "" || p == "index.html" {
+			serveIndex(c)
+			return
+		}
+		c.FileFromFS(p, uiFS)
+	})
 
 	return r
 }

@@ -1,0 +1,515 @@
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/Mininglamp-OSS/octo-matter/internal/i18n"
+	"github.com/Mininglamp-OSS/octo-matter/internal/model"
+	"github.com/Mininglamp-OSS/octo-matter/internal/service"
+	"github.com/gin-gonic/gin"
+)
+
+// V2Handler exposes the matter-v2 surfaces: feedback (圈一笔), touch, tree,
+// join, smart summaries, projects, schedules and agent stats.
+type V2Handler struct {
+	v2        *service.V2Service
+	schedules *service.ScheduleService
+	timeline  *service.TimelineService
+}
+
+func NewV2Handler(v2 *service.V2Service, schedules *service.ScheduleService, timeline *service.TimelineService) *V2Handler {
+	return &V2Handler{v2: v2, schedules: schedules, timeline: timeline}
+}
+
+// ownedBots returns the caller's owned bot uids (relatedUIDs minus self).
+func ownedBots(c *gin.Context) []string {
+	self := uid(c)
+	var out []string
+	for _, u := range relatedUIDs(c) {
+		if u != self {
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
+// ---------------------------------------------------------------------------
+// Feedback
+// ---------------------------------------------------------------------------
+
+type feedbackReq struct {
+	Content   string          `json:"content" binding:"required,max=4000"`
+	EntryID   *string         `json:"entry_id" binding:"omitempty,uuid"`
+	Anchor    json.RawMessage `json:"anchor"`
+	TargetUID *string         `json:"target_uid" binding:"omitempty,max=64"`
+}
+
+func (h *V2Handler) CreateFeedback(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	// 圈一笔 is an H signal by definition (doc 01 来源纪律) — bots may not send it.
+	if c.GetString("role") == "bot" {
+		failKey(c, http.StatusForbidden, "FORBIDDEN", i18n.KeyFeedbackUsersOnly, nil)
+		return
+	}
+	var req feedbackReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	var anchor *string
+	if len(req.Anchor) > 0 && string(req.Anchor) != "null" {
+		if len(req.Anchor) > 4000 {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, nil)
+			return
+		}
+		s := string(req.Anchor)
+		anchor = &s
+	}
+	res, err := h.v2.CreateFeedback(c.Request.Context(), service.FeedbackInput{
+		MatterID: id, SpaceID: spaceID(c),
+		AuthorUID: uid(c), CallerUIDs: relatedUIDs(c), CallerToken: callerToken(c),
+		Content: strings.TrimSpace(req.Content),
+		EntryID: req.EntryID, AnchorJSON: anchor, TargetUID: req.TargetUID,
+	})
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	created(c, res)
+}
+
+func (h *V2Handler) ListFeedback(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	items, err := h.v2.ListFeedback(c.Request.Context(), id, spaceID(c), relatedUIDs(c), callerToken(c), limit)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, gin.H{"data": items})
+}
+
+// ---------------------------------------------------------------------------
+// Touch / Join / Tree
+// ---------------------------------------------------------------------------
+
+func (h *V2Handler) Touch(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if err := h.v2.Touch(c.Request.Context(), id, spaceID(c), effectiveCallerUIDs(c), callerToken(c)); err != nil {
+		respondErr(c, err)
+		return
+	}
+	h.v2.ConsumeDoorbells(c.Request.Context(), id, []string{uid(c)})
+	ok(c, gin.H{"status": "ok"})
+}
+
+type joinReq struct {
+	ProcessedSeq int64  `json:"processed_seq"`
+	Action       string `json:"action" binding:"omitempty,oneof=start complete"`
+}
+
+func (h *V2Handler) Join(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	var req joinReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	res, err := h.v2.Join(c.Request.Context(), id, spaceID(c), effectiveCallerUIDs(c), uid(c), req.ProcessedSeq, req.Action)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	h.v2.ConsumeDoorbells(c.Request.Context(), id, []string{uid(c)})
+	ok(c, res)
+}
+
+func (h *V2Handler) Tree(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	res, err := h.v2.Tree(c.Request.Context(), id, spaceID(c), effectiveCallerUIDs(c), callerToken(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	h.v2.ConsumeDoorbells(c.Request.Context(), id, []string{uid(c)})
+	ok(c, res)
+}
+
+// ---------------------------------------------------------------------------
+// Smart Summary
+// ---------------------------------------------------------------------------
+
+func (h *V2Handler) GenerateSummary(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	var entries []*model.TimelineEntry
+	if h.timeline != nil {
+		entries, _ = h.timeline.RecentEntries(c.Request.Context(), id, 30)
+	}
+	sum, err := h.v2.GenerateSummary(c.Request.Context(), id, spaceID(c), relatedUIDs(c), uid(c), entries)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	created(c, sum)
+}
+
+func (h *V2Handler) GetSummary(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	sum, err := h.v2.LatestSummary(c.Request.Context(), id, spaceID(c), relatedUIDs(c), callerToken(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	if sum == nil {
+		failKey(c, http.StatusNotFound, "NOT_FOUND", i18n.KeyNotFound, nil)
+		return
+	}
+	ok(c, sum)
+}
+
+type resolveSummaryReq struct {
+	Action       string  `json:"action" binding:"required,oneof=authorize discard"`
+	Content      *string `json:"content" binding:"omitempty,max=20000"`
+	TargetBotUID *string `json:"target_bot_uid" binding:"omitempty,max=64"`
+	Scope        *string `json:"scope" binding:"omitempty,max=100"`
+}
+
+func (h *V2Handler) ResolveSummary(c *gin.Context) {
+	id := c.Param("id")
+	sid := c.Param("sid")
+	if !validUUID(id) || !validUUID(sid) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	var req resolveSummaryReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	sum, err := h.v2.ResolveSummary(c.Request.Context(), id, spaceID(c), sid, relatedUIDs(c), uid(c),
+		req.Action, req.Content, req.TargetBotUID, req.Scope, ownedBots(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, sum)
+}
+
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+type projectReq struct {
+	Name             string  `json:"name" binding:"required,max=200"`
+	Description      *string `json:"description" binding:"omitempty,max=4000"`
+	Scope            *string `json:"scope" binding:"omitempty,oneof=space private"`
+	SourceChannelID  *string `json:"source_channel_id" binding:"omitempty,max=255"`
+	SourceName       *string `json:"source_name" binding:"omitempty,max=200"`
+	DefaultLeaderUID *string `json:"default_leader_uid" binding:"omitempty,max=64"`
+	Archived         *bool   `json:"archived"`
+}
+
+func (h *V2Handler) CreateProject(c *gin.Context) {
+	var req projectReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	p := &model.MatterProject{
+		SpaceID:          spaceID(c),
+		Name:             strings.TrimSpace(req.Name),
+		Description:      req.Description,
+		SourceChannelID:  req.SourceChannelID,
+		SourceName:       req.SourceName,
+		DefaultLeaderUID: req.DefaultLeaderUID,
+		CreatorID:        uid(c),
+	}
+	if req.Scope != nil {
+		p.Scope = *req.Scope
+	}
+	out, err := h.v2.CreateProject(c.Request.Context(), p)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	created(c, out)
+}
+
+func (h *V2Handler) ListProjects(c *gin.Context) {
+	items, err := h.v2.ListProjects(c.Request.Context(), spaceID(c), c.Query("archived") == "1")
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, gin.H{"data": items})
+}
+
+func (h *V2Handler) UpdateProject(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	var req projectReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	out, err := h.v2.UpdateProject(c.Request.Context(), id, spaceID(c), relatedUIDs(c), func(p *model.MatterProject) {
+		if strings.TrimSpace(req.Name) != "" {
+			p.Name = strings.TrimSpace(req.Name)
+		}
+		if req.Description != nil {
+			p.Description = req.Description
+		}
+		if req.Scope != nil {
+			p.Scope = *req.Scope
+		}
+		if req.SourceChannelID != nil {
+			p.SourceChannelID = req.SourceChannelID
+		}
+		if req.SourceName != nil {
+			p.SourceName = req.SourceName
+		}
+		if req.DefaultLeaderUID != nil {
+			p.DefaultLeaderUID = req.DefaultLeaderUID
+		}
+		if req.Archived != nil {
+			if *req.Archived {
+				p.Archived = 1
+			} else {
+				p.Archived = 0
+			}
+		}
+	})
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, out)
+}
+
+// ---------------------------------------------------------------------------
+// Schedules
+// ---------------------------------------------------------------------------
+
+type scheduleReq struct {
+	Title             *string `json:"title" binding:"omitempty,max=500"`
+	Runbook           *string `json:"runbook" binding:"omitempty,max=10000"`
+	CronExpr          *string `json:"cron_expr" binding:"omitempty,max=100"`
+	Timezone          *string `json:"timezone" binding:"omitempty,max=64"`
+	ExecutorUID       *string `json:"executor_uid" binding:"omitempty,max=64"`
+	OutputMode        *string `json:"output_mode" binding:"omitempty,oneof=track runonly"`
+	TargetChannelID   *string `json:"target_channel_id" binding:"omitempty,max=255"`
+	TargetChannelName *string `json:"target_channel_name" binding:"omitempty,max=200"`
+	ProjectID         *string `json:"project_id" binding:"omitempty,max=36"`
+	Enabled           *bool   `json:"enabled"`
+}
+
+func (h *V2Handler) CreateSchedule(c *gin.Context) {
+	if c.GetString("role") == "bot" {
+		failKey(c, http.StatusForbidden, "FORBIDDEN", i18n.KeyForbidden, nil)
+		return
+	}
+	var req scheduleReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	if req.Title == nil || req.CronExpr == nil || req.ExecutorUID == nil {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, nil)
+		return
+	}
+	in := service.ScheduleInput{
+		SpaceID:           spaceID(c),
+		CreatorID:         uid(c),
+		Title:             strings.TrimSpace(*req.Title),
+		Runbook:           req.Runbook,
+		CronExpr:          strings.TrimSpace(*req.CronExpr),
+		ExecutorUID:       *req.ExecutorUID,
+		TargetChannelID:   req.TargetChannelID,
+		TargetChannelName: req.TargetChannelName,
+		ProjectID:         req.ProjectID,
+		OwnedBots:         ownedBots(c),
+	}
+	if req.OutputMode != nil {
+		in.OutputMode = *req.OutputMode
+	}
+	if req.Timezone != nil {
+		in.Timezone = *req.Timezone
+	}
+	out, err := h.schedules.Create(c.Request.Context(), in)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	created(c, out)
+}
+
+func (h *V2Handler) ListSchedules(c *gin.Context) {
+	items, err := h.schedules.List(c.Request.Context(), spaceID(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, gin.H{"data": items})
+}
+
+func (h *V2Handler) UpdateSchedule(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	var req scheduleReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	out, err := h.schedules.Update(c.Request.Context(), id, spaceID(c), relatedUIDs(c), service.ScheduleUpdate{
+		Title: req.Title, Runbook: req.Runbook, CronExpr: req.CronExpr,
+		Timezone: req.Timezone, ExecutorUID: req.ExecutorUID,
+		OutputMode: req.OutputMode, TargetChannelID: req.TargetChannelID,
+		TargetChannelName: req.TargetChannelName,
+		ProjectID: req.ProjectID, Enabled: req.Enabled, OwnedBots: ownedBots(c),
+	})
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, out)
+}
+
+func (h *V2Handler) DeleteSchedule(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if err := h.schedules.Delete(c.Request.Context(), id, spaceID(c), relatedUIDs(c)); err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, nil)
+}
+
+// ---------------------------------------------------------------------------
+// Project sources (共享上下文)
+// ---------------------------------------------------------------------------
+
+type projectSourceReq struct {
+	Kind    string  `json:"kind" binding:"omitempty,oneof=chat file link"`
+	Title   string  `json:"title" binding:"required,max=300"`
+	Ref     *string `json:"ref" binding:"omitempty,max=1024"`
+	Snippet *string `json:"snippet" binding:"omitempty,max=10000"`
+}
+
+func (h *V2Handler) ListProjectSources(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	items, err := h.v2.ListProjectSources(c.Request.Context(), id, spaceID(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, gin.H{"data": items})
+}
+
+func (h *V2Handler) AddProjectSource(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	var req projectSourceReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	src := &model.MatterProjectSource{
+		ProjectID: id,
+		SpaceID:   spaceID(c),
+		Kind:      req.Kind,
+		Title:     strings.TrimSpace(req.Title),
+		Ref:       req.Ref,
+		Snippet:   req.Snippet,
+		CreatedBy: uid(c),
+	}
+	out, err := h.v2.AddProjectSource(c.Request.Context(), src)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	created(c, out)
+}
+
+func (h *V2Handler) DeleteProjectSource(c *gin.Context) {
+	id, sid := c.Param("id"), c.Param("sid")
+	if !validUUID(id) || !validUUID(sid) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if err := h.v2.DeleteProjectSource(c.Request.Context(), sid, id, spaceID(c), relatedUIDs(c)); err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, nil)
+}
+
+// ---------------------------------------------------------------------------
+// Agent stats
+// ---------------------------------------------------------------------------
+
+func (h *V2Handler) AgentStats(c *gin.Context) {
+	raw := c.Query("uids")
+	if strings.TrimSpace(raw) == "" {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, nil)
+		return
+	}
+	var uids []string
+	for _, u := range strings.Split(raw, ",") {
+		if u = strings.TrimSpace(u); u != "" {
+			uids = append(uids, u)
+		}
+	}
+	stats, err := h.v2.AgentStats(c.Request.Context(), spaceID(c), uids)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, gin.H{"stats": stats})
+}

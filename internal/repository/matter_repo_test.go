@@ -58,10 +58,12 @@ func TestMatterRepo_Create_NilSourceMsgIDsStoredAsNULL(t *testing.T) {
 	mock.ExpectQuery("SELECT COALESCE\\(MAX\\(seq_no\\)").
 		WillReturnRows(sqlmock.NewRows([]string{"next"}).AddRow(1))
 
-	// Six consecutive NULLs cover deadline, remind_at, source_channel_id,
-	// source_channel_type, source_name, source_msg_ids — the source_msg_ids
-	// slot is the bare NULL token rather than a quoted JSON literal.
-	mock.ExpectExec(`'open',NULL,NULL,NULL,NULL,NULL,NULL,'`).
+	// The v2 column layout puts schedule_id, scheduled_at, deadline,
+	// remind_at, source_channel_id, source_channel_type, source_name and
+	// source_msg_ids before created_at — eight consecutive NULLs, the last
+	// being source_msg_ids as a bare NULL token rather than a quoted JSON
+	// literal.
+	mock.ExpectExec(`NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'`).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	r := &MatterRepo{runner: sess}

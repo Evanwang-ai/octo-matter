@@ -129,3 +129,17 @@ func AsAppError(err error) (*AppError, bool) {
 	}
 	return nil, false
 }
+
+// Conflict renders as 409 with a caller-chosen code (VERSION_CONFLICT,
+// EPOCH_STALE, CHILDREN_NOT_TERMINAL, ...). The matter v2 engine uses these
+// for CAS and epoch-fencing failures (doc 02.5): the writer must re-read and
+// either retry or stop.
+func Conflict(code, msgID string) *AppError {
+	return &AppError{code: code, msgID: msgID, status: http.StatusConflict, wrapped: ErrInvalidInput}
+}
+
+// NotConfigured renders as 503 with code LLM_NOT_CONFIGURED — the dependency
+// is absent by deployment choice, not transiently down.
+func NotConfigured(msgID string) *AppError {
+	return &AppError{code: "LLM_NOT_CONFIGURED", msgID: msgID, status: http.StatusServiceUnavailable}
+}

@@ -113,12 +113,16 @@ func (n *OctoNotifier) send(spaceID, event, actorID string, targets []string, pa
 // + params so the IM server can localize per recipient, plus a default-language
 // `message` fallback. extra merges event-specific fields (e.g. action_key).
 func (n *OctoNotifier) payloadFor(matter *model.Matter, messageKey string, params, extra map[string]any) map[string]interface{} {
+	text := i18n.Localize(n.defaultLang, messageKey, params)
 	p := map[string]interface{}{
+		// type=1 + content: the plain-text message shape; see SendDoorbell.
+		"type":         1,
+		"content":      text,
 		"matter_id":    matter.ID,
 		"matter_title": matter.Title,
 		"message_key":  messageKey,
 		"params":       params,
-		"message":      i18n.Localize(n.defaultLang, messageKey, params),
+		"message":      text,
 	}
 	for k, v := range extra {
 		p[k] = v

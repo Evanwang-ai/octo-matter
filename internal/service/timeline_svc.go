@@ -812,3 +812,9 @@ func renderTimelineSystemPrompt(prompt promptstore.Prompt, matter *model.Matter,
 	}
 	return prompt.Render(data)
 }
+
+// RecentEntries exposes the newest timeline rows for in-process consumers
+// (smart-summary input). No access check: callers gate access themselves.
+func (s *TimelineService) RecentEntries(ctx context.Context, matterID string, limit int) ([]*model.TimelineEntry, error) {
+	return s.timelineRepo.ListRecentByMatter(ctx, matterID, limit)
+}

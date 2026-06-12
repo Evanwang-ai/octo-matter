@@ -56,6 +56,15 @@ func main() {
 	activityRepo := repository.NewActivityRepo(sess)
 	txMgr := repository.NewTxManager(sess)
 
+	// v2 repos
+	projectRepo := repository.NewProjectRepo(sess)
+	outboxRepo := repository.NewOutboxRepo(sess)
+	feedbackRepo := repository.NewFeedbackRepo(sess)
+	summaryRepo := repository.NewSummaryRepo(sess)
+	scheduleRepo := repository.NewScheduleRepo(sess)
+	projectSourceRepo := repository.NewProjectSourceRepo(sess)
+	botTaskRepo := repository.NewBotTaskRepo(sess)
+
 	// Notifier
 	notifier := notification.NewOctoNotifier(cfg.OctoIMURL, cfg.NotifyInternalToken, cfg.DefaultLanguage)
 	notifyWorker := notification.NewWorker(100, 4)
@@ -107,12 +116,43 @@ func main() {
 	activitySvc := service.NewActivityService(matterRepo, matterSvc, activityRepo)
 	outputsSvc := service.NewOutputsService(matterRepo, matterSvc, timelineAttachmentRepo)
 
+	// v2 services: transition guard, workflows, schedules, bot tasks, engine.
+	transitionSvc := service.NewTransitionService(matterRepo, assigneeRepo, txMgr, cfg.PublicUIPath)
+	// Smart summary needs a usable LLM; with no key the feature reports
+	// LLM_NOT_CONFIGURED instead of failing mid-call.
+	var v2LLM service.LLMToolCaller
+	if cfg.LLMApiKey != "" {
+		v2LLM = llmClient
+	}
+	v2Svc := service.NewV2Service(matterRepo, assigneeRepo, participantRepo, projectRepo, projectSourceRepo,
+		feedbackRepo, outboxRepo, summaryRepo, activityRepo, txMgr, transitionSvc, matterSvc, v2LLM)
+	botTaskSvc := service.NewBotTaskService(botTaskRepo, matterRepo, timelineRepo, activityRepo, transitionSvc)
+	scheduleSvc := service.NewScheduleService(scheduleRepo, matterRepo, matterSvc, v2Svc, transitionSvc, cfg.ScheduleTick)
+
+	// Engine loops: transactional-outbox dispatcher + two-tier watchdog.
+	engineCtx, engineStop := context.WithCancel(context.Background())
+	defer engineStop()
+	engine := service.NewEngine(outboxRepo, matterRepo, transitionSvc, notifier, service.EngineConfig{
+		DispatchInterval: cfg.OutboxDispatchInterval,
+		RedeliverAfter:   cfg.OutboxRedeliverAfter,
+		MaxRetries:       cfg.OutboxMaxRetries,
+		WatchdogInterval: cfg.WatchdogInterval,
+		ReviveSilence:    cfg.WatchdogReviveSilence,
+		LeafSLA:          cfg.WatchdogLeafSLA,
+		BlockAfterRevive: cfg.WatchdogBlockAfterRevive,
+	})
+	engine.Start(engineCtx)
+	scheduleSvc.Start(engineCtx)
+	log.Printf("matter v2 engine started (outbox dispatch=%s watchdog=%s)", cfg.OutboxDispatchInterval, cfg.WatchdogInterval)
+
 	// Handlers
-	matterH := handler.NewMatterHandler(matterSvc, notifier, notifyWorker)
+	matterH := handler.NewMatterHandler(matterSvc, v2Svc, transitionSvc, notifier, notifyWorker)
 	extractH := handler.NewExtractHandler(extractSvc)
 	timelineH := handler.NewTimelineHandler(timelineSvc, matterSvc, notifier, notifyWorker)
 	activityH := handler.NewActivityHandler(activitySvc)
 	outputsH := handler.NewOutputsHandler(outputsSvc)
+	v2H := handler.NewV2Handler(v2Svc, scheduleSvc, timelineSvc)
+	internalH := handler.NewInternalHandler(cfg.NotifyInternalToken, matterRepo, timelineRepo, activityRepo, botTaskSvc, v2Svc)
 
 	// Auth
 	authMW := auth.AuthMiddleware(auth.Config{OctoIMURL: cfg.OctoIMURL})
@@ -122,7 +162,7 @@ func main() {
 	readiness := func() error { return conn.Ping() }
 
 	// Router
-	r := handler.SetupRouter(matterH, timelineH, activityH, outputsH, extractH, extractLimiter, authMW, spaceMW, readiness)
+	r := handler.SetupRouter(matterH, timelineH, activityH, outputsH, extractH, extractLimiter, authMW, spaceMW, readiness, v2H, internalH)
 
 	// Graceful shutdown
 	srv := &http.Server{Addr: ":" + cfg.ServerPort, Handler: r}

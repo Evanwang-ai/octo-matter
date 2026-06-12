@@ -23,7 +23,7 @@ func (r *TimelineRepo) Create(ctx context.Context, c *model.TimelineEntry) error
 	c.ID = uuid.New().String()
 	c.CreatedAt = time.Now()
 	_, err := r.runner.InsertInto("matter_timelines").
-		Columns("id", "matter_id", "user_id", "content",
+		Columns("id", "matter_id", "user_id", "on_behalf_of", "content",
 			"channel_id", "channel_type", "source_channel_id",
 			"source_msgs", "related_uids", "created_at").
 		Record(c).

@@ -17,6 +17,11 @@ type MatterFilter struct {
 	Status            *string
 	AssigneeID        *string
 	CreatorID         *string
+	LeaderID          *string
+	ParentID          *string
+	TopLevelOnly      bool
+	ProjectID         *string
+	ScheduleID        *string
 	SourceChannelID   *string
 	SourceChannelType *uint8
 	// ChannelID strictly filters results to matters linked via matter_channels
@@ -53,8 +58,12 @@ func (r *MatterRepo) Create(ctx context.Context, matter *model.Matter) error {
 		}
 		matter.SeqNo = seq
 		_, err = r.runner.InsertInto("matters").
-			Columns("id", "seq_no", "space_id", "title", "description", "creator_id",
-				"status", "deadline", "remind_at", "source_channel_id", "source_channel_type",
+			Columns("id", "seq_no", "space_id", "parent_matter_id", "title", "description",
+				"brief_constraints", "brief_output_spec",
+				"creator_id", "leader_uid", "status", "mode", "step_id", "step_order",
+				"project_id", "assignment_epoch", "version", "expected_duration_minutes",
+				"last_activity_at", "last_transition_at", "schedule_id", "scheduled_at",
+				"deadline", "remind_at", "source_channel_id", "source_channel_type",
 				"source_name", "source_msg_ids", "created_at", "updated_at", "deleted_at").
 			Record(matter).
 			ExecContext(ctx)
@@ -135,18 +144,18 @@ func (r *MatterRepo) ListBySpace(ctx context.Context, spaceID string, filter Mat
 	}
 	if len(visibleChannelIDs) > 0 {
 		q = q.Where(
-			"(creator_id IN ?"+
+			"(creator_id IN ? OR leader_uid IN ?"+
 				" OR EXISTS (SELECT 1 FROM matter_assignees WHERE matter_assignees.matter_id = matters.id AND matter_assignees.user_id IN ?)"+
 				" OR EXISTS (SELECT 1 FROM matter_participants WHERE matter_participants.matter_id = matters.id AND matter_participants.user_id IN ?)"+
 				" OR EXISTS (SELECT 1 FROM matter_channels WHERE matter_channels.matter_id = matters.id AND matter_channels.channel_id IN ?))",
-			filter.CallerUIDs, filter.CallerUIDs, filter.CallerUIDs, visibleChannelIDs,
+			filter.CallerUIDs, filter.CallerUIDs, filter.CallerUIDs, filter.CallerUIDs, visibleChannelIDs,
 		)
 	} else {
 		q = q.Where(
-			"(creator_id IN ?"+
+			"(creator_id IN ? OR leader_uid IN ?"+
 				" OR EXISTS (SELECT 1 FROM matter_assignees WHERE matter_assignees.matter_id = matters.id AND matter_assignees.user_id IN ?)"+
 				" OR EXISTS (SELECT 1 FROM matter_participants WHERE matter_participants.matter_id = matters.id AND matter_participants.user_id IN ?))",
-			filter.CallerUIDs, filter.CallerUIDs, filter.CallerUIDs,
+			filter.CallerUIDs, filter.CallerUIDs, filter.CallerUIDs, filter.CallerUIDs,
 		)
 	}
 
@@ -158,6 +167,20 @@ func (r *MatterRepo) ListBySpace(ctx context.Context, spaceID string, filter Mat
 	}
 	if filter.CreatorID != nil {
 		q = q.Where("creator_id = ?", *filter.CreatorID)
+	}
+	if filter.LeaderID != nil {
+		q = q.Where("leader_uid = ?", *filter.LeaderID)
+	}
+	if filter.ParentID != nil {
+		q = q.Where("parent_matter_id = ?", *filter.ParentID)
+	} else if filter.TopLevelOnly {
+		q = q.Where("parent_matter_id IS NULL")
+	}
+	if filter.ProjectID != nil {
+		q = q.Where("project_id = ?", *filter.ProjectID)
+	}
+	if filter.ScheduleID != nil {
+		q = q.Where("schedule_id = ?", *filter.ScheduleID)
 	}
 	if filter.SourceChannelType != nil {
 		q = q.Where("source_channel_type = ?", *filter.SourceChannelType)
@@ -226,8 +249,13 @@ func (r *MatterRepo) Update(ctx context.Context, matter *model.Matter) error {
 	result, err := r.runner.Update("matters").
 		Set("title", matter.Title).
 		Set("description", matter.Description).
+		Set("brief_constraints", matter.BriefConstraints).
+		Set("brief_output_spec", matter.BriefOutputSpec).
 		Set("deadline", matter.Deadline).
 		Set("remind_at", matter.RemindAt).
+		Set("mode", matter.Mode).
+		Set("project_id", matter.ProjectID).
+		Set("expected_duration_minutes", matter.ExpectedDuration).
 		Set("updated_at", matter.UpdatedAt).
 		Where("id = ? AND space_id = ? AND deleted_at IS NULL", matter.ID, matter.SpaceID).
 		ExecContext(ctx)
@@ -258,8 +286,16 @@ func (r *MatterRepo) UpdateStatus(ctx context.Context, id, spaceID, status strin
 }
 
 func (r *MatterRepo) SoftDelete(ctx context.Context, id, spaceID string) error {
+	// Release the dispatch idempotency slot on delete: the unique key
+	// uk_matters_parent_step (parent_matter_id, step_id) does NOT exclude
+	// soft-deleted rows, so keeping step_id would block re-dispatching the
+	// same step (the idempotency lookup filters deleted_at IS NULL and finds
+	// nothing, then the INSERT hits the stale unique row). Nulling step_id
+	// frees the slot — NULLs don't collide in a MySQL unique index. Non-child
+	// rows already have step_id NULL, so this is a no-op for them.
 	result, err := r.runner.Update("matters").
 		Set("deleted_at", time.Now()).
+		Set("step_id", nil).
 		Where("id = ? AND space_id = ? AND deleted_at IS NULL", id, spaceID).
 		ExecContext(ctx)
 	if err != nil {
@@ -290,16 +326,18 @@ func (r *MatterRepo) HasAccess(ctx context.Context, matterID string, callerUIDs 
 
 	if channelID != "" && len(callerUIDs) > 0 {
 		q = q.From("dual").Where(
-			`(EXISTS (SELECT 1 FROM matter_assignees WHERE matter_id = ? AND user_id IN ?)
+			`(EXISTS (SELECT 1 FROM matters WHERE id = ? AND leader_uid IN ?)
+			  OR EXISTS (SELECT 1 FROM matter_assignees WHERE matter_id = ? AND user_id IN ?)
 			  OR EXISTS (SELECT 1 FROM matter_participants WHERE matter_id = ? AND user_id IN ?)
 			  OR EXISTS (SELECT 1 FROM matter_channels WHERE matter_id = ? AND channel_id = ?))`,
-			matterID, callerUIDs, matterID, callerUIDs, matterID, channelID,
+			matterID, callerUIDs, matterID, callerUIDs, matterID, callerUIDs, matterID, channelID,
 		)
 	} else if len(callerUIDs) > 0 {
 		q = q.From("dual").Where(
-			`(EXISTS (SELECT 1 FROM matter_assignees WHERE matter_id = ? AND user_id IN ?)
+			`(EXISTS (SELECT 1 FROM matters WHERE id = ? AND leader_uid IN ?)
+			  OR EXISTS (SELECT 1 FROM matter_assignees WHERE matter_id = ? AND user_id IN ?)
 			  OR EXISTS (SELECT 1 FROM matter_participants WHERE matter_id = ? AND user_id IN ?))`,
-			matterID, callerUIDs, matterID, callerUIDs,
+			matterID, callerUIDs, matterID, callerUIDs, matterID, callerUIDs,
 		)
 	} else {
 		q = q.From("dual").Where(

@@ -192,3 +192,89 @@ other = "reopened it"
 
 [notify.action.updated]
 other = "updated it"
+
+# --- Matter v2 engine ---
+[err.matter.version_conflict]
+other = "This matter was just changed by someone else; refresh and retry"
+
+[err.matter.epoch_stale]
+other = "This matter was reassigned; your claim is stale — stop writing back"
+
+[err.matter.children_not_terminal]
+other = "Some subtasks are still open; cannot mark done"
+
+[err.matter.block_reason_required]
+other = "Marking blocked requires a reason"
+
+[err.matter.no_self_acceptance]
+other = "The responsible agent cannot accept its own work; completion is a human call"
+
+[err.matter.only_acceptance_authority]
+other = "Only the creator (or the parent matter's leader) can mark done"
+
+[err.matter.transition_not_allowed]
+other = "This status transition is not allowed"
+
+[err.matter.parent_not_found]
+other = "Parent matter not found"
+
+[err.matter.mode_invalid]
+other = "Invalid collaboration mode"
+
+[err.matter.executor_not_own_bot]
+other = "The executor must be a bot you own"
+
+[err.matter.cron_invalid]
+other = "Invalid cron expression"
+
+[err.matter.feedback_users_only]
+other = "Feedback (圈一笔) can only be sent by a human"
+
+[err.llm.not_configured]
+other = "LLM is not configured (LLM_API_KEY empty); cannot generate"
+
+[err.matter.summary_only_creator]
+other = "Only the creator can distill preferences for this matter"
+
+# --- Doorbells ---
+[notify.doorbell.assigned]
+other = "📌 \"{{.Title}}\" (M-{{.Seq}}) was handed to you"
+
+[notify.doorbell.handed_back]
+other = "👉 \"{{.Title}}\" (M-{{.Seq}}) is back — your turn to review"
+
+[notify.doorbell.child_handed_back]
+other = "📥 Subtask \"{{.Title}}\" was handed back"
+
+[notify.doorbell.next_segment]
+other = "⏭ Previous segment finished; \"{{.Title}}\" is your turn"
+
+[notify.doorbell.verify]
+other = "🔍 \"{{.Title}}\" awaits your verification"
+
+[notify.doorbell.sent_back]
+other = "↩ \"{{.Title}}\" was sent back for rework"
+
+[notify.doorbell.feedback]
+other = "✏️ New annotation feedback on \"{{.Title}}\""
+
+[notify.doorbell.blocked]
+other = "⚠️ \"{{.Title}}\" is stuck: {{.Reason}}"
+
+[notify.doorbell.cancelled]
+other = "⊘ \"{{.Title}}\" was cancelled"
+
+[notify.doorbell.reassigned]
+other = "🔄 \"{{.Title}}\" was reassigned"
+
+[notify.doorbell.done]
+other = "✅ \"{{.Title}}\" is done"
+
+[notify.doorbell.revive]
+other = "🔔 \"{{.Title}}\" is still waiting (reminder)"
+
+[notify.doorbell.watchdog_blocked]
+other = "⚠️ \"{{.Title}}\" went silent for too long; marked blocked"
+
+[notify.doorbell.schedule]
+other = "⏰ Scheduled matter \"{{.Title}}\" was created; your turn"

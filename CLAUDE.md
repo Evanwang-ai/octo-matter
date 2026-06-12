@@ -1,6 +1,12 @@
 # Octo Matter - matter-service
 
-Simple task microservice with open/closed status model + goal organization. Full context: README.md.
+Human×agent delegation workspace (matter-v2): six-state machine with
+server-side transition guards (CAS + epoch fencing + acceptance authority),
+sub-matters with collaboration modes, transactional-outbox doorbells, two-tier
+watchdog, feedback (圈一笔), projects, cron schedules, smart-summary drafts,
+bot-task queue, and an embedded UI at /ui/. Full API contract: docs/v2-api.md.
+The v1 surface (open/done/archived CRUD) is kept compatible for the deployed
+octo-web dmworktodo panel.
 
 ## Tech Stack
 - Go 1.25+, Gin, gocraft/dbr/v2 (MySQL — NOT GORM)
@@ -28,9 +34,9 @@ Layers (strict direction, no skipping):
 
 ## Key Invariants (gotchas)
 - **Space scoping**: every query MUST filter by `space_id` from `X-Space-ID` header. Missing it = cross-tenant leak.
-- **Todo status**: `open` or `closed`. No state machine. Creator or assignee can close/reopen.
-- **Goal status**: `active`, `completed`, or `archived`. Creator controls status.
-- **Permissions**: creator can do all edits + delete; assignees can close/reopen.
+- **Status machine (v2)**: open / in_progress / review / done / blocked / cancelled (+ legacy archived). ALL transitions go through `service.TransitionService.Apply` — never write `matters.status` directly. The guard enforces the producer matrix (doc 02.5), CAS (`expected_version` → 409 VERSION_CONFLICT), epoch fencing for bots (409 EPOCH_STALE), no agent self-acceptance, and parent→done requires terminal children.
+- **Transactional outbox**: doorbells are enqueued inside the SAME tx as the transition. Delivery/retry/consumption belongs to `service.Engine` — do not send notifications synchronously from transition paths.
+- **Permissions**: creator can do all edits + delete; assignee/leader can work the matter but can never accept (done) their own work.
 - **Auth** — Calls Octo IM server public API: `token` header → POST /v1/auth/verify, `Authorization: Bearer` → POST /v1/auth/verify-bot. Config: `OCTO_IM_URL`.
 - **Bot-owner visibility**: users see their bots' todos, bots see their owner's todos. Implemented via `related_uids` (CallerUIDs IN ? queries).
 - **Notifications**: sent via Octo IM server POST /v1/internal/notify with X-Internal-Token. Config: `OCTO_IM_URL` (base URL), `NOTIFY_INTERNAL_TOKEN` (auth token).

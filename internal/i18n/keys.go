@@ -92,3 +92,38 @@ const (
 	KeyNotifyActionOpen     = "notify.action.open"
 	KeyNotifyActionUpdated  = "notify.action.updated"
 )
+
+// Matter v2 keys: six-state guard errors and doorbell notifications.
+const (
+	// Guard / engine errors
+	KeyVersionConflict         = "err.matter.version_conflict"
+	KeyEpochStale              = "err.matter.epoch_stale"
+	KeyChildrenNotTerminal     = "err.matter.children_not_terminal"
+	KeyBlockReasonRequired     = "err.matter.block_reason_required"
+	KeyNoSelfAcceptance        = "err.matter.no_self_acceptance"
+	KeyOnlyAcceptanceAuthority = "err.matter.only_acceptance_authority"
+	KeyTransitionNotAllowed    = "err.matter.transition_not_allowed"
+	KeyParentNotFound          = "err.matter.parent_not_found"
+	KeyModeInvalid             = "err.matter.mode_invalid"
+	KeyExecutorNotOwnBot       = "err.matter.executor_not_own_bot"
+	KeyCronInvalid             = "err.matter.cron_invalid"
+	KeyFeedbackUsersOnly       = "err.matter.feedback_users_only"
+	KeyLLMNotConfigured        = "err.llm.not_configured"
+	KeySummaryOnlyCreator      = "err.matter.summary_only_creator"
+
+	// Doorbells (params: Title, Seq, Actor, Edge, Reason)
+	KeyDoorbellAssigned        = "notify.doorbell.assigned"
+	KeyDoorbellHandedBack      = "notify.doorbell.handed_back"
+	KeyDoorbellChildHandedBack = "notify.doorbell.child_handed_back"
+	KeyDoorbellNextSegment     = "notify.doorbell.next_segment"
+	KeyDoorbellVerify          = "notify.doorbell.verify"
+	KeyDoorbellSentBack        = "notify.doorbell.sent_back"
+	KeyDoorbellFeedback        = "notify.doorbell.feedback"
+	KeyDoorbellBlocked         = "notify.doorbell.blocked"
+	KeyDoorbellCancelled       = "notify.doorbell.cancelled"
+	KeyDoorbellReassigned      = "notify.doorbell.reassigned"
+	KeyDoorbellDone            = "notify.doorbell.done"
+	KeyDoorbellRevive          = "notify.doorbell.revive"
+	KeyDoorbellWatchdogBlocked = "notify.doorbell.watchdog_blocked"
+	KeyDoorbellSchedule        = "notify.doorbell.schedule"
+)

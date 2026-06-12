@@ -14,16 +14,28 @@ import (
 )
 
 type MatterHandler struct {
-	svc      *service.MatterService
-	notifier notification.Notifier
-	worker   *notification.Worker
+	svc        *service.MatterService
+	v2         *service.V2Service
+	transition *service.TransitionService
+	notifier   notification.Notifier
+	worker     *notification.Worker
 }
 
-func NewMatterHandler(svc *service.MatterService, notifier notification.Notifier, worker *notification.Worker) *MatterHandler {
+func NewMatterHandler(svc *service.MatterService, v2 *service.V2Service, transition *service.TransitionService, notifier notification.Notifier, worker *notification.Worker) *MatterHandler {
 	if notifier == nil {
 		notifier = notification.Noop{}
 	}
-	return &MatterHandler{svc: svc, notifier: notifier, worker: worker}
+	return &MatterHandler{svc: svc, v2: v2, transition: transition, notifier: notifier, worker: worker}
+}
+
+// consumeDoorbells marks live doorbells for this caller consumed — any
+// authenticated read/write of a matter counts (doc 02.5 “已消费”定义).
+// Strictly the caller's own identity: an owner peeking at the matter must
+// not silence the agent's doorbell (and vice versa).
+func (h *MatterHandler) consumeDoorbells(c *gin.Context, matterID string) {
+	if h.v2 != nil {
+		h.v2.ConsumeDoorbells(c.Request.Context(), matterID, []string{uid(c)})
+	}
 }
 
 // createMatterSourceMsgRef accepts the client's existing payload shape — the
@@ -37,7 +49,16 @@ type createMatterSourceMsgRef struct {
 type createMatterReq struct {
 	Title             string   `json:"title" binding:"required,max=500"`
 	Description       *string  `json:"description" binding:"omitempty,max=10000"`
+	BriefConstraints  *string  `json:"brief_constraints" binding:"omitempty,max=4000"`
+	BriefOutputSpec   *string  `json:"brief_output_spec" binding:"omitempty,max=4000"`
 	AssigneeIDs       []string `json:"assignee_ids"`
+	LeaderUID         *string  `json:"leader_uid" binding:"omitempty,max=64"`
+	ParentMatterID    *string  `json:"parent_matter_id" binding:"omitempty,uuid"`
+	StepID            *string  `json:"step_id" binding:"omitempty,max=64"`
+	StepOrder         *uint    `json:"step_order"`
+	Mode              *string  `json:"mode" binding:"omitempty,max=20"`
+	ProjectID         *string  `json:"project_id" binding:"omitempty,uuid"`
+	ExpectedDuration  *uint    `json:"expected_duration_minutes"`
 	Deadline          *string  `json:"deadline"`
 	RemindAt          *string  `json:"remind_at"`
 	SourceChannelID   *string  `json:"source_channel_id"`
@@ -89,7 +110,16 @@ func (h *MatterHandler) Create(c *gin.Context) {
 		SpaceID:           sid,
 		Title:             req.Title,
 		Description:       req.Description,
+		BriefConstraints:  req.BriefConstraints,
+		BriefOutputSpec:   req.BriefOutputSpec,
 		CreatorID:         userID,
+		LeaderUID:         req.LeaderUID,
+		ParentMatterID:    req.ParentMatterID,
+		StepID:            req.StepID,
+		StepOrder:         req.StepOrder,
+		Mode:              req.Mode,
+		ProjectID:         req.ProjectID,
+		ExpectedDuration:  req.ExpectedDuration,
 		SourceChannelID:   req.SourceChannelID,
 		SourceChannelType: req.SourceChannelType,
 		SourceName:        req.SourceName,
@@ -120,10 +150,31 @@ func (h *MatterHandler) Create(c *gin.Context) {
 			return
 		}
 	}
+	// v2: mode/project validation, parent access, dispatch idempotency
+	// ((parent_id, step_id) already dispatched → return the existing row).
+	if h.v2 != nil {
+		existing, err := h.v2.PrepareCreate(c.Request.Context(), matter, effectiveCallerUIDs(c), callerToken(c))
+		if err != nil {
+			respondErr(c, err)
+			return
+		}
+		if existing != nil {
+			detail, err := h.svc.GetMatter(c.Request.Context(), existing.ID, sid, effectiveCallerUIDs(c), "", callerToken(c))
+			if err != nil {
+				respondErr(c, err)
+				return
+			}
+			ok(c, detail)
+			return
+		}
+	}
 	detail, err := h.svc.CreateMatterWithAssignees(c.Request.Context(), matter, req.AssigneeIDs)
 	if err != nil {
 		respondErr(c, err)
 		return
+	}
+	if h.v2 != nil {
+		h.v2.AfterCreate(c.Request.Context(), matter, userID, req.AssigneeIDs)
 	}
 	actorName := userName(c)
 	h.worker.Submit(func() {
@@ -175,6 +226,36 @@ func (h *MatterHandler) List(c *gin.Context) {
 	if query != "" {
 		filter.Query = &query
 	}
+	if leaderID := c.Query("leader_id"); leaderID != "" {
+		if leaderID == "me" {
+			leaderID = uid(c)
+		}
+		filter.LeaderID = &leaderID
+	}
+	if parentID := c.Query("parent_id"); parentID != "" {
+		if !validUUID(parentID) {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+			return
+		}
+		filter.ParentID = &parentID
+	}
+	if c.Query("top_level") == "1" {
+		filter.TopLevelOnly = true
+	}
+	if projectID := c.Query("project_id"); projectID != "" {
+		if !validUUID(projectID) {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+			return
+		}
+		filter.ProjectID = &projectID
+	}
+	if scheduleID := c.Query("schedule_id"); scheduleID != "" {
+		if !validUUID(scheduleID) {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+			return
+		}
+		filter.ScheduleID = &scheduleID
+	}
 	if sourceChannelID != "" {
 		filter.SourceChannelID = &sourceChannelID
 	}
@@ -207,14 +288,21 @@ func (h *MatterHandler) Get(c *gin.Context) {
 		respondErr(c, err)
 		return
 	}
+	h.consumeDoorbells(c, id)
 	ok(c, detail)
 }
 
 type updateMatterReq struct {
-	Title       *string `json:"title" binding:"omitempty,max=500"`
-	Description *string `json:"description" binding:"omitempty,max=10000"`
-	Deadline    *string `json:"deadline"`
-	RemindAt    *string `json:"remind_at"`
+	Title            *string `json:"title" binding:"omitempty,max=500"`
+	Description      *string `json:"description" binding:"omitempty,max=10000"`
+	BriefConstraints *string `json:"brief_constraints" binding:"omitempty,max=4000"`
+	BriefOutputSpec  *string `json:"brief_output_spec" binding:"omitempty,max=4000"`
+	Deadline         *string `json:"deadline"`
+	RemindAt         *string `json:"remind_at"`
+	LeaderUID        *string `json:"leader_uid" binding:"omitempty,max=64"`
+	Mode             *string `json:"mode" binding:"omitempty,max=20"`
+	ProjectID        *string `json:"project_id" binding:"omitempty,max=36"`
+	ExpectedDuration *uint   `json:"expected_duration_minutes"`
 }
 
 func (h *MatterHandler) Update(c *gin.Context) {
@@ -233,11 +321,35 @@ func (h *MatterHandler) Update(c *gin.Context) {
 		respondErr(c, err)
 		return
 	}
+	if h.v2 != nil && (req.Mode != nil || req.ProjectID != nil || req.ExpectedDuration != nil ||
+		req.BriefConstraints != nil || req.BriefOutputSpec != nil) {
+		matter, err = h.v2.UpdateMeta(c.Request.Context(), id, spaceID(c), relatedUIDs(c), service.MetaUpdate{
+			Mode: req.Mode, ProjectID: req.ProjectID, Duration: req.ExpectedDuration,
+			BriefConstraints: req.BriefConstraints, BriefOutputSpec: req.BriefOutputSpec,
+		})
+		if err != nil {
+			respondErr(c, err)
+			return
+		}
+	}
+	// Leader change is a reassignment: epoch fencing + doorbells (doc 02.5).
+	if h.v2 != nil && req.LeaderUID != nil {
+		matter, err = h.v2.ReassignLeader(c.Request.Context(), id, spaceID(c), relatedUIDs(c), uid(c), req.LeaderUID)
+		if err != nil {
+			respondErr(c, err)
+			return
+		}
+	}
+	h.consumeDoorbells(c, id)
 	ok(c, matter)
 }
 
 type transitionReq struct {
-	Status string `json:"status" binding:"required"`
+	Status          string  `json:"status" binding:"required"`
+	ExpectedVersion *int64  `json:"expected_version"`
+	AssignmentEpoch *uint   `json:"assignment_epoch"`
+	Reason          string  `json:"reason" binding:"omitempty,max=500"`
+	Summary         string  `json:"summary" binding:"omitempty,max=2000"`
 }
 
 func (h *MatterHandler) Transition(c *gin.Context) {
@@ -255,11 +367,28 @@ func (h *MatterHandler) Transition(c *gin.Context) {
 		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyStatusInvalid, nil)
 		return
 	}
-	detail, err := h.svc.SetStatus(c.Request.Context(), id, spaceID(c), relatedUIDs(c), model.MatterStatus(req.Status))
+	_, err := h.transition.Apply(c.Request.Context(), service.TransitionInput{
+		MatterID:        id,
+		SpaceID:         spaceID(c),
+		Target:          model.MatterStatus(req.Status),
+		ActorUID:        uid(c),
+		CallerUIDs:      effectiveCallerUIDs(c),
+		IsBot:           c.GetString("role") == "bot",
+		ExpectedVersion: req.ExpectedVersion,
+		AssignmentEpoch: req.AssignmentEpoch,
+		Reason:          req.Reason,
+		Summary:         req.Summary,
+	})
 	if err != nil {
 		respondErr(c, err)
 		return
 	}
+	detail, err := h.svc.GetMatter(c.Request.Context(), id, spaceID(c), relatedUIDs(c), "", callerToken(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	h.consumeDoorbells(c, id)
 	actorUID := uid(c)
 	actorName := userName(c)
 	aIDs := make([]string, 0, len(detail.Assignees))

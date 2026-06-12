@@ -352,9 +352,18 @@ func (s *MatterService) RequireChannelMember(ctx context.Context, callerToken, c
 // assignee / participant. Defense-in-depth: even a leaked bot token cannot
 // pivot through a known/guessed channel id.
 func (s *MatterService) canAccessMatter(ctx context.Context, matter *model.Matter, callerUIDs []string, channelID, callerToken string) (bool, error) {
-	// Fast path: creator check is in-memory, no DB or IM call needed.
+	// Fast path: creator/leader checks are in-memory, no DB or IM call needed.
+	// leader_uid is a first-class responsible role (v2): a leader-only bot
+	// must be able to read the matter it is authorized to transition.
 	if s.isCreator(matter, callerUIDs) {
 		return true, nil
+	}
+	if matter.LeaderUID != nil {
+		for _, uid := range callerUIDs {
+			if uid == *matter.LeaderUID {
+				return true, nil
+			}
+		}
 	}
 
 	effectiveChannel := ""

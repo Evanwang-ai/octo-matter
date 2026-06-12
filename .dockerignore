@@ -1,6 +1,10 @@
-# Internal design docs — not needed in build context
+# Internal design docs — not needed in build context.
+# EXCEPTIONS: docs/SKILL.md + docs/embed.go are compiled into the binary
+# (served at GET /skill.md), and the embedded webui/i18n assets must stay.
 *.md
-docs/
+docs/*
+!docs/SKILL.md
+!docs/embed.go
 
 # VCS metadata
 .git
