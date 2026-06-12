@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Mininglamp-OSS/octo-matter/internal/i18n"
 	"github.com/Mininglamp-OSS/octo-matter/internal/model"
@@ -180,6 +181,27 @@ func (h *MatterHandler) Create(c *gin.Context) {
 	// Source-channel link gate: user path must be
 	// IM-verified channel member; bot path is allowed (one-shot trust at
 	// matter creation — bot cannot expand channel links on existing matters).
+	// Robustness for bot creators (P3 applies to agents too):
+	// - channel adapters normalize account ids to lowercase (#33) and that
+	//   leaks into agent self-references; canonicalize self-referencing
+	//   leader/assignee uids back to the AUTH-verified casing.
+	// - a source conversation without its channel_type silently disables
+	//   homecoming; group is the only picker-able kind, default it.
+	if c.GetString("role") == "bot" {
+		self := userID
+		if matter.LeaderUID != nil && *matter.LeaderUID != self && strings.EqualFold(*matter.LeaderUID, self) {
+			matter.LeaderUID = &self
+		}
+		for i := range req.AssigneeIDs {
+			if req.AssigneeIDs[i] != self && strings.EqualFold(req.AssigneeIDs[i], self) {
+				req.AssigneeIDs[i] = self
+			}
+		}
+		if matter.SourceChannelID != nil && *matter.SourceChannelID != "" && matter.SourceChannelType == nil {
+			groupType := uint8(2)
+			matter.SourceChannelType = &groupType
+		}
+	}
 	if matter.SourceChannelID != nil && *matter.SourceChannelID != "" {
 		if err := h.svc.RequireChannelMember(c.Request.Context(), callerToken(c), *matter.SourceChannelID, relatedUIDs(c)); err != nil {
 			respondErr(c, err)
