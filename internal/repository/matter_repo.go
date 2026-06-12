@@ -122,7 +122,10 @@ func (r *MatterRepo) ListBySpace(ctx context.Context, spaceID string, filter Mat
 		limit = 20
 	}
 
-	q := r.runner.Select("*").
+	// has_children rides along so list rows can render the expander only
+	// where it can actually expand (UI 小白原则: 没有就不画按钮).
+	q := r.runner.Select("*",
+		"EXISTS (SELECT 1 FROM matters c WHERE c.parent_matter_id = matters.id AND c.deleted_at IS NULL) AS has_children").
 		From("matters").
 		Where("space_id = ? AND deleted_at IS NULL", spaceID)
 

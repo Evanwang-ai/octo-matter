@@ -100,9 +100,12 @@ type Matter struct {
 	// clients can rely on the field being present: NULL rows and explicit
 	// empty rows both render `[]`.
 	SourceMsgIDs JSONStringSlice `db:"source_msg_ids" json:"source_msgs"`
-	CreatedAt    time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time       `db:"updated_at" json:"updated_at"`
-	DeletedAt    *time.Time      `db:"deleted_at" json:"deleted_at,omitempty"`
+	// Derived by list queries only (EXISTS over children); zero elsewhere.
+	// Lets list rows show the expander only where expanding does anything.
+	HasChildren bool       `db:"has_children" json:"has_children"`
+	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time  `db:"updated_at" json:"updated_at"`
+	DeletedAt   *time.Time `db:"deleted_at" json:"deleted_at,omitempty"`
 }
 
 // LeaderOrEmpty returns the leader uid or "".

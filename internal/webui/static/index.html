@@ -785,6 +785,17 @@
   .r-name .r-time { font-family: var(--mono); font-size: 10.5px; font-weight: 500; color: var(--text-3); flex: 0 0 auto; }
   .report-body { padding: 10px 12px 14px; }
   .r-text { font-size: 13.5px; line-height: 1.68; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+  /* markdown 渲染容器:块级排版接管换行,关掉 pre-wrap 以免双重空行 */
+  .md { white-space: normal; }
+  .md .md-h { margin: 10px 0 4px; font-weight: 650; line-height: 1.4; }
+  .md h4.md-h { font-size: 14.5px; } .md h5.md-h { font-size: 13.5px; } .md h6.md-h { font-size: 13px; }
+  .md .md-list { margin: 4px 0 4px 2px; padding-left: 20px; }
+  .md .md-list li { margin: 2px 0; }
+  .md .md-code { background: var(--chip, #f1f2f4); border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, monospace; font-size: 12.5px; }
+  .md .md-pre { background: var(--chip, #f1f2f4); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font-family: ui-monospace, monospace; font-size: 12.5px; line-height: 1.6; white-space: pre; margin: 6px 0; }
+  .md .md-gap { height: 8px; }
+  .md a { color: var(--accent, #2563eb); text-decoration: none; }
+  .md a:hover { text-decoration: underline; }
   .attach-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
   .file-chip {
     display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
@@ -1444,6 +1455,38 @@ function esc(s){
 }
 function pad2(n){ return String(n).padStart(2, "0"); }
 
+/* 安全 Markdown 渲染:先 esc 全文再做行级变换,杜绝 XSS;只支持常用子集
+   (标题/加粗/斜体/行内码/围栏码块/无序·有序列表/http 链接/换行)。 */
+function mdHTML(src){
+  var t = esc(src);
+  if (!t) return "";
+  t = t.replace(/```([\s\S]*?)```/g, function(_, code){
+    return "<pre class=\"md-pre\">" + code.replace(/^\n+|\n+$/g, "") + "</pre>";
+  });
+  var lines = t.split("\n");
+  var out = [], list = null;
+  function closeList(){ if (list){ out.push("</" + list + ">"); list = null; } }
+  lines.forEach(function(ln){
+    if (/^<pre/.test(ln) || /<\/pre>$/.test(ln)){ closeList(); out.push(ln); return; }
+    var inline = ln
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>")
+      .replace(/`([^`]+)`/g, "<code class=\"md-code\">$1</code>")
+      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, "<a href=\"$2\" target=\"_blank\" rel=\"noopener noreferrer\">$1</a>");
+    var h = inline.match(/^(#{1,4})\s+(.*)$/);
+    if (h){ closeList(); var lv = Math.min(h[1].length + 3, 6); out.push("<h" + lv + " class=\"md-h\">" + h[2] + "</h" + lv + ">"); return; }
+    var ul = inline.match(/^\s*[-*]\s+(.*)$/);
+    if (ul){ if (list !== "ul"){ closeList(); out.push("<ul class=\"md-list\">"); list = "ul"; } out.push("<li>" + ul[1] + "</li>"); return; }
+    var ol = inline.match(/^\s*\d+[.、)]\s+(.*)$/);
+    if (ol){ if (list !== "ol"){ closeList(); out.push("<ol class=\"md-list\">"); list = "ol"; } out.push("<li>" + ol[1] + "</li>"); return; }
+    closeList();
+    if (inline.trim() === ""){ out.push("<div class=\"md-gap\"></div>"); return; }
+    out.push("<div>" + inline + "</div>");
+  });
+  closeList();
+  return '<div class="md">' + out.join("") + "</div>";
+}
+
 /* ---------------- auth ---------------- */
 var auth = { token: "", uid: "", name: "", space: "" };
 function loadAuth(){
@@ -2005,10 +2048,10 @@ function matchSearch(m, q){
 }
 function rowHTML(m, opts){
   opts = opts || {};
-  // 乐观显示展开箭头:探测过且确实没有子事项的行,箭头才消失(贴近原型 05 的观感)
+  // 有子事项才画展开箭头(服务端 has_children 派生;小白原则:没有就不画)
   var probed = cache.children[m.id];
   var canExpand = !opts.child && !opts.noExpand && !opts.flat && !m.parent_matter_id
-    && !(probed !== undefined && !probed.length);
+    && (m.has_children === true || (probed && probed.length > 0));
   var isOpen = !!expandedRows[m.id];
   var exp = canExpand
     ? '<button class="row-exp" type="button" data-expand="' + esc(m.id) + '" title="看子事项" aria-expanded="' + isOpen + '">' + (isOpen ? "▾" : "▸") + "</button>"
@@ -3189,7 +3232,7 @@ function briefHTML(m){
   return '<div class="block"><div class="brief">'
     + (goal ? '<div class="goal-line">目标: ' + esc(goal) + "</div>" : '<div class="free-text none">没写描述 — 只有标题这一句</div>')
     + srcLine
-    + (rest ? '<div class="brief-rest">' + esc(rest) + "</div>" : "")
+    + (rest ? '<div class="brief-rest">' + mdHTML(rest) + "</div>" : "")
     + (m.brief_constraints ? '<div class="constraint-label">硬约束</div>' + (bulletsHTML(m.brief_constraints) || '<div class="brief-rest" style="margin-top:0">' + esc(m.brief_constraints) + "</div>") : "")
     + (m.brief_output_spec ? '<div class="constraint-label">输出要求</div>' + (bulletsHTML(m.brief_output_spec) || '<div class="brief-rest" style="margin-top:0">' + esc(m.brief_output_spec) + "</div>") : "")
     + metas + "</div></div>";
@@ -3365,7 +3408,7 @@ function timelineBlockHTML(m){
           var label = a.file_name || a.description || "附件";
           return '<a class="file-chip" href="' + esc(a.file_url || "#") + '" target="_blank" rel="noopener noreferrer"><span class="fic">📎</span><span class="fnm">' + esc(label) + "</span></a>";
         }).join("");
-        body = (e.content ? '<div class="r-text">' + esc(e.content) + "</div>" : "")
+        body = (e.content ? '<div class="r-text">' + mdHTML(e.content) + "</div>" : "")
           + (atts ? '<div class="attach-row">' + atts + "</div>" : "");
       }
       return '<div class="report">'
@@ -3439,10 +3482,39 @@ function bindDetail(my){
   if (ann) ann.addEventListener("click", function(){
     toast("在产出文字上划选即可圈一笔", { icon: "✏️" });
   });
+  function parseMentions(text){
+    var hits = [];
+    var list = (members && members.list) || [];
+    list.forEach(function(it){
+      if (!it || !it.uid) return;
+      var nm = it.name || it.uid;
+      var idx = text.indexOf("@" + nm);
+      if (idx >= 0) hits.push({ uid: it.uid, pos: idx, name: nm });
+    });
+    hits.sort(function(a, b){ return a.pos - b.pos; });
+    return hits;
+  }
   function doSendTimeline(){
     var v = ta.value.trim();
     if (!v){ toast("写点什么再发"); ta.focus(); return; }
     send.disabled = true; send.textContent = "发送中…";
+    // @ 了人,或事项在审核中 ⇒ 这是一条反馈(taste 信号):走 feedback,
+    // 服务端会敲对方门铃、审核中自动打回。否则只是记一笔动态(timeline)。
+    var mentions = parseMentions(v);
+    var asFeedback = mentions.length > 0 || (cur.m && cur.m.status === "review");
+    var done = function(){ send.disabled = false; send.textContent = "发送"; };
+    if (asFeedback){
+      var body = { content: v };
+      if (mentions.length) body.target_uid = mentions[0].uid;
+      api("/matters/" + cur.id + "/feedback", { method: "POST", body: body }).then(function(resp){
+        ta.value = ""; autoGrow();
+        var flipped = resp && resp.matter_status === "in_progress" && cur.m.status === "review";
+        var who = mentions.length ? mentions[0].name : uname((cur.m && cur.m.leader) || "");
+        toast(flipped ? "已替你打回去重做 — 门铃已敲给 " + who : (who ? "记下了 — 门铃已敲给 " + who : "记下了"), { icon: "✏️" });
+        render();
+      }).catch(errToast).then(done);
+      return;
+    }
     api("/matters/" + cur.id + "/timeline", { method: "POST", body: { content: v } }).then(function(){
       ta.value = ""; autoGrow();
       return api("/matters/" + cur.id + "/timeline", { params: { limit: 100 } }).then(function(json){
