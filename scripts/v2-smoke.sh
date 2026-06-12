@@ -214,6 +214,23 @@ say "agent card + manual send-back (新增面)"
 if [ -n "$BOT_UID" ]; then
   AC=$(curl -s "${H[@]}" "$API/agent-cards/$BOT_UID")
   echo "$AC" | grep -q '"earned"' && okay "agent card merges earned half" || bad "agent card: $(echo "$AC"|head -c 120)"
+  # Preference rules must carry their content so the UI shows WHAT the bot
+  # learned, not just file names. Soft check: a preference WITHOUT content is a
+  # regression once the content-bearing build ships; pre-deploy it just informs.
+  PREF_CONTENT=$(echo "$AC" | python3 -c "
+import json,sys
+try: d=json.load(sys.stdin)
+except: print('PARSE'); sys.exit()
+prefs=(d.get('earned') or {}).get('preferences') or []
+if not prefs: print('NONE')
+elif any(p.get('content') for p in prefs): print('HAS')
+else: print('EMPTY')" 2>/dev/null || echo PARSE)
+  case "$PREF_CONTENT" in
+    HAS)   okay "agent card preferences carry their distilled rule (content)";;
+    EMPTY) echo "  ℹ️ preferences present but content empty — content-bearing build not deployed yet";;
+    NONE)  echo "  ℹ️ no authorized preferences for this bot yet";;
+    *)     echo "  ℹ️ preference content check skipped (parse)";;
+  esac
 fi
 # Sovereignty chain: members API must surface owner_uid for bots, else the
 # UI can never tell who owns a bot and the card editor stays unreachable.
