@@ -4601,6 +4601,10 @@ function openCardEditor(uidStr){
       + '<div class="matter-field"><label>介绍</label><textarea class="matter-textarea" id="ceDesc" maxlength="4000" placeholder="它是干嘛的、什么活儿该找它">' + esc(d.description || "") + "</textarea></div>"
       + '<div class="matter-field"><label>技能(每行一条)</label><textarea class="matter-textarea" id="ceSkills" placeholder="整理文档\n数据统计">' + esc((d.skills || []).join("\n")) + "</textarea></div>"
       + '<div class="matter-field"><label>能连的系统(每行一条)</label><textarea class="matter-textarea" id="ceSys">' + esc((d.systems || []).join("\n")) + "</textarea></div>"
+      + '<div class="matter-field"><label>这张名片谁能看</label><select class="matter-select" id="ceVis">'
+      + '<option value="space"' + (d.visibility === "private" ? "" : " selected") + ">空间里的同事都能看</option>"
+      + '<option value="private"' + (d.visibility === "private" ? " selected" : "") + ">只有我自己能看</option>"
+      + '</select><div class="hint">挣得的战绩(完成数、段位)一直公开,这里只管你手写的这半张</div></div>'
       + "</div></div>"
       + '<div class="modal-foot"><div class="matter-error" id="ceErr" style="margin-right:auto"></div>'
       + '<button class="ff-cancel" id="ceCancel" type="button">取消</button>'
