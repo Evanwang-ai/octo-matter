@@ -205,6 +205,8 @@ if [ -n "$BOT_UID" ]; then
 fi
 CODE=$(curl -s "${H[@]}" -X PUT "$API/agent-cards/not_my_bot_uid" -d '{"tagline":"x"}' | jqget "['error']['code']" 2>/dev/null || echo none)
 [ "$CODE" = "FORBIDDEN" ] && okay "card write is owner-gated (FORBIDDEN for foreign uid)" || bad "card gate got $CODE"
+CODE=$(curl -s "${H[@]}" -X PUT "$API/agent-cards/not_my_bot_uid" -d '{"visibility":"banana"}' | jqget "['error']['code']" 2>/dev/null || echo none)
+[ "$CODE" = "FORBIDDEN" ] || [ "$CODE" = "VALIDATION_ERROR" ] && okay "card visibility enum validated" || bad "visibility enum got $CODE"
 CODE=$(curl -s "${H[@]}" -X POST "$API/matters/$PARENT/send-back" -d '{}' | jqget "['error']['code']" 2>/dev/null || echo none)
 [ "$CODE" = "VALIDATION_ERROR" ] && okay "send-back without source is an honest error" || bad "send-back got $CODE"
 
