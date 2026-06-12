@@ -92,6 +92,9 @@ octo-cli api GET /api/v1/agent-cards/<bot_uid>
 (同题多路,必须互盲)/ `roundtable` 圆桌(互见)/ `pipeline` 流水线(k 交回自动
 ring k+1)/ `critic` 生成-验证(验方有否决权)。
 
+**critic 铁律**:生成方和验证方必须是不同的 agent(自查不算验证——完成限权的精神)。
+没派验证子单就汇总交回 = 违约;验证方人选从 agent-cards 名片里挑。
+
 ```bash
 # 派活(幂等键 = parent + step_id:重复执行返回同一单,放心重试)
 octo-cli api POST /api/v1/matters --data '{
