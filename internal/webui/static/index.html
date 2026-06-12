@@ -4600,7 +4600,7 @@ function openAgentCard(uidStr){
     }
     var btns = [];
     if (onDetail) btns.push('<button class="ac-btn primary" id="acMention" type="button">@ 到当前事项</button>');
-    if (bot) btns.push('<button class="ac-btn" id="acChat" type="button">打开会话</button>');
+
     if (btns.length) html += '<div class="ac-actions">' + btns.join("") + "</div>";
     $("#acBody").innerHTML = html;
     $$("[data-open-matter]", mo).forEach(function(el){
@@ -4620,8 +4620,6 @@ function openAgentCard(uidStr){
       }
       ta.focus();
     });
-    var ac = $("#acChat");
-    if (ac) ac.addEventListener("click", function(){ toast("打开会话:接口未接"); });
     if (bot){
       api("/agent-cards/" + encodeURIComponent(uidStr)).then(function(v){
         var d = v && v.declared;
