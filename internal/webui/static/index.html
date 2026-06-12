@@ -3882,7 +3882,10 @@ function bindInspector(){
   if (distill) distill.addEventListener("click", function(){ openSummaryFlow(cur.id); });
   var srcSend = $("#srcSendBtn");
   if (srcSend) srcSend.addEventListener("click", function(){
-    toast("发回来源会话:接口未接");
+    srcSend.disabled = true;
+    api("/matters/" + cur.id + "/send-back", { method: "POST", body: {} }).then(function(){
+      toast("发回去了 — " + (cur.m.source_name || "来源会话") + "里马上能看到", { icon: "📨" });
+    }).catch(errToast).then(function(){ srcSend.disabled = false; });
   });
   var more = $("#trailMore");
   if (more) more.addEventListener("click", function(){

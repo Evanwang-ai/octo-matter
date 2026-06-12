@@ -274,6 +274,12 @@ other = "🧠「{{.Title}}」验收通过 — 该沉淀偏好了:回看这单的
 [notify.doorbell.context_added]
 other = "📎 项目「{{.Title}}」新增共享上下文「{{.Source}}」(project_id={{.ProjectID}}) — 看看是否影响你手头的活,没影响就不用动"
 
+[err.matter.sendback_no_source]
+other = "这单没有来源会话 — 不知道该发回哪里"
+
+[err.matter.sendback_no_bot]
+other = "这单的负责人不是 bot — 没有可代言的身份发回群里"
+
 [notify.doorbell.revive]
 other = "🔔「{{.Title}}」还等着处理(提醒)"
 

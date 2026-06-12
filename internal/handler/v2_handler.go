@@ -592,3 +592,19 @@ func (h *V2Handler) AgentCardPut(c *gin.Context) {
 	}
 	ok(c, view)
 }
+
+// SendBack manually posts the matter's progress into its source conversation
+// (PRD §5: 完成时先提供手动「发回」). Same delivery leg as auto-homecoming —
+// an outbox row the dispatcher posts AS the responsible bot.
+func (h *V2Handler) SendBack(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if err := h.v2.SendBack(c.Request.Context(), id, spaceID(c), relatedUIDs(c), uid(c)); err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, gin.H{"status": "queued"})
+}

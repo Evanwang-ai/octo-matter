@@ -870,3 +870,33 @@ func (s *V2Service) GetAgentCard(ctx context.Context, spaceID, botUID string) (*
 func (s *V2Service) PutAgentCard(ctx context.Context, card *model.MatterAgentCard) error {
 	return s.cards.Upsert(ctx, card)
 }
+
+// SendBack queues a manual homecoming post (PRD 手动「发回」钮). Needs a
+// source conversation and a bot to speak as; honest errors otherwise.
+func (s *V2Service) SendBack(ctx context.Context, id, spaceID string, callerUIDs []string, actorUID string) error {
+	m, err := s.matters.GetByID(ctx, id, spaceID)
+	if err != nil {
+		return err
+	}
+	canAccess, err := s.matterSvc.CanAccessMatter(ctx, m, callerUIDs, "", "")
+	if err != nil {
+		return err
+	}
+	if !canAccess {
+		return apperr.Forbidden(i18n.KeyMatterView)
+	}
+	if m.SourceChannelID == nil || *m.SourceChannelID == "" || m.SourceChannelType == nil {
+		return apperr.InvalidInput(i18n.KeySendBackNoSource)
+	}
+	speaker := m.LeaderOrEmpty()
+	if !strings.HasSuffix(speaker, "_bot") {
+		return apperr.InvalidInput(i18n.KeySendBackNoBot)
+	}
+	params := map[string]any{
+		"Title": m.Title, "Seq": m.SeqNo,
+		"Edge":       "->" + string(m.Status), // reuse homecoming text routing
+		"channel_id": *m.SourceChannelID, "channel_type": *m.SourceChannelType,
+		"creator_id": m.CreatorID, "Actor": actorUID,
+	}
+	return s.transition.EnqueueStandalone(ctx, m, actorUID, speaker, DoorbellHomecoming, "", params)
+}

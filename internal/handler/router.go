@@ -118,6 +118,7 @@ func SetupRouter(
 			matters.POST("/:id/touch", v2H.Touch)
 			matters.GET("/:id/tree", v2H.Tree)
 			matters.POST("/:id/join", v2H.Join)
+			matters.POST("/:id/send-back", v2H.SendBack)
 			matters.POST("/:id/summary", v2H.GenerateSummary)
 			matters.GET("/:id/summary", v2H.GetSummary)
 			matters.PUT("/:id/summary/:sid", v2H.ResolveSummary)

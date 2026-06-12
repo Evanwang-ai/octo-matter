@@ -128,4 +128,8 @@ const (
 	KeyDoorbellWatchdogBlocked = "notify.doorbell.watchdog_blocked"
 	KeyDoorbellSchedule        = "notify.doorbell.schedule"
 	KeyDoorbellContextAdded    = "notify.doorbell.context_added"
+
+	// Manual send-back validation
+	KeySendBackNoSource = "err.matter.sendback_no_source"
+	KeySendBackNoBot    = "err.matter.sendback_no_bot"
 )
