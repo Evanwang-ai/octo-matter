@@ -608,3 +608,14 @@ func (h *V2Handler) SendBack(c *gin.Context) {
 	}
 	ok(c, gin.H{"status": "queued"})
 }
+
+// AgentCardList is the dispatch roster (名册): every declared card in the
+// space, one call. Earned halves are fetched per-uid when needed.
+func (h *V2Handler) AgentCardList(c *gin.Context) {
+	cards, err := h.v2.ListAgentCards(c.Request.Context(), spaceID(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, gin.H{"data": cards})
+}

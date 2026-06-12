@@ -900,3 +900,8 @@ func (s *V2Service) SendBack(ctx context.Context, id, spaceID string, callerUIDs
 	}
 	return s.transition.EnqueueStandalone(ctx, m, actorUID, speaker, DoorbellHomecoming, "", params)
 }
+
+// ListAgentCards returns the declared roster for the space.
+func (s *V2Service) ListAgentCards(ctx context.Context, spaceID string) ([]*model.MatterAgentCard, error) {
+	return s.cards.ListBySpace(ctx, spaceID)
+}

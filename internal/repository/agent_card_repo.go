@@ -46,3 +46,16 @@ func (r *AgentCardRepo) Upsert(ctx context.Context, c *model.MatterAgentCard) er
 	).ExecContext(ctx)
 	return err
 }
+
+// ListBySpace returns every declared card in the space — the 名册 a leader
+// reads before dispatching (one call instead of N).
+func (r *AgentCardRepo) ListBySpace(ctx context.Context, spaceID string) ([]*model.MatterAgentCard, error) {
+	var out []*model.MatterAgentCard
+	_, err := r.runner.Select("*").From("matter_agent_cards").
+		Where("space_id = ?", spaceID).OrderBy("updated_at DESC").
+		LoadContext(ctx, &out)
+	if out == nil {
+		out = []*model.MatterAgentCard{}
+	}
+	return out, err
+}

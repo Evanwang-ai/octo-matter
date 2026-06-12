@@ -147,6 +147,7 @@ func SetupRouter(
 		}
 		api.GET("/agents/stats", v2H.AgentStats)
 		// AgentCard: 声明半 creator 可写, 全空间可读; 赚来半永远派生
+		api.GET("/agent-cards", v2H.AgentCardList)
 		api.GET("/agent-cards/:uid", v2H.AgentCardGet)
 		api.PUT("/agent-cards/:uid", v2H.AgentCardPut)
 	}

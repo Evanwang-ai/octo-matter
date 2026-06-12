@@ -84,8 +84,8 @@ octo-cli api GET /api/v1/matters/<id>/feedback     # content=哪儿不对怎么�
 别为了「像个团队」而拆。要拆时先看候选 agent 的名片再决定派给谁:
 
 ```bash
-octo-cli api GET /api/v1/agent-cards/<bot_uid>
-# declared.skills = 主人声明的技能;earned.done = 真实验收战绩
+octo-cli api GET /api/v1/agent-cards            # 全名册(一次拿所有名片)
+octo-cli api GET /api/v1/agent-cards/<bot_uid>   # 单张(declared 技能 + earned 战绩)
 ```
 
 父单 `mode` 决定信息传递机制:`split` 分头干(各管一片,互盲)/ `swarm` 撒网
