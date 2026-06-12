@@ -198,6 +198,16 @@ else
   echo "  ℹ️ no bot in space — output_mode path covered by unit/IT only"
 fi
 
+say "agent card + manual send-back (新增面)"
+if [ -n "$BOT_UID" ]; then
+  AC=$(curl -s "${H[@]}" "$API/agent-cards/$BOT_UID")
+  echo "$AC" | grep -q '"earned"' && okay "agent card merges earned half" || bad "agent card: $(echo "$AC"|head -c 120)"
+fi
+CODE=$(curl -s "${H[@]}" -X PUT "$API/agent-cards/not_my_bot_uid" -d '{"tagline":"x"}' | jqget "['error']['code']" 2>/dev/null || echo none)
+[ "$CODE" = "FORBIDDEN" ] && okay "card write is owner-gated (FORBIDDEN for foreign uid)" || bad "card gate got $CODE"
+CODE=$(curl -s "${H[@]}" -X POST "$API/matters/$PARENT/send-back" -d '{}' | jqget "['error']['code']" 2>/dev/null || echo none)
+[ "$CODE" = "VALIDATION_ERROR" ] && okay "send-back without source is an honest error" || bad "send-back got $CODE"
+
 say "summary without LLM key is honest"
 DONE_ID=$PARENT
 CODE=$(curl -s "${H[@]}" -X POST "$API/matters/$DONE_ID/summary" | jqget "['error']['code']" 2>/dev/null || echo none)
