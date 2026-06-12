@@ -308,6 +308,15 @@ func (r *MatterRepo) SoftDelete(ctx context.Context, id, spaceID string) error {
 	if n == 0 {
 		return apperr.MatterNotFound()
 	}
+	// A deleted matter must stop ringing anyone: park its live doorbells.
+	// Ghost rings wake agents to fetch a MATTER_NOT_FOUND forever (patrol
+	// finding, 2026-06-12). Best-effort — the delete itself already stuck.
+	_, _ = r.runner.UpdateBySql(`
+		UPDATE matter_outbox SET state = ?, updated_at = ?
+		WHERE matter_id = ? AND state IN (?, ?)`,
+		model.OutboxConsumed, time.Now(), id,
+		model.OutboxPending, model.OutboxDelivered,
+	).ExecContext(ctx)
 	return nil
 }
 
