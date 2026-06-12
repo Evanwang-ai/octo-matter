@@ -87,11 +87,52 @@ func (n *OctoNotifier) SendDoorbell(spaceID, event, actorUID, targetUID, message
 		return fmt.Errorf("doorbell POST: %w", err)
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("doorbell notify returned %d", resp.StatusCode)
 	}
-	return nil
+	return checkDelivered(respBody, targetUID)
+}
+
+// checkDelivered makes delivery honest: a 2xx whose body says the target was
+// filtered (not a space member, wrong uid casing, …) is NOT a delivery — the
+// bell reached nobody. Returning an error hands the row back to the outbox
+// dispatcher (retry → backoff → dead), where the patrol can see it, instead
+// of wedging the matter behind a phantom "delivered". Bodies without a
+// recognizable delivered/filtered shape (older octo-server builds) keep the
+// legacy 2xx-is-ok behavior.
+func checkDelivered(body []byte, targetUID string) error {
+	var env struct {
+		Data struct {
+			Delivered []string          `json:"delivered"`
+			Filtered  map[string]string `json:"filtered"`
+		} `json:"data"`
+		Delivered []string          `json:"delivered"`
+		Filtered  map[string]string `json:"filtered"`
+	}
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil // legacy/unknown body: keep 2xx-is-delivered
+	}
+	delivered, filtered := env.Data.Delivered, env.Data.Filtered
+	if delivered == nil && filtered == nil {
+		delivered, filtered = env.Delivered, env.Filtered
+	}
+	if delivered == nil && filtered == nil {
+		return nil // shape unknown: legacy behavior
+	}
+	for _, uid := range delivered {
+		if strings.EqualFold(uid, targetUID) {
+			return nil
+		}
+	}
+	reason := "not in delivered list"
+	for uid, r := range filtered {
+		if strings.EqualFold(uid, targetUID) {
+			reason = r
+			break
+		}
+	}
+	return fmt.Errorf("doorbell to %s not delivered: %s", targetUID, reason)
 }
 
 // NoopDoorbell satisfies DoorbellSender for tests / notifications-off mode.
