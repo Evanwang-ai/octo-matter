@@ -1146,6 +1146,11 @@
   .ac-handle { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); margin-top: 2px; overflow-wrap: anywhere; }
   .ac-tags { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
   .ac-tag { font-size: 10.5px; font-weight: 700; border-radius: 6px; padding: 1px 7px; background: var(--accent-tint); color: var(--accent); }
+  .ac-rank { display: flex; align-items: center; gap: 10px; margin: 8px 2px 2px; font-size: 12.5px; }
+  .ac-rank .rk { font-weight: 650; }
+  .ac-rank .rk-next { color: rgba(28,28,35,.55); }
+  .ac-rank-bar { flex: 1; height: 5px; border-radius: 999px; background: var(--fill-2, #f0f1f3); overflow: hidden; }
+  .ac-rank-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--accent, #2563eb); }
   .ac-facts { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--border-soft); border-radius: 10px; overflow: hidden; margin: 4px 0 2px; }
   .ac-fact { padding: 10px 12px; background: var(--fill-1); border-right: 1px solid var(--border-soft); }
   .ac-fact:last-child { border-right: 0; }
@@ -4512,6 +4517,26 @@ function openSubMatterModal(opts){
 function acRowsHTML(items, mapRow){
   return '<div class="ac-rows">' + items.map(mapRow).join("") + "</div>";
 }
+/* 升段(06 §11):从真实验收数派生,不存储 — 战绩即真相 */
+var RANKS = [
+  { at: 0, name: "新虾" }, { at: 5, name: "出徒" }, { at: 20, name: "熟手" },
+  { at: 50, name: "老手" }, { at: 100, name: "宗师" }
+];
+function rankHTML(done){
+  var cur = RANKS[0], next = null;
+  for (var i = 0; i < RANKS.length; i++){
+    if (done >= RANKS[i].at) cur = RANKS[i]; else { next = RANKS[i]; break; }
+  }
+  if (!next){
+    return '<div class="ac-rank"><span class="rk">' + cur.name + '</span><div class="ac-rank-bar"><i style="width:100%"></i></div><span class="rk-next">已到顶</span></div>';
+  }
+  var span = next.at - cur.at;
+  var pct = Math.max(4, Math.round(((done - cur.at) / span) * 100));
+  return '<div class="ac-rank"><span class="rk">' + cur.name + '</span>'
+    + '<div class="ac-rank-bar"><i style="width:' + pct + '%"></i></div>'
+    + '<span class="rk-next">再 ' + (next.at - done) + ' 件升「' + next.name + '」</span></div>';
+}
+
 function openCardEditor(uidStr){
   api("/agent-cards/" + encodeURIComponent(uidStr)).then(function(v){
     var d = (v && v.declared) || {};
@@ -4578,6 +4603,7 @@ function openAgentCard(uidStr){
       + '<div class="ac-fact"><div class="v">' + (s.done || 0) + '</div><div class="k">已验证交回</div></div>'
       + '<div class="ac-fact"><div class="v">' + (s.in_review || 0) + '</div><div class="k">待确认</div></div>'
       + "</div>"
+      + (bot ? rankHTML(s.done || 0) : "")
       + '<div class="ac-sec"><div class="ac-sec-title"><span>当前事项</span>' + (curList.length ? "<span>" + curList.length + " 个活跃</span>" : "") + "</div>"
       + (curList.length ? acRowsHTML(curList, rowM) : '<div class="ac-empty">手上没有进行中的事项</div>') + "</div>"
       + '<div class="ac-sec"><div class="ac-sec-title"><span>已验证记录</span>' + (s.done ? "<span>" + s.done + " 件</span>" : "") + "</div>"
