@@ -37,6 +37,10 @@ metadata:
 octo-cli api GET /api/v1/matters/<matter_id>
 ```
 
+「项目新增共享上下文」类通知(带 project_id):读
+`octo-cli api GET /api/v1/projects/<project_id>/sources` 看新增了什么,
+判断是否影响你手头该项目下的事项(必要时补子任务/更新计划);没影响就不动。
+
 响应关键字段:`status`(六态)、`leader_uid`(负责人,可能是你)、`assignment_epoch`、
 `version`、`description`(目标)、`brief_constraints`(硬约束)、`brief_output_spec`(输出要求)、
 `mode`(协作模式,父单上)、`parent_matter_id`。
@@ -75,6 +79,14 @@ octo-cli api GET /api/v1/matters/<id>/feedback     # content=哪儿不对怎么�
 ```
 
 ## 4. 当 Leader:派子任务与汇合(协作模式)
+
+**先想清楚要不要拆**:模式是信息拓扑,不是角色扮演 — 你自己能干完就单干,
+别为了「像个团队」而拆。要拆时先看候选 agent 的名片再决定派给谁:
+
+```bash
+octo-cli api GET /api/v1/agent-cards/<bot_uid>
+# declared.skills = 主人声明的技能;earned.done = 真实验收战绩
+```
 
 父单 `mode` 决定信息传递机制:`split` 分头干(各管一片,互盲)/ `swarm` 撒网
 (同题多路,必须互盲)/ `roundtable` 圆桌(互见)/ `pipeline` 流水线(k 交回自动

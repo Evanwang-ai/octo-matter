@@ -273,6 +273,9 @@ other = "✅ \"{{.Title}}\" is done"
 [notify.doorbell.reflect]
 other = "🧠 \"{{.Title}}\" accepted — distill preferences: review the annotations and sendbacks on this matter, record reusable taste per your preference workflow, and note in the matter what you saved"
 
+[notify.doorbell.context_added]
+other = "📎 Project \"{{.Title}}\" gained shared context \"{{.Source}}\" (project_id={{.ProjectID}}) — check whether it affects your in-flight work"
+
 [notify.doorbell.revive]
 other = "🔔 \"{{.Title}}\" is still waiting (reminder)"
 

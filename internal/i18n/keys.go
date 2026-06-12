@@ -127,4 +127,5 @@ const (
 	KeyDoorbellRevive          = "notify.doorbell.revive"
 	KeyDoorbellWatchdogBlocked = "notify.doorbell.watchdog_blocked"
 	KeyDoorbellSchedule        = "notify.doorbell.schedule"
+	KeyDoorbellContextAdded    = "notify.doorbell.context_added"
 )

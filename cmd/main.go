@@ -127,6 +127,7 @@ func main() {
 	}
 	v2Svc := service.NewV2Service(matterRepo, assigneeRepo, participantRepo, projectRepo, projectSourceRepo,
 		feedbackRepo, outboxRepo, summaryRepo, activityRepo, agentCardRepo, txMgr, transitionSvc, matterSvc, v2LLM)
+	v2Svc.SetDoorbell(notifier)
 	botTaskSvc := service.NewBotTaskService(botTaskRepo, matterRepo, timelineRepo, activityRepo, transitionSvc)
 	scheduleSvc := service.NewScheduleService(scheduleRepo, matterRepo, matterSvc, v2Svc, transitionSvc, cfg.ScheduleTick)
 

@@ -12,6 +12,7 @@ import (
 	"github.com/Mininglamp-OSS/octo-matter/internal/i18n"
 	"github.com/Mininglamp-OSS/octo-matter/internal/llm"
 	"github.com/Mininglamp-OSS/octo-matter/internal/model"
+	"github.com/Mininglamp-OSS/octo-matter/internal/notification"
 	"github.com/Mininglamp-OSS/octo-matter/internal/repository"
 )
 
@@ -33,7 +34,14 @@ type V2Service struct {
 	transition     *TransitionService
 	matterSvc      *MatterService
 	llm            LLMToolCaller // nil when LLM_API_KEY is absent
+	// bell is the optional FYI ring for non-matter events (project context
+	// changes). Setter-injected; nil = silent. Matter doorbells stay on the
+	// transactional outbox — this is deliberately best-effort.
+	bell notification.DoorbellSender
 }
+
+// SetDoorbell wires the optional FYI bell (see field doc).
+func (s *V2Service) SetDoorbell(bell notification.DoorbellSender) { s.bell = bell }
 
 func NewV2Service(
 	matters *repository.MatterRepo,
@@ -577,11 +585,20 @@ func (s *V2Service) AddProjectSource(ctx context.Context, src *model.MatterProje
 	if strings.TrimSpace(src.Title) == "" {
 		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
 	}
-	if _, err := s.projects.GetByID(ctx, src.ProjectID, src.SpaceID); err != nil {
+	p, err := s.projects.GetByID(ctx, src.ProjectID, src.SpaceID)
+	if err != nil {
 		return nil, err
 	}
 	if err := s.projectSources.Create(ctx, src); err != nil {
 		return nil, err
+	}
+	// 结构外力量: the project's orchestrator must LEARN that shared context
+	// changed (goal module A.3) — FYI ring to the default leader. Best-effort
+	// by design; the add itself never fails on a missed bell.
+	if s.bell != nil && p.DefaultLeaderUID != nil && *p.DefaultLeaderUID != "" && *p.DefaultLeaderUID != src.CreatedBy {
+		params := map[string]any{"Title": p.Name, "Source": src.Title, "ProjectID": p.ID, "Actor": src.CreatedBy}
+		_ = s.bell.SendDoorbell(src.SpaceID, "matter.project.context_added", src.CreatedBy,
+			*p.DefaultLeaderUID, i18n.KeyDoorbellContextAdded, params)
 	}
 	return src, nil
 }

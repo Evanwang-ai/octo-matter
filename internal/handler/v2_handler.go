@@ -240,6 +240,19 @@ type projectReq struct {
 	Archived         *bool   `json:"archived"`
 }
 
+// projectUpdateReq is the PARTIAL-update shape: every field optional, so
+// setting just default_leader_uid (or just archived) works — reusing the
+// create binding made name required and 422'd every partial edit.
+type projectUpdateReq struct {
+	Name             *string `json:"name" binding:"omitempty,max=200"`
+	Description      *string `json:"description" binding:"omitempty,max=4000"`
+	Scope            *string `json:"scope" binding:"omitempty,oneof=space private"`
+	SourceChannelID  *string `json:"source_channel_id" binding:"omitempty,max=255"`
+	SourceName       *string `json:"source_name" binding:"omitempty,max=200"`
+	DefaultLeaderUID *string `json:"default_leader_uid" binding:"omitempty,max=64"`
+	Archived         *bool   `json:"archived"`
+}
+
 func (h *V2Handler) CreateProject(c *gin.Context) {
 	var req projectReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -281,14 +294,14 @@ func (h *V2Handler) UpdateProject(c *gin.Context) {
 		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
 		return
 	}
-	var req projectReq
+	var req projectUpdateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		bindJSONErr(c, err)
 		return
 	}
 	out, err := h.v2.UpdateProject(c.Request.Context(), id, spaceID(c), relatedUIDs(c), func(p *model.MatterProject) {
-		if strings.TrimSpace(req.Name) != "" {
-			p.Name = strings.TrimSpace(req.Name)
+		if req.Name != nil && strings.TrimSpace(*req.Name) != "" {
+			p.Name = strings.TrimSpace(*req.Name)
 		}
 		if req.Description != nil {
 			p.Description = req.Description
