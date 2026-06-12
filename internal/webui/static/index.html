@@ -221,6 +221,8 @@
   .list-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 10px; flex-wrap: wrap; }
   .list-title { min-width: 0; font-size: 20px; line-height: 26px; font-weight: 600; color: var(--text); }
   .list-sub { font-size: 13px; color: rgba(28,28,35,.4); margin-bottom: 24px; }
+  .sub-link { color: rgba(28,28,35,.55); cursor: pointer; border-radius: 4px; }
+  .sub-link:hover { color: var(--text); text-decoration: underline; }
   .new-btn {
     display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; white-space: nowrap;
     min-height: 28px; padding: 4px 12px; border-radius: 4px; border: 1px solid rgba(0,119,250,.16);
@@ -2044,6 +2046,7 @@ var inboxTab = "all";
 var inboxSearch = "";
 var inboxState = null; // { rows, page, params, key }
 var expandedRows = {};
+var projShowArchived = false;
 var INBOX_TABS = [
   { k: "all", hash: "#/inbox", label: "全部", title: "收件箱" },
   { k: "mine", hash: "#/mine", label: "我负责的", title: "我负责的" },
@@ -2468,7 +2471,9 @@ function renderProjects(my){
     if (my !== renderToken) return;
     var projects = res[0];
     var liveN = projects.filter(function(p){ return !p.archived; }).length;
-    var cards = projects.map(function(p){
+    var archN = projects.length - liveN;
+    var shown = projects.filter(function(p){ return projShowArchived || !p.archived; });
+    var cards = shown.map(function(p){
       var leader = p.default_leader_uid
         ? '<div class="pc-leader">' + av(p.default_leader_uid, "mav-sm") + '<span>' + esc(uname(p.default_leader_uid)) + "</span>" + aiTagHTML(p.default_leader_uid) + "</div>" : "";
       return '<div class="proj-card' + (p.archived ? " archived" : "") + '" data-id="' + esc(p.id) + '" role="link" tabindex="0">'
@@ -2485,11 +2490,14 @@ function renderProjects(my){
     }).join("");
     $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide">'
       + '<div class="list-head"><div class="list-title">项目</div><button class="new-btn" id="newProjBtn" type="button">+ 新建项目</button></div>'
-      + '<div class="list-sub">' + projects.length + " 个项目 · " + liveN + " 个可用</div>"
-      + (projects.length ? '<div class="proj-grid">' + cards + "</div>"
+      + '<div class="list-sub">' + liveN + " 个项目"
+      + (archN ? ' · <a class="sub-link" id="toggleArch" role="button" tabindex="0">' + (projShowArchived ? "收起已归档" : "显示已归档 " + archN) + "</a>" : "") + "</div>"
+      + (shown.length ? '<div class="proj-grid">' + cards + "</div>"
         : '<div class="empty-state"><div class="es-t">还没有项目</div><div class="es-s">建一个文件夹,新事项就能归进去</div></div>')
       + "</div></div>";
     $("#newProjBtn").addEventListener("click", function(){ openProjectModal(null); });
+    var ta = $("#toggleArch");
+    if (ta) ta.addEventListener("click", function(){ projShowArchived = !projShowArchived; renderProjects(my); });
     $$(".proj-card").forEach(function(el){
       el.addEventListener("click", function(e){
         if (e.target instanceof Element && e.target.closest("[data-menu]")) return;
@@ -3276,10 +3284,11 @@ function renderMatter(my, id){
   });
 }
 function crumbDetail(m){
-  var pname = m.project_id ? (projName(m.project_id) || "项目") : "(无项目)";
+  var projSeg = m.project_id
+    ? '<span class="proj" id="crumbProj">' + esc(projName(m.project_id) || "项目") + '</span><span class="sep">·</span>'
+    : "";
   $("#crumb").innerHTML = '<span class="back" id="backBtn" title="返回" role="button" tabindex="0">←</span>'
-    + '<span class="proj" id="crumbProj">' + esc(pname) + "</span>"
-    + '<span class="sep">·</span>'
+    + projSeg
     + '<span class="here"><span class="cid">' + esc(seqLabel(m)) + '</span><span class="crumb-title" title="' + esc(m.title) + '">' + esc(m.title) + "</span></span>";
   $("#backBtn").addEventListener("click", function(){
     if (history.length > 1) history.back();
