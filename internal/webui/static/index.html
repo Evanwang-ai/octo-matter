@@ -3231,7 +3231,9 @@ function renderMatter(my, id){
         bindParentLink();
       }).catch(function(){ /* 父单读不到就只留编号链接 */ });
     }
-    if (m.status === "done" && isMe(m.creator_id)){
+    // 偏好草案任何状态都可能存在(bot 干完就提交,护栏4 等人过目)——
+    // 只要我是发起人就查;有草案不展示 = 门铃把人引来却看不到东西。
+    if (isMe(m.creator_id)){
       api("/matters/" + id + "/summary").then(function(json){
         if (my !== renderToken || !cur || cur.id !== id) return;
         var row = summaryRow(json);
