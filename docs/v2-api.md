@@ -229,3 +229,25 @@ Same-origin auth reuse: reads `localStorage` keys `token`, `uid`, `name`,
 auto-discovers the space via `/api/v1/space/my`. Manual form otherwise.
 `?embed=1` (used by the octo-web sidebar iframe) hides the UI's own leftmost
 icon rail — the host app already provides global navigation.
+
+## 2026-06-12 打磨期新增面(均已活体验证)
+
+- `GET /api/v1/matters?seq=N`(别名 `seq_no=N`)— 人说「M-42」,机器查 UUID。
+- `GET /api/v1/agent-cards` — 派活名册(全空间声明半)。
+  `GET /api/v1/agent-cards/:uid` — 单卡 `{declared, earned}`;declared=creator 手写
+  (visibility=private 时对非主人隐藏),earned=验收实算(永远派生,不可造假)。
+  `PUT /api/v1/agent-cards/:uid` — 仅 creator;字段 tagline/description/skills[]/systems[]/visibility。
+- `POST /api/v1/matters/:id/send-back` — 手动把进度发回来源会话(homecoming 队列;
+  需 source_channel_id+type 且负责人为 bot,否则诚实 4xx)。
+- `GET /api/v1/bots/:uid/channels` — 该 bot 可发言的群(自动化目标选择器;owner 鉴权)。
+- `POST /api/v1/matters/:id/summary` 带 `{content}` — 负责 bot 提交偏好草案(护栏4,
+  零服务端 LLM);空体保持原 LLM 生成路径。authorize/discard 后以
+  `matter.doorbell.summary_approved/rejected` 回铃提交方。
+- 门铃事件新增:`matter.homecoming`(回源会话投递,target=发声 bot,豁免消费钩子与防自激)、
+  `matter.doorbell.reflect`(验收时有圈点且负责人为 bot → 偏好沉淀提示)、
+  `matter.project.context_added`(项目共享上下文变更 → 默认负责人)。
+- timeline `msgs[]` 路径:LLM 缺席/故障时**无损降级**为逐条引用入档(来源=聊天记录引用),
+  LLM 可用时自动升级为摘要;extract 建单路径维持诚实报错不降级。
+- 行为修正:门铃消费=调用者本人(主人围观不再消押 agent 的铃);软删事项停其全部活铃;
+  已投未消费重敲按指数退避(10m·2^n,封顶 2^5);bot 自指 uid 大小写按 auth 实名矫正;
+  bot 带 source_channel_id 创建时默认 channel_type=2。
