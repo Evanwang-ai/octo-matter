@@ -271,6 +271,15 @@ func (s *ScheduleService) fire(ctx context.Context, sc *model.MatterSchedule, sl
 		ScheduleID:  &sc.ID,
 		ScheduledAt: &slot,
 	}
+	// runonly 的「结果发到目标会话」复用 homecoming 腿: the schedule's target
+	// becomes the matter's source conversation, so the hand-back auto-posts
+	// there as the executor bot — no extra delivery mechanism.
+	if sc.OutputMode == "runonly" && sc.TargetChannelID != nil && *sc.TargetChannelID != "" {
+		m.SourceChannelID = sc.TargetChannelID
+		ct := uint8(2) // picker offers groups only
+		m.SourceChannelType = &ct
+		m.SourceName = sc.TargetChannelName
+	}
 	detail, err := s.matterSvc.CreateMatterWithAssignees(ctx, m, []string{executor})
 	if err != nil {
 		log.Printf("[schedule] matter create failed id=%s: %v", sc.ID, err)
