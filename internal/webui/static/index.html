@@ -3467,7 +3467,8 @@ function paintMatter(my){
     + '<div class="composer-tools">'
     + '<button class="composer-icon" id="cmpMention" type="button" title="@ 负责人"><svg viewBox="0 0 24 24"><path d="M16 12a4 4 0 1 1-2.2-3.58"/><path d="M16 8v5a2.2 2.2 0 0 0 4.4 0v-1a8.4 8.4 0 1 0-3.1 6.5"/></svg></button>'
     + '<button class="composer-icon" id="cmpAnnot" type="button" title="圈一笔">✏️</button>'
-    + '<button class="composer-icon" id="cmpAttach" type="button" disabled title="附件上传未接"><svg viewBox="0 0 24 24"><path d="M8.5 12.5 14 7a3.2 3.2 0 0 1 4.5 4.5l-7.4 7.4a5 5 0 0 1-7.1-7.1l7.6-7.6"/></svg></button>'
+    + '<button class="composer-icon" id="cmpAttach" type="button" title="加附件"><svg viewBox="0 0 24 24"><path d="M8.5 12.5 14 7a3.2 3.2 0 0 1 4.5 4.5l-7.4 7.4a5 5 0 0 1-7.1-7.1l7.6-7.6"/></svg></button>'
+    + '<input type="file" id="cmpFile" multiple style="display:none">'
     + "</div>"
     + '<button class="composer-send" id="composerSend" type="button">发送</button>'
     + "</div></div></div>";
@@ -3509,6 +3510,59 @@ function bindDetail(my){
   if (ann) ann.addEventListener("click", function(){
     toast("在产出文字上划选即可圈一笔", { icon: "✏️" });
   });
+  // 附件:octo-server 用户态上传(同源 /api/v1/file/upload),挑完即传,
+  // 成功后挂在待发列表,随下一条发送一起进 timeline。
+  var pendingAtts = [];
+  function paintPendingAtts(){
+    var row = $("#cmpAttRow");
+    if (!pendingAtts.length){ if (row) row.remove(); return; }
+    if (!row){
+      row = document.createElement("div");
+      row.id = "cmpAttRow";
+      row.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;padding:6px 2px 0";
+      ta.parentNode.insertBefore(row, ta);
+    }
+    row.innerHTML = pendingAtts.map(function(a, i){
+      return '<span class="file-chip" style="cursor:default"><span class="fic">📎</span><span class="fnm">' + esc(a.file_name)
+        + '</span><button type="button" data-rmatt="' + i + '" style="border:none;background:none;cursor:pointer;padding:0 2px">✕</button></span>';
+    }).join("");
+    row.querySelectorAll("[data-rmatt]").forEach(function(b){
+      b.addEventListener("click", function(){ pendingAtts.splice(Number(b.getAttribute("data-rmatt")), 1); paintPendingAtts(); });
+    });
+  }
+  function uploadOne(file){
+    var safe = String(file.name || "file").replace(/[^\w.一-龥-]+/g, "_");
+    var path = "matter/" + cur.id + "/" + Date.now() + "_" + safe;
+    var fd = new FormData();
+    fd.append("file", file);
+    if (file.type) fd.append("contenttype", file.type);
+    return fetch("/api/v1/file/upload?type=common&path=" + encodeURIComponent(path), {
+      method: "POST", headers: { token: auth.token }, body: fd
+    }).then(function(res){
+      if (!res.ok) return res.json().catch(function(){ return {}; }).then(function(j){
+        throw new Error((j && j.msg) || ("上传失败 " + res.status));
+      });
+      return res.json();
+    }).then(function(j){
+      var u = j.path || "";
+      if (u && u.indexOf("http") !== 0) u = location.origin + "/api/v1/" + u.replace(/^\/+/, "");
+      pendingAtts.push({ file_url: u, file_name: j.name || safe, file_size: j.size || file.size, mime_type: file.type || null });
+      paintPendingAtts();
+    });
+  }
+  var ab = $("#cmpAttach"), fi = $("#cmpFile");
+  if (ab && fi){
+    ab.addEventListener("click", function(){ fi.click(); });
+    fi.addEventListener("change", function(){
+      var files = Array.prototype.slice.call(fi.files || []);
+      fi.value = "";
+      if (!files.length) return;
+      toast("上传中…", { icon: "📎" });
+      Promise.all(files.map(uploadOne)).then(function(){
+        toast("传好了,随下一条发送一起带上", { icon: "📎" });
+      }).catch(function(e){ errToast(e); });
+    });
+  }
   function parseMentions(text){
     var hits = [];
     var list = (members && members.list) || [];
@@ -3523,26 +3577,35 @@ function bindDetail(my){
   }
   function doSendTimeline(){
     var v = ta.value.trim();
-    if (!v){ toast("写点什么再发"); ta.focus(); return; }
+    var hasAtts = pendingAtts.length > 0;
+    if (!v && !hasAtts){ toast("写点什么再发"); ta.focus(); return; }
     send.disabled = true; send.textContent = "发送中…";
     // @ 了人,或事项在审核中 ⇒ 这是一条反馈(taste 信号):走 feedback,
-    // 服务端会敲对方门铃、审核中自动打回。否则只是记一笔动态(timeline)。
+    // 服务端会敲对方门铃、审核中自动打回。带附件的部分走 timeline 落档;
+    // 两者都有 ⇒ timeline(附件)+feedback(敲铃)各司其职。
     var mentions = parseMentions(v);
     var asFeedback = mentions.length > 0 || (cur.m && cur.m.status === "review");
     var done = function(){ send.disabled = false; send.textContent = "发送"; };
-    if (asFeedback){
+    var fireFeedback = function(after){
       var body = { content: v };
       if (mentions.length) body.target_uid = mentions[0].uid;
-      api("/matters/" + cur.id + "/feedback", { method: "POST", body: body }).then(function(resp){
-        ta.value = ""; autoGrow();
+      return api("/matters/" + cur.id + "/feedback", { method: "POST", body: body }).then(function(resp){
         var flipped = resp && resp.matter_status === "in_progress" && cur.m.status === "review";
         var who = mentions.length ? mentions[0].name : uname((cur.m && cur.m.leader) || "");
         toast(flipped ? "已替你打回去重做 — 门铃已敲给 " + who : (who ? "记下了 — 门铃已敲给 " + who : "记下了"), { icon: "✏️" });
-        render();
-      }).catch(errToast).then(done);
+        if (after) after();
+      });
+    };
+    if (asFeedback && !hasAtts){
+      fireFeedback(function(){ ta.value = ""; autoGrow(); render(); }).catch(errToast).then(done);
       return;
     }
-    api("/matters/" + cur.id + "/timeline", { method: "POST", body: { content: v } }).then(function(){
+    var tlBody = { content: v || "附件" };
+    if (hasAtts) tlBody.attachments = pendingAtts.slice();
+    api("/matters/" + cur.id + "/timeline", { method: "POST", body: tlBody }).then(function(){
+      if (hasAtts){ pendingAtts = []; paintPendingAtts(); }
+      if (asFeedback) return fireFeedback(null);
+    }).then(function(){
       ta.value = ""; autoGrow();
       return api("/matters/" + cur.id + "/timeline", { params: { limit: 100 } }).then(function(json){
         if (my !== renderToken || !cur) return;
