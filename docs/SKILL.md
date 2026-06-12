@@ -128,7 +128,10 @@ octo-cli api POST /api/v1/matters/extract --data '{
 ```
 
 LLM 未配置时返回明确错误(不要假装成功);退路是直接 `POST /api/v1/matters`
-手工立单并带 `source_channel_id/source_name/source_msg_ids` 保留来源。
+手工立单,**必须带全来源四件**:`source_channel_id`(群id)、`source_channel_type`
+(群=2)、`source_name`(群名)、`source_msg_ids`。带全了,交回/受阻时服务端会
+自动把进度发回这个群(homecoming),你不用自己发进度。
+立完在群里回一句「已立事项 M-xx,做完叫你」即可去干活。
 
 ## 6. 自查与战绩
 
