@@ -1434,7 +1434,7 @@ var summaryTool = llm.Tool{
 			"properties": map[string]any{
 				"content": map[string]any{
 					"type":        "string",
-					"description": "Markdown Preference candidates, 1-5 items. Each item must use: P-new [candidate] title: imperative reusable rule; then bullet lines for evidence, scope_hint, and reject_if. Evidence must cite a concrete human signal from this Matter.",
+					"description": "Markdown Preference candidates, 1-5 items. Each item must be a top-level bullet rule followed by indented evidence, scope, and avoid lines. Evidence must cite a concrete human signal from this Matter. If no durable preference exists, output exactly: NO_PREFERENCE: 没有可复用偏好信号.",
 				},
 			},
 			"required": []string{"content"},
@@ -1452,28 +1452,35 @@ The best Preference is a gotcha: a concrete failure pattern the human corrected 
 Use only human signals: acceptance notes, send-backs, inline feedback, human edits, choices, or rejections.
 Ignore the agent's self-evaluation.
 
+Boundary:
+- Keep rules only when they are evidence-backed, reusable, executable, scoped, and calibratable.
+- Convert vague feedback into observable behavior before writing a rule.
+- Prefer concrete gotchas and failure-prevention rules over obvious best practices the model already knows.
+- Do not create Preferences from names, deadlines, IDs, facts, or project details unless the rule is scoped narrowly.
+
 Internal process:
 1. Evidence: identify concrete human signals.
 2. Intent: translate vague feedback into concrete behavioral anchors.
 3. Pattern: keep only rules that would still help on a similar future task.
 4. Scope: choose the narrowest safe scope: matter, project, bot, space, or global.
+5. Calibration: keep only rules that can be judged hit/miss later.
 
 Output only via the tool.
 Write in the Matter's language.
 
 Format each candidate exactly as:
-P-new [candidate] short title: imperative reusable rule
-- evidence: M-<seq> <human signal quote, one line>
-- scope_hint: matter|project|bot|space|global, <why this scope is safe>
-- reject_if: <when this rule should not be applied>
+- <imperative reusable rule>
+  evidence: M-<seq> <human signal quote, one line>
+  scope: matter|project|bot|space|global · <why this scope is safe>
+  avoid: <when this rule should not be applied>
 
 Rules:
 - Output 1-5 candidates; fewer is better.
 - The first line of each candidate must be usable by an agent without reading the evidence.
-- Prefer concrete gotchas and failure-prevention rules over obvious best practices the model already knows.
+- Do not add headings, IDs, or explanations outside this structure.
 - Do not write vague rules such as "be concise", "improve quality", "be professional", or "follow feedback" unless you translate them into concrete reusable behavior.
-- Do not create a Preference from names, deadlines, IDs, facts, or project details unless the rule is scoped narrowly to this matter or project.
 - Prefer matter/project scope when evidence comes from a single Matter. Use global only when the evidence explicitly supports cross-project reuse.
+- If there is no durable Preference, write exactly: NO_PREFERENCE: 没有可复用偏好信号
 `)
 
 // GenerateSummary builds the Smart-Summary draft from the full matter record

@@ -65,6 +65,7 @@ func main() {
 	scheduleRepo := repository.NewScheduleRepo(sess)
 	projectSourceRepo := repository.NewProjectSourceRepo(sess)
 	botTaskRepo := repository.NewBotTaskRepo(sess)
+	prefCardRepo := repository.NewPreferenceCardRepo(sess)
 
 	// Notifier
 	notifier := notification.NewOctoNotifier(cfg.OctoIMURL, cfg.NotifyInternalToken, cfg.DefaultLanguage)
@@ -164,7 +165,8 @@ func main() {
 	readiness := func() error { return conn.Ping() }
 
 	// Router
-	r := handler.SetupRouter(matterH, timelineH, activityH, outputsH, extractH, extractLimiter, authMW, spaceMW, readiness, v2H, internalH)
+	cardH := handler.NewPreferenceCardHandler(prefCardRepo)
+	r := handler.SetupRouter(matterH, timelineH, activityH, outputsH, extractH, extractLimiter, authMW, spaceMW, readiness, v2H, internalH, cardH)
 
 	// Graceful shutdown
 	srv := &http.Server{Addr: ":" + cfg.ServerPort, Handler: r}

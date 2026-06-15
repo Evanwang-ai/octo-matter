@@ -47,6 +47,7 @@ func SetupRouter(
 	ready ReadinessCheck,
 	v2H *V2Handler,
 	internalH *InternalHandler,
+	cardH *PreferenceCardHandler,
 ) *gin.Engine {
 	r := gin.Default()
 	// RequestID first, then early language negotiation so even auth-stage
@@ -156,6 +157,20 @@ func SetupRouter(
 		api.GET("/agent-cards", v2H.AgentCardList)
 		api.GET("/agent-cards/:uid", v2H.AgentCardGet)
 		api.PUT("/agent-cards/:uid", v2H.AgentCardPut)
+	}
+
+	if cardH != nil {
+		cards := api.Group("/preference-cards")
+		{
+			cards.POST("", cardH.Create)
+			cards.GET("", cardH.List)
+			cards.GET("/search", cardH.Search)
+			cards.GET("/:id/render", cardH.Render)
+			cards.PUT("/:id", cardH.Update)
+			cards.DELETE("/:id", cardH.Delete)
+		}
+		// per-matter cards accessed via matter routes
+		api.GET("/matters/:id/preference-cards", cardH.ListByMatter)
 	}
 
 	// Internal surface (X-Internal-Token): the writeback endpoints octo-fleet

@@ -175,15 +175,18 @@ func TestSummaryPreferencePrompt_Anchors(t *testing.T) {
 		"It is not a summary",
 		"The best Preference is a gotcha",
 		"Use only human signals",
+		"Keep rules only when they are evidence-backed, reusable, executable, scoped, and calibratable",
 		"Intent: translate vague feedback into concrete behavioral anchors",
 		"Pattern: keep only rules that would still help on a similar future task",
 		"Scope: choose the narrowest safe scope",
-		"P-new [candidate] short title: imperative reusable rule",
-		"- evidence: M-<seq>",
-		"- scope_hint: matter|project|bot|space|global",
-		"- reject_if:",
-		"failure-prevention rules",
+		"Calibration: keep only rules that can be judged hit/miss later",
+		"- <imperative reusable rule>",
+		"  evidence: M-<seq>",
+		"  scope: matter|project|bot|space|global",
+		"  avoid:",
+		"Do not add headings, IDs, or explanations outside this structure",
 		"Use global only when the evidence explicitly supports cross-project reuse",
+		"NO_PREFERENCE: 没有可复用偏好信号",
 	} {
 		if !strings.Contains(summarySystemPrompt, want) {
 			t.Fatalf("summarySystemPrompt missing anchor %q", want)
@@ -191,6 +194,9 @@ func TestSummaryPreferencePrompt_Anchors(t *testing.T) {
 	}
 	if strings.Contains(summarySystemPrompt, "3-8 bullet") {
 		t.Fatalf("summarySystemPrompt regressed to old summary-style bullet contract")
+	}
+	if strings.Contains(summarySystemPrompt, "P-new [candidate]") || strings.Contains(summarySystemPrompt, "scope_hint") {
+		t.Fatalf("summarySystemPrompt regressed to machine-tagged candidate format")
 	}
 }
 
