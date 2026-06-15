@@ -67,7 +67,8 @@ func (r *MatterRepo) Create(ctx context.Context, matter *model.Matter) error {
 				"project_id", "assignment_epoch", "version", "expected_duration_minutes",
 				"last_activity_at", "last_transition_at", "schedule_id", "scheduled_at",
 				"deadline", "remind_at", "source_channel_id", "source_channel_type",
-				"source_name", "source_msg_ids", "created_at", "updated_at", "deleted_at").
+				"source_name", "source_msg_ids", "input_attachments",
+				"sort_order", "created_at", "updated_at", "deleted_at").
 			Record(matter).
 			ExecContext(ctx)
 		if err == nil {
@@ -265,6 +266,8 @@ func (r *MatterRepo) Update(ctx context.Context, matter *model.Matter) error {
 		Set("mode", matter.Mode).
 		Set("project_id", matter.ProjectID).
 		Set("expected_duration_minutes", matter.ExpectedDuration).
+		Set("input_attachments", matter.InputAttachments).
+		Set("sort_order", matter.SortOrder).
 		Set("updated_at", matter.UpdatedAt).
 		Where("id = ? AND space_id = ? AND deleted_at IS NULL", matter.ID, matter.SpaceID).
 		ExecContext(ctx)

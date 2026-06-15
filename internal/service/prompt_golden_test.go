@@ -169,6 +169,31 @@ func TestBuildTimelineSystemPrompt_GoldenMinimal(t *testing.T) {
 	}
 }
 
+func TestSummaryPreferencePrompt_Anchors(t *testing.T) {
+	for _, want := range []string{
+		"durable Preference candidates",
+		"It is not a summary",
+		"The best Preference is a gotcha",
+		"Use only human signals",
+		"Intent: translate vague feedback into concrete behavioral anchors",
+		"Pattern: keep only rules that would still help on a similar future task",
+		"Scope: choose the narrowest safe scope",
+		"P-new [candidate] short title: imperative reusable rule",
+		"- evidence: M-<seq>",
+		"- scope_hint: matter|project|bot|space|global",
+		"- reject_if:",
+		"failure-prevention rules",
+		"Use global only when the evidence explicitly supports cross-project reuse",
+	} {
+		if !strings.Contains(summarySystemPrompt, want) {
+			t.Fatalf("summarySystemPrompt missing anchor %q", want)
+		}
+	}
+	if strings.Contains(summarySystemPrompt, "3-8 bullet") {
+		t.Fatalf("summarySystemPrompt regressed to old summary-style bullet contract")
+	}
+}
+
 var nowLineRE = regexp.MustCompile(`当前时间：[^\n]+`)
 
 func normalizeNow(s string) string {

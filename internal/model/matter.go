@@ -2,12 +2,14 @@ package model
 
 import "time"
 
-// MatterStatus is the six-state machine from the v2 design (doc 02.5) plus
-// the legacy v1 value `archived` kept so pre-v2 rows and clients survive.
+// MatterStatus is the seven-state machine (backlog → open → in_progress →
+// review → done, plus blocked/cancelled side-states) plus the legacy v1
+// value `archived` kept so pre-v2 rows and clients survive.
 type MatterStatus string
 
 const (
-	MatterStatusOpen       MatterStatus = "open"        // 待办
+	MatterStatusBacklog    MatterStatus = "backlog"     // 待规划 (captured, not yet actionable)
+	MatterStatusOpen       MatterStatus = "open"        // 待办 (assigned, agent-pollable)
 	MatterStatusInProgress MatterStatus = "in_progress" // 进行中
 	MatterStatusReview     MatterStatus = "review"      // 审核中 (handed back, awaiting human judgement)
 	MatterStatusDone       MatterStatus = "done"        // 完成 (acceptance — 品鉴权)
@@ -19,9 +21,9 @@ const (
 // IsValidStatus reports whether s is a known MatterStatus.
 func IsValidStatus(s MatterStatus) bool {
 	switch s {
-	case MatterStatusOpen, MatterStatusInProgress, MatterStatusReview,
-		MatterStatusDone, MatterStatusBlocked, MatterStatusCancelled,
-		MatterStatusArchived:
+	case MatterStatusBacklog, MatterStatusOpen, MatterStatusInProgress,
+		MatterStatusReview, MatterStatusDone, MatterStatusBlocked,
+		MatterStatusCancelled, MatterStatusArchived:
 		return true
 	}
 	return false
@@ -90,6 +92,7 @@ type Matter struct {
 	ScheduleID        *string      `db:"schedule_id" json:"schedule_id,omitempty"`
 	ScheduledAt       *time.Time   `db:"scheduled_at" json:"scheduled_at,omitempty"`
 	Deadline          *time.Time   `db:"deadline" json:"deadline,omitempty"`
+	SortOrder         *float64     `db:"sort_order" json:"sort_order,omitempty"`
 	RemindAt          *time.Time   `db:"remind_at" json:"remind_at,omitempty"`
 	SourceChannelID   *string      `db:"source_channel_id" json:"source_channel_id,omitempty"`
 	SourceChannelType *uint8       `db:"source_channel_type" json:"source_channel_type,omitempty"`
@@ -99,7 +102,8 @@ type Matter struct {
 	// `source_msg_ids` (no migration needed). Always emitted (even as []) so
 	// clients can rely on the field being present: NULL rows and explicit
 	// empty rows both render `[]`.
-	SourceMsgIDs JSONStringSlice `db:"source_msg_ids" json:"source_msgs"`
+	SourceMsgIDs     JSONStringSlice  `db:"source_msg_ids" json:"source_msgs"`
+	InputAttachments InputAttachments `db:"input_attachments" json:"input_attachments"`
 	// Derived by list queries only (EXISTS over children); zero elsewhere.
 	// Lets list rows show the expander only where expanding does anything.
 	HasChildren bool       `db:"has_children" json:"has_children"`

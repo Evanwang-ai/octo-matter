@@ -97,8 +97,9 @@ type createMatterReq struct {
 	ProjectID         *string  `json:"project_id" binding:"omitempty,uuid"`
 	ExpectedDuration  *uint    `json:"expected_duration_minutes"`
 	Deadline          *string  `json:"deadline"`
-	RemindAt          *string  `json:"remind_at"`
-	SourceChannelID   *string  `json:"source_channel_id"`
+	RemindAt          *string                    `json:"remind_at"`
+	InputAttachments  []model.InputAttachment    `json:"input_attachments" binding:"omitempty,max=20"`
+	SourceChannelID   *string                    `json:"source_channel_id"`
 	SourceChannelType *uint8   `json:"source_channel_type" binding:"omitempty,oneof=1 2 5"`
 	SourceName        *string  `json:"source_name"`
 	// Pointer so the handler can tell "field absent" (nil) from "field
@@ -161,6 +162,7 @@ func (h *MatterHandler) Create(c *gin.Context) {
 		SourceChannelType: req.SourceChannelType,
 		SourceName:        req.SourceName,
 		SourceMsgIDs:      model.JSONStringSlice(req.derivedSourceMsgIDs()),
+		InputAttachments:  model.InputAttachments(req.InputAttachments),
 	}
 	if req.Deadline != nil {
 		t, err := service.ParseOptionalRFC3339(*req.Deadline)
@@ -380,10 +382,12 @@ type updateMatterReq struct {
 	BriefOutputSpec  *string `json:"brief_output_spec" binding:"omitempty,max=4000"`
 	Deadline         *string `json:"deadline"`
 	RemindAt         *string `json:"remind_at"`
-	LeaderUID        *string `json:"leader_uid" binding:"omitempty,max=64"`
-	Mode             *string `json:"mode" binding:"omitempty,max=20"`
-	ProjectID        *string `json:"project_id" binding:"omitempty,max=36"`
-	ExpectedDuration *uint   `json:"expected_duration_minutes"`
+	LeaderUID        *string                  `json:"leader_uid" binding:"omitempty,max=64"`
+	Mode             *string                  `json:"mode" binding:"omitempty,max=20"`
+	ProjectID        *string                  `json:"project_id" binding:"omitempty,max=36"`
+	ExpectedDuration *uint                    `json:"expected_duration_minutes"`
+	SortOrder        *float64                 `json:"sort_order"`
+	InputAttachments *[]model.InputAttachment `json:"input_attachments" binding:"omitempty,max=20"`
 }
 
 func (h *MatterHandler) Update(c *gin.Context) {
@@ -403,10 +407,11 @@ func (h *MatterHandler) Update(c *gin.Context) {
 		return
 	}
 	if h.v2 != nil && (req.Mode != nil || req.ProjectID != nil || req.ExpectedDuration != nil ||
-		req.BriefConstraints != nil || req.BriefOutputSpec != nil) {
+		req.BriefConstraints != nil || req.BriefOutputSpec != nil || req.SortOrder != nil || req.InputAttachments != nil) {
 		matter, err = h.v2.UpdateMeta(c.Request.Context(), id, spaceID(c), relatedUIDs(c), service.MetaUpdate{
 			Mode: req.Mode, ProjectID: req.ProjectID, Duration: req.ExpectedDuration,
 			BriefConstraints: req.BriefConstraints, BriefOutputSpec: req.BriefOutputSpec,
+			SortOrder: req.SortOrder, InputAttachments: req.InputAttachments,
 		})
 		if err != nil {
 			respondErr(c, err)

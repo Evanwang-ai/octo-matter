@@ -86,6 +86,12 @@ func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUI
 		if _, err := s.projects.GetByID(ctx, *m.ProjectID, m.SpaceID); err != nil {
 			return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
 		}
+	} else {
+		dp, err := s.projects.GetOrCreateDefault(ctx, m.SpaceID, m.CreatorID)
+		if err != nil {
+			return nil, err
+		}
+		m.ProjectID = &dp.ID
 	}
 	if m.ParentMatterID == nil || *m.ParentMatterID == "" {
 		return nil, nil
@@ -144,6 +150,8 @@ type MetaUpdate struct {
 	Duration         *uint
 	BriefConstraints *string
 	BriefOutputSpec  *string
+	SortOrder        *float64
+	InputAttachments *[]model.InputAttachment
 }
 
 // UpdateMeta edits the v2 metadata fields (mode / project / expected
@@ -199,6 +207,12 @@ func (s *V2Service) UpdateMeta(ctx context.Context, id, spaceID string, callerUI
 		} else {
 			m.BriefOutputSpec = u.BriefOutputSpec
 		}
+	}
+	if u.SortOrder != nil {
+		m.SortOrder = u.SortOrder
+	}
+	if u.InputAttachments != nil {
+		m.InputAttachments = model.InputAttachments(*u.InputAttachments)
 	}
 	if err := s.matters.Update(ctx, m); err != nil {
 		return nil, err
@@ -1414,19 +1428,53 @@ var summaryTool = llm.Tool{
 	Type: "function",
 	Function: llm.ToolFunction{
 		Name:        "write_preference_summary",
-		Description: "Distill the human's preferences shown in this matter (what they accepted, what they sent back, how they phrased feedback) into concise reusable guidance for the responsible agent. Write in the matter's language.",
+		Description: "Distill durable, evidence-backed Preference candidates from this finished Matter. A Preference is reusable execution guidance for the responsible agent, not a summary or one-off task instruction. Write in the Matter's language.",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"content": map[string]any{
 					"type":        "string",
-					"description": "Markdown preference notes: 3-8 bullet rules, each with the concrete evidence (which feedback/decision it came from).",
+					"description": "Markdown Preference candidates, 1-5 items. Each item must use: P-new [candidate] title: imperative reusable rule; then bullet lines for evidence, scope_hint, and reject_if. Evidence must cite a concrete human signal from this Matter.",
 				},
 			},
 			"required": []string{"content"},
 		},
 	},
 }
+
+var summarySystemPrompt = strings.TrimSpace(`
+You distill durable Preference candidates from a finished Matter.
+
+A Preference is an evidence-backed reusable execution rule for the responsible agent.
+It is not a summary, not praise, not a one-off task instruction, not a project fact, and not a vague quality word.
+The best Preference is a gotcha: a concrete failure pattern the human corrected and the agent should not repeat.
+
+Use only human signals: acceptance notes, send-backs, inline feedback, human edits, choices, or rejections.
+Ignore the agent's self-evaluation.
+
+Internal process:
+1. Evidence: identify concrete human signals.
+2. Intent: translate vague feedback into concrete behavioral anchors.
+3. Pattern: keep only rules that would still help on a similar future task.
+4. Scope: choose the narrowest safe scope: matter, project, bot, space, or global.
+
+Output only via the tool.
+Write in the Matter's language.
+
+Format each candidate exactly as:
+P-new [candidate] short title: imperative reusable rule
+- evidence: M-<seq> <human signal quote, one line>
+- scope_hint: matter|project|bot|space|global, <why this scope is safe>
+- reject_if: <when this rule should not be applied>
+
+Rules:
+- Output 1-5 candidates; fewer is better.
+- The first line of each candidate must be usable by an agent without reading the evidence.
+- Prefer concrete gotchas and failure-prevention rules over obvious best practices the model already knows.
+- Do not write vague rules such as "be concise", "improve quality", "be professional", or "follow feedback" unless you translate them into concrete reusable behavior.
+- Do not create a Preference from names, deadlines, IDs, facts, or project details unless the rule is scoped narrowly to this matter or project.
+- Prefer matter/project scope when evidence comes from a single Matter. Use global only when the evidence explicitly supports cross-project reuse.
+`)
 
 // GenerateSummary builds the Smart-Summary draft from the full matter record
 // (brief + children + timeline + feedbacks + activities). Creator only.
@@ -1485,9 +1533,7 @@ func (s *V2Service) GenerateSummary(ctx context.Context, matterID, spaceID strin
 		}
 	}
 
-	raw, err := s.llm.CallTool(ctx,
-		"You distill human preference signals from a finished delegation record. Output only via the tool.",
-		b.String(), summaryTool, llm.WithMaxTokens(1500))
+	raw, err := s.llm.CallTool(ctx, summarySystemPrompt, b.String(), summaryTool, llm.WithMaxTokens(1500))
 	if err != nil {
 		return nil, apperr.Upstream(i18n.KeyLLMUpstream)
 	}

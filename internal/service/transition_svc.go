@@ -278,7 +278,7 @@ func (s *TransitionService) authorize(ctx context.Context, r *repository.TxRepos
 	switch in.Target {
 	case model.MatterStatusInProgress:
 		switch m.Status {
-		case model.MatterStatusOpen, model.MatterStatusBlocked:
+		case model.MatterStatusOpen, model.MatterStatusBlocked, model.MatterStatusBacklog:
 			if isCreator || isLeader || isAssignee || isParentLeader {
 				return nil
 			}
@@ -295,9 +295,22 @@ func (s *TransitionService) authorize(ctx context.Context, r *repository.TxRepos
 			}
 		}
 	case model.MatterStatusOpen:
-		// reopen to backlog — creator only (legacy dmworktodo path).
+		// backlog → open (promote to actionable), or reopen from terminal.
+		if m.Status == model.MatterStatusBacklog {
+			if isCreator || isLeader || isParentLeader {
+				return nil
+			}
+		}
+		// reopen from terminal — creator only (legacy dmworktodo path).
 		if !in.IsBot && isCreator {
 			return nil
+		}
+	case model.MatterStatusBacklog:
+		// open → backlog (demote back to staging) — creator/leader only.
+		if m.Status == model.MatterStatusOpen || m.Status == model.MatterStatusBlocked {
+			if !in.IsBot && (isCreator || isLeader || isParentLeader) {
+				return nil
+			}
 		}
 	case model.MatterStatusReview:
 		if m.Status == model.MatterStatusInProgress || m.Status == model.MatterStatusBlocked {
@@ -306,7 +319,7 @@ func (s *TransitionService) authorize(ctx context.Context, r *repository.TxRepos
 			}
 		}
 	case model.MatterStatusBlocked:
-		if m.Status == model.MatterStatusInProgress || m.Status == model.MatterStatusReview || m.Status == model.MatterStatusOpen {
+		if m.Status == model.MatterStatusInProgress || m.Status == model.MatterStatusReview || m.Status == model.MatterStatusOpen || m.Status == model.MatterStatusBacklog {
 			if isCreator || isLeader || isAssignee || isParentLeader {
 				return nil
 			}

@@ -47,6 +47,35 @@ func (r *ProjectRepo) GetByID(ctx context.Context, id, spaceID string) (*model.M
 	return &p, nil
 }
 
+func (r *ProjectRepo) GetOrCreateDefault(ctx context.Context, spaceID, creatorID string) (*model.MatterProject, error) {
+	var p model.MatterProject
+	err := r.runner.Select("*").From("matter_projects").
+		Where("space_id = ? AND scope = 'default'", spaceID).
+		LoadOneContext(ctx, &p)
+	if err == nil {
+		return &p, nil
+	}
+	if !errors.Is(err, dbr.ErrNotFound) {
+		return nil, err
+	}
+	p = model.MatterProject{
+		SpaceID:   spaceID,
+		Name:      "收件箱",
+		Scope:     "default",
+		CreatorID: creatorID,
+	}
+	if createErr := r.Create(ctx, &p); createErr != nil {
+		var existing model.MatterProject
+		if retryErr := r.runner.Select("*").From("matter_projects").
+			Where("space_id = ? AND scope = 'default'", spaceID).
+			LoadOneContext(ctx, &existing); retryErr == nil {
+			return &existing, nil
+		}
+		return nil, createErr
+	}
+	return &p, nil
+}
+
 func (r *ProjectRepo) ListBySpace(ctx context.Context, spaceID string, includeArchived bool) ([]*model.MatterProject, error) {
 	q := r.runner.Select("*").From("matter_projects").Where("space_id = ?", spaceID)
 	if !includeArchived {
