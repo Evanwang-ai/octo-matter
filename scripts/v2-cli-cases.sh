@@ -9,16 +9,20 @@
 #                  passthrough is octo-cli's documented mechanism, no source
 #                  edits anywhere).
 #
-# Requirements: the local OCTO stack up; octo-cli built at $OCTO_CLI
-# (default /tmp/octo-cli); bot token readable from the OpenClaw runtime
-# config. Pass BOT2_TOKEN_CMD to add a second bot for the swarm case.
+# Requirements: the local OCTO stack up; octo-cli on PATH or at $OCTO_CLI; bot
+# token readable from the encrypted octo-cli profile. Pass BOT2_TOKEN_CMD to add
+# a second bot for the swarm case.
 set -euo pipefail
 
-DEPLOY_DIR="${DEPLOY_DIR:-/Users/evanwang/Desktop/工作/Create/My-ai-context/项目/Octo/Code/octo-deployment/docker}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_DEPLOY_DIR="$(cd "$SCRIPT_DIR/../../octo-deployment/docker" 2>/dev/null && pwd || true)"
+DEPLOY_DIR="${DEPLOY_DIR:-$DEFAULT_DEPLOY_DIR}"
 BASE="${BASE:-http://localhost:28080}"
 OCTO_CLI="${OCTO_CLI:-octo-cli}"
-# Default to the bot WITHOUT a live runtime so regression runs never wake a
-# real agent (token burn). Pass BOT_UID/BOT_PROFILE to drive a live bot.
+# Default to the regression bot profile. This bot currently has a live runtime,
+# so the script parks fixture doorbells immediately, but dispatcher race can
+# still wake it; run this acceptance only when the real bot-identity path is
+# worth the model-credit risk.
 BOT_UID="${BOT_UID:-27A8InGz6zAae7ef483_bot}"
 BOT_PROFILE="${BOT_PROFILE:-test2}"
 PASS=0; FAIL=0
@@ -27,6 +31,14 @@ say()  { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 okay() { printf '  ✅ %s\n' "$*"; PASS=$((PASS+1)); }
 bad()  { printf '  ❌ %s\n' "$*"; FAIL=$((FAIL+1)); }
 jqget(){ python3 -c "import json,sys;d=json.load(sys.stdin);print(d$1)"; }
+
+LOCK_DIR="${MATTER_ACCEPTANCE_LOCK_DIR:-${TMPDIR:-/tmp}/octo-matter-v2-acceptance.lock}"
+release_acceptance_lock() { rmdir "$LOCK_DIR" 2>/dev/null || true; }
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+  printf 'ERROR: another Matter live acceptance run is active (%s); run smoke/CLI/UI checks serially.\n' "$LOCK_DIR" >&2
+  exit 1
+fi
+trap release_acceptance_lock EXIT
 
 # Fixture ledgers — admin-created vs bot-created (delete permission is
 # creator-only), wiped in the self-cleanup trailer: no inbox residue.
@@ -45,7 +57,23 @@ trackA() { [ -n "$1" ] && ADMIN_CREATED+=("$1"); }
 trackB() { [ -n "$1" ] && BOT_CREATED+=("$1"); }
 
 # ---- identities -----------------------------------------------------------
-ADMIN_PWD=$(grep '^OCTO_ADMIN_PWD=' "$DEPLOY_DIR/.env" | cut -d= -f2-)
+if [ -z "$DEPLOY_DIR" ] || [ ! -f "$DEPLOY_DIR/.env" ]; then
+  printf 'ERROR: DEPLOY_DIR must point to octo-deployment/docker with .env; got "%s"\n' "$DEPLOY_DIR" >&2
+  exit 1
+fi
+
+env_key() {
+  local key="$1"
+  local value
+  value=$(grep "^${key}=" "$DEPLOY_DIR/.env" | cut -d= -f2- || true)
+  if [ -z "$value" ]; then
+    printf 'ERROR: %s missing in %s/.env\n' "$key" "$DEPLOY_DIR" >&2
+    exit 1
+  fi
+  printf '%s' "$value"
+}
+
+ADMIN_PWD=$(env_key OCTO_ADMIN_PWD)
 TOKEN=$(curl -s -X POST "$BASE/api/v1/user/login" -H 'Content-Type: application/json' \
   -d "{\"username\":\"superAdmin\",\"password\":\"${ADMIN_PWD}\",\"flag\":1}" | jqget "['token']")
 SPACE=$(curl -s "$BASE/api/v1/space/my" -H "token: $TOKEN" | jqget "[0]['space_id']")
@@ -101,6 +129,7 @@ R=$(bot PUT "/api/v1/matters/$M1/status" --data '{"status":"review","summary":"�
 # 人:圈一笔 (S 派生打回)
 FB=$(curl -s "${H[@]}" -X POST "$API/matters/$M1/feedback" \
   -d '{"content":"octo-cli 那节口径不对:把 47 个操作写成了 48,核对 README 后改一版","anchor":{"snippet":"octo-cli 3 条"}}')
+park_bells "$M1"
 [ "$(botfield "$FB" "['matter_status']")" = "in_progress" ] && okay "人:圈一笔 → 状态 S 派生打回 in_progress" || bad "feedback: $(echo "$FB"|head -c 200)"
 
 # bot 收到打回:读反馈 → 修正 → 再交回
@@ -118,6 +147,7 @@ CODE=$(botfield "$R" "['error']['code']")
 
 # 人盖章
 ST=$(curl -s "${H[@]}" -X PUT "$API/matters/$M1/status" -d '{"status":"done"}' | jqget "['status']")
+park_bells "$M1"
 [ "$ST" = "done" ] && okay "人:验收完成 (done) — 委托三拍闭环 ✓" || bad "accept: $ST"
 
 # ===========================================================================
@@ -149,6 +179,7 @@ DUP=$(botfield "$R" "['data']['id']")
 for CID in "${CHILD_IDS[@]}"; do
   bot PUT "/api/v1/matters/$CID/status" --data '{"status":"in_progress"}' >/dev/null
   bot PUT "/api/v1/matters/$CID/status" --data '{"status":"review","summary":"本路评审完成。"}' >/dev/null
+  park_bells "$CID"
 done
 okay "bot:三路全部交回 (review)"
 
@@ -160,6 +191,7 @@ R=$(bot POST "/api/v1/matters/$M2/join" --data "{\"processed_seq\":$ES,\"action\
 [ "$(botfield "$R" "['data']['pending']")" = "False" ] && okay "bot Leader:join 水位齐平 (合并必达确认)" || bad "join: $(echo "$R"|head -c 150)"
 bot POST "/api/v1/matters/$M2/timeline" --data '{"content":"三路评审已合并:共 11 条问题,2 条高优(示例里的端口号过期、缺 X-Space-Id 说明)。"}' >/dev/null
 R=$(bot PUT "/api/v1/matters/$M2/status" --data '{"status":"review","summary":"汇总报告交回,11 条问题待人裁决。"}')
+park_bells "$M2"
 [ "$(botfield "$R" "['data']['status']")" = "review" ] && okay "bot Leader:汇总交回父单" || bad "parent handback"
 
 # 父单完成被子任务挡住 → 人先验收子任务 → 再收父单
@@ -167,8 +199,10 @@ CODE=$(curl -s "${H[@]}" -X PUT "$API/matters/$M2/status" -d '{"status":"done"}'
 [ "$CODE" = "CHILDREN_NOT_TERMINAL" ] && okay "守卫:子任务未收口,父单不能完成" || bad "parent fence: $CODE"
 for CID in "${CHILD_IDS[@]}"; do
   curl -s "${H[@]}" -X PUT "$API/matters/$CID/status" -d '{"status":"done"}' > /dev/null
+  park_bells "$CID"
 done
 ST=$(curl -s "${H[@]}" -X PUT "$API/matters/$M2/status" -d '{"status":"done"}' | jqget "['status']")
+park_bells "$M2"
 [ "$ST" = "done" ] && okay "人:逐路验收后父单完成 — 撒网闭环 ✓" || bad "parent done: $ST"
 
 # ===========================================================================

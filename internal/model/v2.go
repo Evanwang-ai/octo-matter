@@ -36,20 +36,20 @@ const OutboxEventHomecoming = "matter.homecoming"
 
 // OutboxRow is one doorbell awaiting (or done with) delivery.
 type OutboxRow struct {
-	ID          string     `db:"id" json:"id"`
-	SpaceID     string     `db:"space_id" json:"space_id"`
-	MatterID    string     `db:"matter_id" json:"matter_id"`
-	TargetUID   string     `db:"target_uid" json:"target_uid"`
-	ActorUID    string     `db:"actor_uid" json:"actor_uid"`
-	Event       string     `db:"event" json:"event"`
-	MessageKey  string     `db:"message_key" json:"message_key"`
-	Params      *string    `db:"params" json:"params,omitempty"` // JSON text
-	State       string     `db:"state" json:"state"`
-	RetryCount  uint       `db:"retry_count" json:"retry_count"`
-	NextRetryAt time.Time  `db:"next_retry_at" json:"next_retry_at"`
-	LastError   *string    `db:"last_error" json:"last_error,omitempty"`
-	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time  `db:"updated_at" json:"updated_at"`
+	ID          string    `db:"id" json:"id"`
+	SpaceID     string    `db:"space_id" json:"space_id"`
+	MatterID    string    `db:"matter_id" json:"matter_id"`
+	TargetUID   string    `db:"target_uid" json:"target_uid"`
+	ActorUID    string    `db:"actor_uid" json:"actor_uid"`
+	Event       string    `db:"event" json:"event"`
+	MessageKey  string    `db:"message_key" json:"message_key"`
+	Params      *string   `db:"params" json:"params,omitempty"` // JSON text
+	State       string    `db:"state" json:"state"`
+	RetryCount  uint      `db:"retry_count" json:"retry_count"`
+	NextRetryAt time.Time `db:"next_retry_at" json:"next_retry_at"`
+	LastError   *string   `db:"last_error" json:"last_error,omitempty"`
+	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // MatterFeedback is one 圈一笔 (H taste signal, doc 11).
@@ -76,40 +76,49 @@ const (
 
 // MatterSummary is a Smart-Summary draft / authorization record (T1).
 type MatterSummary struct {
-	ID           string    `db:"id" json:"id"`
-	MatterID     string    `db:"matter_id" json:"matter_id"`
-	SpaceID      string    `db:"space_id" json:"space_id"`
-	Status       string    `db:"status" json:"status"`
-	Content      *string   `db:"content" json:"content,omitempty"`
-	TargetBotUID *string   `db:"target_bot_uid" json:"target_bot_uid,omitempty"`
-	Scope        *string   `db:"scope" json:"scope,omitempty"`
-	CreatedBy    string    `db:"created_by" json:"created_by"`
-	CreatedAt    time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
+	ID                  string          `db:"id" json:"id"`
+	MatterID            string          `db:"matter_id" json:"matter_id"`
+	SpaceID             string          `db:"space_id" json:"space_id"`
+	Status              string          `db:"status" json:"status"`
+	Content             *string         `db:"content" json:"content,omitempty"`
+	TargetBotUID        *string         `db:"target_bot_uid" json:"target_bot_uid,omitempty"`
+	Scope               *string         `db:"scope" json:"scope,omitempty"`
+	ScopeType           string          `db:"scope_type" json:"scope_type"`
+	ScopeKey            *string         `db:"scope_key" json:"scope_key,omitempty"`
+	EvidenceMatterID    *string         `db:"evidence_matter_id" json:"evidence_matter_id,omitempty"`
+	EvidenceEntryIDs    JSONStringSlice `db:"evidence_entry_ids" json:"evidence_entry_ids"`
+	EvidenceFeedbackIDs JSONStringSlice `db:"evidence_feedback_ids" json:"evidence_feedback_ids"`
+	Confidence          int             `db:"confidence" json:"confidence"`
+	HitCount            int             `db:"hit_count" json:"hit_count"`
+	MissCount           int             `db:"miss_count" json:"miss_count"`
+	LastAppliedAt       *time.Time      `db:"last_applied_at" json:"last_applied_at,omitempty"`
+	CreatedBy           string          `db:"created_by" json:"created_by"`
+	CreatedAt           time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt           time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 // MatterSchedule is a 常设委托单 (Or5): cron-shaped standing delegation that
 // stamps out matters idempotently.
 type MatterSchedule struct {
-	ID          string     `db:"id" json:"id"`
-	SpaceID     string     `db:"space_id" json:"space_id"`
-	Title       string     `db:"title" json:"title"`
-	Runbook     *string    `db:"runbook" json:"runbook,omitempty"`
-	CronExpr    string     `db:"cron_expr" json:"cron_expr"`
-	Timezone    string     `db:"timezone" json:"timezone"`
-	ExecutorUID string     `db:"executor_uid" json:"executor_uid"`
+	ID          string  `db:"id" json:"id"`
+	SpaceID     string  `db:"space_id" json:"space_id"`
+	Title       string  `db:"title" json:"title"`
+	Runbook     *string `db:"runbook" json:"runbook,omitempty"`
+	CronExpr    string  `db:"cron_expr" json:"cron_expr"`
+	Timezone    string  `db:"timezone" json:"timezone"`
+	ExecutorUID string  `db:"executor_uid" json:"executor_uid"`
 	// OutputMode: track=每次运行立成事项追踪; runonly=结果发回会话(投递由
 	// 执行 agent 完成 — O3 report-back;matter 只在门铃里携带目标)。
-	OutputMode        string  `db:"output_mode" json:"output_mode"`
-	TargetChannelID   *string `db:"target_channel_id" json:"target_channel_id,omitempty"`
-	TargetChannelName *string `db:"target_channel_name" json:"target_channel_name,omitempty"`
-	ProjectID   *string    `db:"project_id" json:"project_id,omitempty"`
-	CreatorID   string     `db:"creator_id" json:"creator_id"`
-	Enabled     uint8      `db:"enabled" json:"enabled"`
-	LastRunAt   *time.Time `db:"last_run_at" json:"last_run_at,omitempty"`
-	NextRunAt   *time.Time `db:"next_run_at" json:"next_run_at,omitempty"`
-	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time  `db:"updated_at" json:"updated_at"`
+	OutputMode        string     `db:"output_mode" json:"output_mode"`
+	TargetChannelID   *string    `db:"target_channel_id" json:"target_channel_id,omitempty"`
+	TargetChannelName *string    `db:"target_channel_name" json:"target_channel_name,omitempty"`
+	ProjectID         *string    `db:"project_id" json:"project_id,omitempty"`
+	CreatorID         string     `db:"creator_id" json:"creator_id"`
+	Enabled           uint8      `db:"enabled" json:"enabled"`
+	LastRunAt         *time.Time `db:"last_run_at" json:"last_run_at,omitempty"`
+	NextRunAt         *time.Time `db:"next_run_at" json:"next_run_at,omitempty"`
+	CreatedAt         time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt         time.Time  `db:"updated_at" json:"updated_at"`
 }
 
 // MatterProjectSource is one 共享上下文来源 on a project (H-mounted: a chat
@@ -160,13 +169,14 @@ type MatterBotTask struct {
 // which external systems it can reach. The earned half (acceptance stats,
 // authorized preference summaries) is derived live and never stored here.
 type MatterAgentCard struct {
-	BotUID      string          `db:"bot_uid" json:"bot_uid"`
-	SpaceID     string          `db:"space_id" json:"space_id"`
-	OwnerUID    string          `db:"owner_uid" json:"owner_uid"`
-	Tagline     *string         `db:"tagline" json:"tagline,omitempty"`
-	Description *string         `db:"description" json:"description,omitempty"`
-	Skills      JSONStringSlice `db:"skills" json:"skills"`
-	Systems     JSONStringSlice `db:"systems" json:"systems"`
+	BotUID       string                `db:"bot_uid" json:"bot_uid"`
+	SpaceID      string                `db:"space_id" json:"space_id"`
+	OwnerUID     string                `db:"owner_uid" json:"owner_uid"`
+	Tagline      *string               `db:"tagline" json:"tagline,omitempty"`
+	Description  *string               `db:"description" json:"description,omitempty"`
+	Skills       JSONStringSlice       `db:"skills" json:"skills"`
+	Systems      JSONStringSlice       `db:"systems" json:"systems"`
+	Capabilities AgentCardCapabilities `db:"capabilities" json:"capabilities"`
 	// Visibility: space(默认,全空间可见) | private(声明半仅主人可见)。
 	Visibility string    `db:"visibility" json:"visibility"`
 	UpdatedAt  time.Time `db:"updated_at" json:"updated_at"`

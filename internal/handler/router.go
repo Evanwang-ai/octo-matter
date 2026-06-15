@@ -117,11 +117,15 @@ func SetupRouter(
 			matters.GET("/:id/feedback", v2H.ListFeedback)
 			matters.POST("/:id/touch", v2H.Touch)
 			matters.GET("/:id/tree", v2H.Tree)
+			matters.GET("/:id/context", v2H.MatterContext)
+			matters.GET("/:id/edges", v2H.Edges)
 			matters.POST("/:id/join", v2H.Join)
 			matters.POST("/:id/send-back", v2H.SendBack)
 			matters.POST("/:id/summary", v2H.GenerateSummary)
 			matters.GET("/:id/summary", v2H.GetSummary)
 			matters.PUT("/:id/summary/:sid", v2H.ResolveSummary)
+			matters.GET("/:id/preference-hints", v2H.PreferenceHints)
+			matters.PUT("/:id/preference-hints/:sid", v2H.CalibratePreferenceHint)
 		}
 	}
 
@@ -137,6 +141,8 @@ func SetupRouter(
 		}
 		// automation target picker: which conversations can this bot post into
 		api.GET("/bots/:uid/channels", matterH.BotChannels)
+		api.GET("/bots/:uid/preferences", v2H.BotPreferences)
+		api.PUT("/bots/:uid/preferences/:sid", v2H.ResolveBotPreference)
 
 		schedules := api.Group("/schedules")
 		{
@@ -167,8 +173,17 @@ func SetupRouter(
 		}
 	}
 
+	registerWebUIRoutes(r)
+
+	return r
+}
+
+func registerWebUIRoutes(r *gin.Engine) {
 	// Embedded workspace UI. Same-origin with octo-web behind nginx /matter/,
 	// so the SPA reuses the login token from localStorage.
+	// Behind nginx, /matter/ is stripped to "/" and /matter/ui is stripped to
+	// "/ui". Serve index directly for both so a reverse proxy never loses the
+	// /matter prefix through an absolute 301 Location.
 	// gin's tree forbids a literal "/ui/" beside the catch-all, so the
 	// wildcard route serves index.html for the bare prefix itself. The index
 	// bytes are written directly: http.ServeFile 301-redirects any path that
@@ -181,7 +196,8 @@ func SetupRouter(
 	serveIndex := func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
 	}
-	r.GET("/ui", func(c *gin.Context) { c.Redirect(http.StatusMovedPermanently, "ui/") })
+	r.GET("/", serveIndex)
+	r.GET("/ui", serveIndex)
 	r.GET("/ui/*path", func(c *gin.Context) {
 		p := strings.TrimPrefix(c.Param("path"), "/")
 		if p == "" || p == "index.html" {
@@ -190,6 +206,4 @@ func SetupRouter(
 		}
 		c.FileFromFS(p, uiFS)
 	})
-
-	return r
 }

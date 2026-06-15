@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Mininglamp-OSS/octo-matter/internal/apperr"
 	"github.com/Mininglamp-OSS/octo-matter/internal/i18n"
 	"github.com/Mininglamp-OSS/octo-matter/internal/model"
 	"github.com/Mininglamp-OSS/octo-matter/internal/service"
@@ -158,6 +159,21 @@ func (h *V2Handler) Tree(c *gin.Context) {
 	ok(c, res)
 }
 
+func (h *V2Handler) Edges(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "30"))
+	res, err := h.v2.MatterEdges(c.Request.Context(), id, spaceID(c), relatedUIDs(c), callerToken(c), limit)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, res)
+}
+
 // ---------------------------------------------------------------------------
 // Smart Summary
 // ---------------------------------------------------------------------------
@@ -208,17 +224,51 @@ func (h *V2Handler) GetSummary(c *gin.Context) {
 		return
 	}
 	if sum == nil {
-		failKey(c, http.StatusNotFound, "NOT_FOUND", i18n.KeyNotFound, nil)
+		c.Status(http.StatusNoContent)
 		return
 	}
 	ok(c, sum)
 }
 
+func contextPart(data any, err error) gin.H {
+	if err == nil {
+		return gin.H{"ok": true, "data": data}
+	}
+	code := "ERROR"
+	if ae, ok := apperr.AsAppError(err); ok {
+		code = ae.Code()
+	}
+	return gin.H{"ok": false, "error": gin.H{"code": code}}
+}
+
+func (h *V2Handler) MatterContext(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	ctx := c.Request.Context()
+	edges, err := h.v2.MatterEdges(ctx, id, spaceID(c), relatedUIDs(c), callerToken(c), 30)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	hints, hintsErr := h.v2.PreferenceHints(ctx, id, spaceID(c), relatedUIDs(c), callerToken(c), 5)
+	summary, summaryErr := h.v2.LatestSummary(ctx, id, spaceID(c), relatedUIDs(c), callerToken(c))
+	ok(c, gin.H{
+		"edges":            contextPart(edges, nil),
+		"preference_hints": contextPart(hints, hintsErr),
+		"summary":          contextPart(summary, summaryErr),
+	})
+}
+
 type resolveSummaryReq struct {
-	Action       string  `json:"action" binding:"required,oneof=authorize discard"`
+	Action       string  `json:"action" binding:"required,oneof=authorize discard hit miss"`
 	Content      *string `json:"content" binding:"omitempty,max=20000"`
 	TargetBotUID *string `json:"target_bot_uid" binding:"omitempty,max=64"`
 	Scope        *string `json:"scope" binding:"omitempty,max=100"`
+	ScopeType    *string `json:"scope_type" binding:"omitempty,oneof=matter project bot space global"`
+	ScopeKey     *string `json:"scope_key" binding:"omitempty,max=128"`
 }
 
 func (h *V2Handler) ResolveSummary(c *gin.Context) {
@@ -234,12 +284,87 @@ func (h *V2Handler) ResolveSummary(c *gin.Context) {
 		return
 	}
 	sum, err := h.v2.ResolveSummary(c.Request.Context(), id, spaceID(c), sid, relatedUIDs(c), uid(c),
-		req.Action, req.Content, req.TargetBotUID, req.Scope, ownedBots(c))
+		req.Action, req.Content, req.TargetBotUID, req.Scope, req.ScopeType, req.ScopeKey, ownedBots(c))
 	if err != nil {
 		respondErr(c, err)
 		return
 	}
 	ok(c, sum)
+}
+
+func (h *V2Handler) PreferenceHints(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+	res, err := h.v2.PreferenceHints(c.Request.Context(), id, spaceID(c), relatedUIDs(c), callerToken(c), limit)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, res)
+}
+
+type calibratePreferenceHintReq struct {
+	Action string `json:"action" binding:"required,oneof=hit miss discard scope_matter"`
+}
+
+func (h *V2Handler) CalibratePreferenceHint(c *gin.Context) {
+	id := c.Param("id")
+	sid := c.Param("sid")
+	if !validUUID(id) || !validUUID(sid) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	var req calibratePreferenceHintReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	hint, err := h.v2.CalibratePreferenceHint(c.Request.Context(), id, spaceID(c), sid, relatedUIDs(c), callerToken(c), uid(c), req.Action, ownedBots(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, hint)
+}
+
+func (h *V2Handler) BotPreferences(c *gin.Context) {
+	botUID := strings.TrimSpace(c.Param("uid"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	status := strings.TrimSpace(c.DefaultQuery("status", "all"))
+	res, err := h.v2.PreferenceRecordsForBot(c.Request.Context(), spaceID(c), botUID, status, ownedBots(c), limit)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, res)
+}
+
+type resolveBotPreferenceReq struct {
+	Action string `json:"action" binding:"required,oneof=restore discard scope_source"`
+}
+
+func (h *V2Handler) ResolveBotPreference(c *gin.Context) {
+	botUID := strings.TrimSpace(c.Param("uid"))
+	sid := c.Param("sid")
+	if !validUUID(sid) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	var req resolveBotPreferenceReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	rec, err := h.v2.ResolvePreferenceRecordForBot(c.Request.Context(), spaceID(c), botUID, sid, uid(c), req.Action, ownedBots(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, rec)
 }
 
 // ---------------------------------------------------------------------------
@@ -431,7 +556,7 @@ func (h *V2Handler) UpdateSchedule(c *gin.Context) {
 		Timezone: req.Timezone, ExecutorUID: req.ExecutorUID,
 		OutputMode: req.OutputMode, TargetChannelID: req.TargetChannelID,
 		TargetChannelName: req.TargetChannelName,
-		ProjectID: req.ProjectID, Enabled: req.Enabled, OwnedBots: ownedBots(c),
+		ProjectID:         req.ProjectID, Enabled: req.Enabled, OwnedBots: ownedBots(c),
 	})
 	if err != nil {
 		respondErr(c, err)
@@ -546,11 +671,12 @@ func (h *V2Handler) AgentStats(c *gin.Context) {
 // --- AgentCard (声明半可编辑,赚来半派生) ---------------------------------
 
 type agentCardPutReq struct {
-	Visibility  string   `json:"visibility" binding:"omitempty,oneof=space private"`
-	Tagline     *string  `json:"tagline" binding:"omitempty,max=200"`
-	Description *string  `json:"description" binding:"omitempty,max=4000"`
-	Skills      []string `json:"skills" binding:"omitempty,max=30,dive,max=100"`
-	Systems     []string `json:"systems" binding:"omitempty,max=30,dive,max=100"`
+	Visibility   string                      `json:"visibility" binding:"omitempty,oneof=space private"`
+	Tagline      *string                     `json:"tagline" binding:"omitempty,max=200"`
+	Description  *string                     `json:"description" binding:"omitempty,max=4000"`
+	Skills       []string                    `json:"skills" binding:"omitempty,max=30,dive,max=100"`
+	Systems      []string                    `json:"systems" binding:"omitempty,max=30,dive,max=100"`
+	Capabilities []model.AgentCardCapability `json:"capabilities" binding:"omitempty,max=60"`
 }
 
 // AgentCardGet returns both halves; any space member may look at a card
@@ -597,7 +723,8 @@ func (h *V2Handler) AgentCardPut(c *gin.Context) {
 		BotUID: botUID, SpaceID: spaceID(c), OwnerUID: uid(c),
 		Tagline: req.Tagline, Description: req.Description,
 		Skills: model.JSONStringSlice(req.Skills), Systems: model.JSONStringSlice(req.Systems),
-		Visibility: req.Visibility,
+		Capabilities: model.AgentCardCapabilities(req.Capabilities),
+		Visibility:   req.Visibility,
 	}
 	if err := h.v2.PutAgentCard(c.Request.Context(), card); err != nil {
 		respondErr(c, err)

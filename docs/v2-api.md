@@ -16,8 +16,10 @@ Everything below is additive.
 - All `/api/v1/*` calls additionally require `X-Space-Id`.
 - Internal endpoints use `X-Internal-Token` (constant-time compare, fail closed).
 
-When served behind nginx the service root is `/matter/`, so from the embedded
-UI (`/matter/ui/`) the API base is the relative path `../api/v1`.
+When served behind nginx the service root is `/matter/`. The embedded UI
+calculates its API base from the current path, so `/matter/`, `/matter/ui`,
+and `/matter/ui/` all call `/matter/api/v1`; direct service access still calls
+`/api/v1`.
 
 ## Status machine
 
@@ -97,6 +99,14 @@ parent and appends a `child_created` activity on the parent.
     "join_ready": false, "events_seq": 7, "processed_seq": 5,
     "contract": {"visibility":"blind|shared|upstream|pair","report_to":"leader|next|verifier"} }
   ```
+- `GET /api/v1/matters/:id/edges` → outbox-derived Octo orchestration view:
+  `{source?, data:[{id,kind,event,state,state_label,target_uid,actor_uid,label,detail,retry_count,next_retry_at,last_error?,created_at,updated_at}]}`.
+  This is the first read model for “结构外的力量”: no new ledger table yet,
+  but doorbells/homecoming/schedule/watchdog/preference rings are visible as
+  human-readable edges. `state` stays the raw outbox state; `state_label` is
+  user-facing. Assigned doorbells may upgrade `state_label` from the matter
+  lifecycle when the target is still the current leader: `in_progress` → 已开工,
+  `review` → 已交回, `done` → 已完成.
 - `POST /api/v1/matters/:id/feedback` body
   `{ "content": "哪儿不对怎么改", "entry_id"?: uuid, "anchor"?: {…}, "target_uid"?: uid }`
   → stores H feedback, appends `feedback_added` activity; if matter is in
@@ -112,11 +122,55 @@ parent and appends a `child_created` activity on the parent.
 - `POST /api/v1/matters/:id/summary` → generate Smart-Summary draft via LLM
   (503 `LLM_NOT_CONFIGURED` when no key). Creator only.
 - `GET  /api/v1/matters/:id/summary` → latest summary row
-  `{id,status:draft|authorized|discarded,content,target_bot_uid,scope}`.
+  `{id,status:draft|authorized|discarded,content,target_bot_uid,scope,scope_type,scope_key,evidence_matter_id,evidence_entry_ids,evidence_feedback_ids,confidence,hit_count,miss_count,last_applied_at}`.
+  Returns `204 No Content` when the matter has no summary/preference draft yet
+  (empty state, not 404).
 - `PUT  /api/v1/matters/:id/summary/:sid` body
-  `{ "action":"authorize"|"discard", "content"?, "target_bot_uid"?, "scope"? }`
-  — authorize requires `target_bot_uid` ∈ caller's owned bots. NOTE: writing
-  into agent memory has no real interface yet; rows stop at `authorized`.
+  `{ "action":"authorize"|"discard"|"hit"|"miss", "content"?, "target_bot_uid"?, "scope"?, "scope_type"?, "scope_key"? }`
+  — authorize requires `target_bot_uid` ∈ caller's owned bots. `hit`/`miss`
+  are only valid on authorized rows and calibrate confidence plus hit/miss
+  counters. `scope_type` may be `matter|project|bot|space|global`; when omitted
+  the server keeps the old matter scope, and when `scope_key` is omitted the
+  server fills the natural key (matter id, project id, bot uid or space id).
+  NOTE: writing into agent memory has no real interface yet; rows stop at
+  `authorized`.
+- `GET /api/v1/matters/:id/preference-hints?limit=5` → recall authorized
+  Preference rows that are applicable to the matter's responsible bot.
+  Returns `{matter_id,target_bot_uid,preference_context,data:[{summary_id,
+  matter_id,scope,scope_type,scope_key,content,confidence,hit_count,miss_count,
+  last_applied_at,updated_at,match,match_label}]}`. `match` is one of
+  `matter|project|bot|space|global`. `preference_context` is a compact
+  bot-readable Markdown block suitable for the executor to add to its own
+  prompt/brief; Matter still exposes it as recall data rather than silently
+  mutating an agent runtime.
+- `PUT /api/v1/matters/:id/preference-hints/:sid` body
+  `{action:"hit"|"miss"|"discard"|"scope_matter"}`
+  → calibrate, revoke, or narrow a recalled authorized Preference from the receiving matter.
+  The server re-checks that the caller can access `:id`, that `:sid` targets
+  the matter's responsible bot, and that its scope still matches `:id`. `discard`
+  additionally requires caller ownership of the target bot, then removes the
+  Preference from future recall by changing the summary status to `discarded`.
+  `scope_matter` also requires target-bot ownership and rewrites the Preference
+  scope to the current matter only, avoiding future project/space/global recall.
+- `GET /api/v1/matters/:id/context` → deferred right-rail context bundle for
+  the Matter UI. Returns `{edges:{ok,data|error}, preference_hints:{ok,data|error},
+  summary:{ok,data|null|error}}`. Access is checked through the same Matter
+  visibility path as `edges`; Preference and summary failures are isolated so a
+  missing optional block does not break the detail page.
+- `GET /api/v1/bots/:uid/preferences?status=all|authorized|discarded&limit=100`
+  → owner-only Preference ledger for one bot. Returns
+  `{target_bot_uid,status,stats,data:[{summary_id,matter_id,matter_seq_no,matter_title,target_bot_uid,status,scope,scope_type,scope_key,content,confidence,hit_count,miss_count,last_applied_at,updated_at,duplicate_count?,duplicate_group_key?,duplicate_preferred?,duplicate_reason?}]}`.
+  Drafts are excluded; this surface is for managing records that already affect
+  recall or were explicitly revoked. `duplicate_count`/`duplicate_group_key`
+  are emitted when the same normalized rule content appears multiple times for
+  the same target bot, so the owner can clean up redundant Preference rows.
+  `duplicate_preferred` marks the suggested row to keep, ranked by authorized
+  status, narrower scope, hit/miss health, confidence, and recency.
+- `PUT /api/v1/bots/:uid/preferences/:sid` body
+  `{action:"restore"|"discard"|"scope_source"}`
+  → owner-only ledger action. `restore` moves a discarded Preference back to
+  `authorized`; `discard` revokes it from future recall; `scope_source` keeps
+  it authorized but rewrites scope to the source matter only.
 
 ## Projects (文件夹)
 
@@ -182,8 +236,16 @@ modules/runtime/bot_task.go):
   activities, rings creator/leader.
 - `POST /api/v1/internal/bot-tasks/claim` `{bot_uids:[], daemon_id?, limit?}`
   → atomically claim queued tasks (`queued→dispatched`, returns
-  `claim_token`s). This is the executor pull surface; NO executor ships with
-  the local stack yet (see gap list).
+  `claim_token`s). Each task includes `matter_brief` (description,
+  `brief_constraints`, `brief_output_spec`, status/epoch metadata),
+  `agent_context` (declared AgentCard capabilities), `project_context` (project
+  source digest + compact text), and `preference_context` plus
+  `preference_hints` for the claimed `bot_uid`, so executors can explicitly
+  place capability boundaries, shared context, matched user preferences and
+  acceptance constraints into their run brief instead of reimplementing Matter
+  scope matching. It also returns `run_context`, a combined text block assembled
+  from those same fields for prompt/brief injection. This is the executor pull
+  surface; NO executor ships with the local stack yet (see gap list).
 - `GET /api/v1/internal/bot-tasks?status=&bot_uid=` → ops listing.
 
 ## Prototype-fidelity additions (migration 009)
@@ -205,9 +267,10 @@ modules/runtime/bot_task.go):
   - `DELETE /api/v1/projects/:id/sources/:sid` (source author or project creator)
 - `GET /agents/stats` per-uid shape grew: `in_progress` count, `current`
   (live matters, ≤5) and `preferences` (authorized smart-summaries targeting
-  the uid: `{summary_id, matter_id, scope, content, updated_at}`) — the real
+  the uid: `{summary_id, matter_id, scope, scope_type, scope_key, content,
+  confidence, hit_count, miss_count, last_applied_at, updated_at}`) — the real
   halves of the AgentCard. `content` is the distilled rule itself so the UI can
-  show WHAT the bot learned (人看一眼,不是只看 scope.preference.md 文件名).
+  show WHAT the bot learned (人看一眼,不是只看 scope.preference 文件名).
   Declaration-half fields (权限/能力边界/接入) come from `/agent-cards/:uid`.
 
 ## octo-server same-origin APIs the UI may call directly
@@ -224,28 +287,75 @@ octo-server with the same `token` header:
 
 ## Embedded UI
 
-`GET /ui/` serves the restored Matter workspace (single-page, hash routes
+`GET /` and `GET /ui` / `GET /ui/` serve the restored Matter workspace
+(single-page, hash routes
 `#/inbox  #/mine  #/initiated  #/review-me  #/board  #/projects
- #/automation  #/matter/:id  #/project/:id`).
+#/automation  #/matter/:id  #/project/:id`).
+Behind nginx, `GET /matter` redirects to `/matter/ui` with the original
+host/port preserved, while `/matter/` and `/matter/ui` serve the SPA directly.
 Same-origin auth reuse: reads `localStorage` keys `token`, `uid`, `name`,
 `currentSpaceId` written by octo-web; when only the token is present the UI
 auto-discovers the space via `/api/v1/space/my`. Manual form otherwise.
 `?embed=1` (used by the octo-web sidebar iframe) hides the UI's own leftmost
 icon rail — the host app already provides global navigation.
 
+Local verification:
+
+- These scripts hit the same live stack and create temporary fixtures; run them
+  serially. They share a local acceptance lock and fail fast if another run is
+  active.
+- `./scripts/v2-smoke.sh` runs the API/live-stack acceptance loop and static
+  embedded-UI contract checks. It defaults to the sibling
+  `Code/octo-deployment/docker`; set `DEPLOY_DIR=/path/to/octo-deployment/docker`
+  for a nonstandard checkout. Doorbell acceptance uses a fake sink bot by
+  default and parks the outbox before dispatcher delivery; set `LIVE_NOTIFY=1`
+  only when deliberately testing the octo-server notify path end-to-end against
+  a real bot identity.
+- `./scripts/v2-cli-cases.sh` runs the real bot-identity CLI acceptance cases:
+  delegated single-bot loop, send-back after human feedback, bot-led swarm,
+  join fencing, reassignment epoch fencing, bot workspace listing, and
+  zero-trace cleanup. It uses a real bot profile and parks fixture doorbells to
+  reduce wakeup/token risk, but it can still race a live worker; avoid repeated
+  runs when model credit is constrained and override `BOT_UID` / `BOT_PROFILE`
+  only intentionally.
+- `RUN_LABEL=local node scripts/v2-ui-sweep.mjs` runs an optional Playwright
+  sweep for `#/matter/:id`: it creates temporary open / in_progress / review /
+  blocked matters, checks desktop and mobile detail pages for console errors,
+  page errors, horizontal overflow, unnamed visible buttons, and blocked reason
+  visibility, saves screenshots, then deletes the fixtures. If Playwright is not
+  installed in this repo, the script tries the sibling `octo-web/apps/web`
+  workspace; otherwise set `PLAYWRIGHT_REQUIRE_FROM=/path/to/package.json`.
+  Defaults assume the local Octo workspace layout (`Code/octo-matter`,
+  `Code/octo-deployment`, `research/`); override `DEPLOY_DIR=...` or
+  `OUT_DIR=...` when running elsewhere. Use `KEEP_FIXTURES=1` only when
+  intentionally preserving a failing fixture for inspection.
+
 ## 2026-06-12 打磨期新增面(均已活体验证)
 
 - `GET /api/v1/matters?seq=N`(别名 `seq_no=N`)— 人说「M-42」,机器查 UUID。
-- `GET /api/v1/agent-cards` — 派活名册(全空间声明半)。
-  `GET /api/v1/agent-cards/:uid` — 单卡 `{declared, earned}`;declared=creator 手写
+- `GET /api/v1/agent-cards` — 派活名册(全空间能力描述)。
+  `GET /api/v1/agent-cards/:uid` — 单卡 `{declared, earned}`;declared=creator 发布的能力描述
   (visibility=private 时对非主人隐藏),earned=验收实算(永远派生,不可造假)。
-  `PUT /api/v1/agent-cards/:uid` — 仅 creator;字段 tagline/description/skills[]/systems[]/visibility。
+  Response 还带 `viewer={relationship,can_edit,declared_visible}` 给 IM 头像详情和
+  Matter 名片同源分权限展示。declared 支持 `capabilities[]` 机器可读能力条目:
+  `{name,description,source,status,homepage,visibility}`;`source=openclaw` 表示来自
+  OpenClaw skill 快照,`visibility=owner` 仅 creator 可见。当前 PUT 上限为 60
+  条 capabilities,用于避免名片变成完整工具注册表。服务端会把真实
+  OpenClaw source 变体(例如 `openclaw-bundled`, `openclaw-extra`,
+  `agents-skills-personal`)归一为 `openclaw`。明显敏感的 OpenClaw 能力
+  (例如 password/mail/browser/filesystem/shell/Lark/notes 等)服务端会强制
+  `visibility=owner`,即使客户端误传 `space`。
+  `PUT /api/v1/agent-cards/:uid` — 仅 creator;字段 tagline/description/skills[]/systems[]/capabilities[]/visibility。
 - `POST /api/v1/matters/:id/send-back` — 手动把进度发回来源会话(homecoming 队列;
   需 source_channel_id+type 且负责人为 bot,否则诚实 4xx)。
 - `GET /api/v1/bots/:uid/channels` — 该 bot 可发言的群(自动化目标选择器;owner 鉴权)。
+- `GET /api/v1/bots/:uid/preferences` — 该 bot 的 Preference 管理账本(owner 鉴权),
+  用于查看 authorized/discarded 记录与命中/失准健康度。
+  `PUT /api/v1/bots/:uid/preferences/:sid` — owner 在账本里恢复/撤销/收窄记录。
 - `POST /api/v1/matters/:id/summary` 带 `{content}` — 负责 bot 提交偏好草案(护栏4,
   零服务端 LLM);空体保持原 LLM 生成路径。authorize/discard 后以
-  `matter.doorbell.summary_approved/rejected` 回铃提交方。
+  `matter.doorbell.summary_approved/rejected` 回铃提交方;hit/miss 只校准记录,
+  不发回铃。
 - 门铃事件新增:`matter.homecoming`(回源会话投递,target=发声 bot,豁免消费钩子与防自激)、
   `matter.doorbell.reflect`(验收时有圈点且负责人为 bot → 偏好沉淀提示)、
   `matter.project.context_added`(项目共享上下文变更 → 默认负责人)。

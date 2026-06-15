@@ -238,11 +238,17 @@ type AgentStat struct {
 
 // AgentPrefItem is one authorized preference file pointer.
 type AgentPrefItem struct {
-	SummaryID string    `json:"summary_id"`
-	MatterID  string    `json:"matter_id"`
-	Scope     string    `json:"scope,omitempty"`
-	Content   string    `json:"content,omitempty"` // the distilled rule, so the human sees WHAT the bot learned
-	UpdatedAt time.Time `json:"updated_at"`
+	SummaryID     string     `json:"summary_id"`
+	MatterID      string     `json:"matter_id"`
+	Scope         string     `json:"scope,omitempty"`
+	ScopeType     string     `json:"scope_type,omitempty"`
+	ScopeKey      string     `json:"scope_key,omitempty"`
+	Content       string     `json:"content,omitempty"` // the distilled rule, so the human sees WHAT the bot learned
+	Confidence    int        `json:"confidence"`
+	HitCount      int        `json:"hit_count"`
+	MissCount     int        `json:"miss_count"`
+	LastAppliedAt *time.Time `json:"last_applied_at,omitempty"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 type AgentStatRecentItem struct {

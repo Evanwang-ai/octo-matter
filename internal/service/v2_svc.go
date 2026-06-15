@@ -3,8 +3,11 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"hash/fnv"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -623,6 +626,172 @@ func (s *V2Service) DeleteProjectSource(ctx context.Context, id, projectID, spac
 	return apperr.MatterNotFound()
 }
 
+type ProjectContextSource struct {
+	ID        string    `json:"id"`
+	Kind      string    `json:"kind"`
+	Title     string    `json:"title"`
+	Ref       string    `json:"ref,omitempty"`
+	Snippet   string    `json:"snippet,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type ProjectContextResult struct {
+	ProjectID string                 `json:"project_id,omitempty"`
+	Context   string                 `json:"context,omitempty"`
+	Sources   []ProjectContextSource `json:"sources"`
+}
+
+func (s *V2Service) ProjectContextForMatter(ctx context.Context, m *model.Matter, limit int) (*ProjectContextResult, error) {
+	res := &ProjectContextResult{Sources: []ProjectContextSource{}}
+	if m == nil || m.ProjectID == nil || strings.TrimSpace(*m.ProjectID) == "" {
+		return res, nil
+	}
+	res.ProjectID = *m.ProjectID
+	sources, err := s.projectSources.ListByProject(ctx, *m.ProjectID, m.SpaceID)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > 20 {
+		limit = 5
+	}
+	for i, src := range sources {
+		if i >= limit {
+			break
+		}
+		ref := ""
+		if src.Ref != nil {
+			ref = *src.Ref
+		}
+		snippet := ""
+		if src.Snippet != nil {
+			snippet = *src.Snippet
+		}
+		res.Sources = append(res.Sources, ProjectContextSource{
+			ID: src.ID, Kind: src.Kind, Title: src.Title, Ref: ref, Snippet: snippet, CreatedAt: src.CreatedAt,
+		})
+	}
+	res.Context = buildProjectContext(res.Sources)
+	return res, nil
+}
+
+func buildProjectContext(sources []ProjectContextSource) string {
+	if len(sources) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("Project shared context:\n")
+	for i, src := range sources {
+		label := strings.TrimSpace(src.Title)
+		if label == "" {
+			label = src.ID
+		}
+		fmt.Fprintf(&b, "%d. [%s] %s", i+1, strings.TrimSpace(src.Kind), label)
+		body := compactProjectContextBody(src.Snippet)
+		if body == "" {
+			body = compactProjectContextBody(src.Ref)
+		}
+		if body != "" {
+			fmt.Fprintf(&b, ": %s", body)
+		}
+		b.WriteString("\n")
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func compactProjectContextBody(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	s = strings.Join(strings.Fields(s), " ")
+	if len([]rune(s)) > 220 {
+		rs := []rune(s)
+		s = string(rs[:220]) + "..."
+	}
+	return s
+}
+
+type AgentRunCapability struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Status      string `json:"status,omitempty"`
+	Visibility  string `json:"visibility,omitempty"`
+}
+
+type AgentRunContextResult struct {
+	BotUID       string               `json:"bot_uid"`
+	Tagline      string               `json:"tagline,omitempty"`
+	Description  string               `json:"description,omitempty"`
+	Context      string               `json:"context,omitempty"`
+	Capabilities []AgentRunCapability `json:"capabilities"`
+}
+
+func (s *V2Service) AgentContextForBot(ctx context.Context, spaceID, botUID string, limit int) (*AgentRunContextResult, error) {
+	res := &AgentRunContextResult{BotUID: botUID, Capabilities: []AgentRunCapability{}}
+	if strings.TrimSpace(botUID) == "" {
+		return res, nil
+	}
+	card, err := s.cards.Get(ctx, botUID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	if card == nil {
+		return res, nil
+	}
+	if card.Tagline != nil {
+		res.Tagline = strings.TrimSpace(*card.Tagline)
+	}
+	if card.Description != nil {
+		res.Description = strings.TrimSpace(*card.Description)
+	}
+	if limit <= 0 || limit > 20 {
+		limit = 8
+	}
+	for _, cap := range card.Capabilities {
+		if len(res.Capabilities) >= limit {
+			break
+		}
+		name := strings.TrimSpace(cap.Name)
+		if name == "" {
+			continue
+		}
+		res.Capabilities = append(res.Capabilities, AgentRunCapability{
+			Name: name, Description: strings.TrimSpace(cap.Description),
+			Source: strings.TrimSpace(cap.Source), Status: strings.TrimSpace(cap.Status),
+			Visibility: strings.TrimSpace(cap.Visibility),
+		})
+	}
+	res.Context = buildAgentRunContext(res)
+	return res, nil
+}
+
+func buildAgentRunContext(ctx *AgentRunContextResult) string {
+	if ctx == nil || (ctx.Tagline == "" && ctx.Description == "" && len(ctx.Capabilities) == 0) {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("Agent capabilities:\n")
+	if ctx.Tagline != "" {
+		fmt.Fprintf(&b, "- Tagline: %s\n", ctx.Tagline)
+	}
+	if ctx.Description != "" {
+		fmt.Fprintf(&b, "- Description: %s\n", ctx.Description)
+	}
+	for i, cap := range ctx.Capabilities {
+		label := strings.TrimSpace(cap.Name)
+		fmt.Fprintf(&b, "%d. [%s/%s] %s", i+1, cap.Source, cap.Status, label)
+		if cap.Description != "" {
+			fmt.Fprintf(&b, " - %s", cap.Description)
+		}
+		if cap.Visibility == "owner" {
+			b.WriteString(" (owner-only)")
+		}
+		b.WriteString("\n")
+	}
+	return strings.TrimSpace(b.String())
+}
+
 // ---------------------------------------------------------------------------
 // Agent stats (AgentCard 赚来半, S-derived)
 // ---------------------------------------------------------------------------
@@ -651,8 +820,14 @@ func (s *V2Service) AgentStats(ctx context.Context, spaceID string, uids []strin
 			if p.Content != nil {
 				content = *p.Content
 			}
+			scopeKey := ""
+			if p.ScopeKey != nil {
+				scopeKey = *p.ScopeKey
+			}
 			st.Preferences = append(st.Preferences, repository.AgentPrefItem{
-				SummaryID: p.ID, MatterID: p.MatterID, Scope: scope, Content: content, UpdatedAt: p.UpdatedAt,
+				SummaryID: p.ID, MatterID: p.MatterID, Scope: scope, ScopeType: p.ScopeType, ScopeKey: scopeKey,
+				Content: content, Confidence: p.Confidence, HitCount: p.HitCount, MissCount: p.MissCount,
+				LastAppliedAt: p.LastAppliedAt, UpdatedAt: p.UpdatedAt,
 			})
 		}
 	}
@@ -670,6 +845,565 @@ func (s *V2Service) ConsumeDoorbells(ctx context.Context, matterID string, uids 
 	if err := s.outbox.MarkConsumed(ctx, matterID, uids); err != nil {
 		log.Printf("[WARN] doorbell consume failed matter=%s: %v", matterID, err)
 	}
+}
+
+type PreferenceHint struct {
+	SummaryID     string     `json:"summary_id"`
+	MatterID      string     `json:"matter_id"`
+	Status        string     `json:"status"`
+	Scope         string     `json:"scope,omitempty"`
+	ScopeType     string     `json:"scope_type"`
+	ScopeKey      string     `json:"scope_key,omitempty"`
+	Content       string     `json:"content,omitempty"`
+	Confidence    int        `json:"confidence"`
+	HitCount      int        `json:"hit_count"`
+	MissCount     int        `json:"miss_count"`
+	LastAppliedAt *time.Time `json:"last_applied_at,omitempty"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	Match         string     `json:"match"`
+	MatchLabel    string     `json:"match_label"`
+}
+
+type PreferenceHintsResult struct {
+	MatterID          string           `json:"matter_id"`
+	TargetBotUID      string           `json:"target_bot_uid,omitempty"`
+	PreferenceContext string           `json:"preference_context,omitempty"`
+	Data              []PreferenceHint `json:"data"`
+}
+
+type PreferenceRecord struct {
+	SummaryID          string     `json:"summary_id"`
+	MatterID           string     `json:"matter_id"`
+	MatterSeqNo        int        `json:"matter_seq_no,omitempty"`
+	MatterTitle        string     `json:"matter_title,omitempty"`
+	TargetBotUID       string     `json:"target_bot_uid"`
+	Status             string     `json:"status"`
+	Scope              string     `json:"scope,omitempty"`
+	ScopeType          string     `json:"scope_type"`
+	ScopeKey           string     `json:"scope_key,omitempty"`
+	Content            string     `json:"content,omitempty"`
+	Confidence         int        `json:"confidence"`
+	HitCount           int        `json:"hit_count"`
+	MissCount          int        `json:"miss_count"`
+	LastAppliedAt      *time.Time `json:"last_applied_at,omitempty"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+	DuplicateCount     int        `json:"duplicate_count,omitempty"`
+	DuplicateGroupKey  string     `json:"duplicate_group_key,omitempty"`
+	DuplicatePreferred bool       `json:"duplicate_preferred,omitempty"`
+	DuplicateReason    string     `json:"duplicate_reason,omitempty"`
+}
+
+type PreferenceRecordsResult struct {
+	TargetBotUID string             `json:"target_bot_uid"`
+	Status       string             `json:"status"`
+	Stats        map[string]int     `json:"stats"`
+	Data         []PreferenceRecord `json:"data"`
+}
+
+func (s *V2Service) PreferenceHints(ctx context.Context, matterID, spaceID string, callerUIDs []string, callerToken string, limit int) (*PreferenceHintsResult, error) {
+	m, err := s.matters.GetByID(ctx, matterID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	ok, err := s.matterSvc.CanAccessMatter(ctx, m, callerUIDs, "", callerToken)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, apperr.Forbidden(i18n.KeyMatterView)
+	}
+	return s.preferenceHintsForTarget(ctx, m, m.LeaderOrEmpty(), limit)
+}
+
+// PreferenceHintsForBotTask is the trusted internal variant for the executor
+// pull surface. Bot tasks may target a helper bot that is not the matter
+// leader, so the target bot is supplied by the queue row instead of inferred
+// from the matter.
+func (s *V2Service) PreferenceHintsForBotTask(ctx context.Context, matterID, spaceID, targetBotUID string, limit int) (*PreferenceHintsResult, error) {
+	m, err := s.matters.GetByID(ctx, matterID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	return s.preferenceHintsForTarget(ctx, m, targetBotUID, limit)
+}
+
+func (s *V2Service) preferenceHintsForTarget(ctx context.Context, m *model.Matter, target string, limit int) (*PreferenceHintsResult, error) {
+	res := &PreferenceHintsResult{MatterID: m.ID, TargetBotUID: target, Data: []PreferenceHint{}}
+	if target == "" || !strings.HasSuffix(target, "_bot") {
+		return res, nil
+	}
+	rows, err := s.summaries.ListAuthorizedHintsByBot(ctx, m.SpaceID, target, 50)
+	if err != nil {
+		return nil, err
+	}
+	type ranked struct {
+		rank int
+		hint PreferenceHint
+	}
+	var matched []ranked
+	for _, p := range rows {
+		rank, match, label, ok := preferenceScopeMatch(p, m, target)
+		if !ok {
+			continue
+		}
+		matched = append(matched, ranked{rank: rank, hint: preferenceHintFromSummary(p, match, label)})
+	}
+	sort.SliceStable(matched, func(i, j int) bool {
+		if matched[i].rank != matched[j].rank {
+			return matched[i].rank < matched[j].rank
+		}
+		if matched[i].hint.Confidence != matched[j].hint.Confidence {
+			return matched[i].hint.Confidence > matched[j].hint.Confidence
+		}
+		return matched[i].hint.UpdatedAt.After(matched[j].hint.UpdatedAt)
+	})
+	if limit <= 0 || limit > 20 {
+		limit = 5
+	}
+	for i, item := range matched {
+		if i >= limit {
+			break
+		}
+		res.Data = append(res.Data, item.hint)
+	}
+	res.PreferenceContext = buildPreferenceContext(res.Data)
+	return res, nil
+}
+
+func (s *V2Service) PreferenceRecordsForBot(ctx context.Context, spaceID, targetBotUID, status string, ownedBots []string, limit int) (*PreferenceRecordsResult, error) {
+	targetBotUID = strings.TrimSpace(targetBotUID)
+	if targetBotUID == "" || !strings.HasSuffix(targetBotUID, "_bot") {
+		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
+	if !containsUID(ownedBots, targetBotUID) {
+		return nil, apperr.Forbidden(i18n.KeySummaryOnlyCreator)
+	}
+	switch status {
+	case "", "all":
+		status = "all"
+	case model.SummaryAuthorized, model.SummaryDiscarded:
+	default:
+		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
+	rows, err := s.summaries.ListByBot(ctx, spaceID, targetBotUID, "all", limit)
+	if err != nil {
+		return nil, err
+	}
+	res := &PreferenceRecordsResult{
+		TargetBotUID: targetBotUID,
+		Status:       status,
+		Stats:        map[string]int{model.SummaryAuthorized: 0, model.SummaryDiscarded: 0},
+		Data:         []PreferenceRecord{},
+	}
+	records := make([]PreferenceRecord, 0, len(rows))
+	duplicateCounts := map[string]int{}
+	duplicatePreferred := map[string]int{}
+	for _, row := range rows {
+		res.Stats[row.Status]++
+		var sourceMatter *model.Matter
+		if row.MatterID != "" {
+			if m, err := s.matters.GetByID(ctx, row.MatterID, spaceID); err == nil {
+				sourceMatter = m
+			} else if errors.Is(err, apperr.ErrNotFound) {
+				continue
+			} else {
+				return nil, err
+			}
+		}
+		rec := preferenceRecordFromSummary(row, sourceMatter)
+		if key := preferenceDuplicateGroupKey(rec); key != "" {
+			rec.DuplicateGroupKey = key
+			duplicateCounts[key]++
+		}
+		records = append(records, rec)
+	}
+	for i, rec := range records {
+		key := rec.DuplicateGroupKey
+		if key == "" || duplicateCounts[key] <= 1 {
+			continue
+		}
+		best, ok := duplicatePreferred[key]
+		if !ok || preferenceDuplicateBetter(rec, records[best]) {
+			duplicatePreferred[key] = i
+		}
+	}
+	for i, rec := range records {
+		if rec.DuplicateGroupKey != "" {
+			if n := duplicateCounts[rec.DuplicateGroupKey]; n > 1 {
+				rec.DuplicateCount = n
+				if duplicatePreferred[rec.DuplicateGroupKey] == i {
+					rec.DuplicatePreferred = true
+					rec.DuplicateReason = preferenceDuplicateReason(rec)
+				}
+			} else {
+				rec.DuplicateGroupKey = ""
+			}
+		}
+		if status != "all" && rec.Status != status {
+			continue
+		}
+		res.Data = append(res.Data, rec)
+	}
+	return res, nil
+}
+
+func (s *V2Service) ResolvePreferenceRecordForBot(ctx context.Context, spaceID, targetBotUID, summaryID, actorUID, action string, ownedBots []string) (*PreferenceRecord, error) {
+	targetBotUID = strings.TrimSpace(targetBotUID)
+	if targetBotUID == "" || !strings.HasSuffix(targetBotUID, "_bot") {
+		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
+	if !containsUID(ownedBots, targetBotUID) {
+		return nil, apperr.Forbidden(i18n.KeySummaryOnlyCreator)
+	}
+	sum, err := s.summaries.GetByIDInSpace(ctx, summaryID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	if sum.TargetBotUID == nil || *sum.TargetBotUID != targetBotUID {
+		return nil, apperr.Forbidden(i18n.KeyMatterView)
+	}
+	switch action {
+	case "restore":
+		sum.Status = model.SummaryAuthorized
+	case "discard":
+		sum.Status = model.SummaryDiscarded
+	case "scope_source":
+		scope := "仅来源事项"
+		sum.Status = model.SummaryAuthorized
+		sum.Scope = &scope
+		sum.ScopeType = "matter"
+		sum.ScopeKey = &sum.MatterID
+	default:
+		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
+	if err := s.summaries.Update(ctx, sum); err != nil {
+		return nil, err
+	}
+	if err := s.activity.Record(ctx, sum.MatterID, actorUID, "preference_record_"+action, map[string]any{
+		"summary_id": sum.ID,
+		"target_bot": sum.TargetBotUID,
+	}); err != nil {
+		log.Printf("[WARN] preference record activity failed matter=%s: %v", sum.MatterID, err)
+	}
+	var sourceMatter *model.Matter
+	if m, err := s.matters.GetByID(ctx, sum.MatterID, spaceID); err == nil {
+		sourceMatter = m
+	}
+	rec := preferenceRecordFromSummary(sum, sourceMatter)
+	return &rec, nil
+}
+
+func (s *V2Service) CalibratePreferenceHint(ctx context.Context, matterID, spaceID, summaryID string, callerUIDs []string, callerToken, actorUID, action string, ownedBots []string) (*PreferenceHint, error) {
+	if action != "hit" && action != "miss" && action != "discard" && action != "scope_matter" {
+		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
+	m, err := s.matters.GetByID(ctx, matterID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	ok, err := s.matterSvc.CanAccessMatter(ctx, m, callerUIDs, "", callerToken)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, apperr.Forbidden(i18n.KeyMatterView)
+	}
+	target := m.LeaderOrEmpty()
+	if target == "" || !strings.HasSuffix(target, "_bot") {
+		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
+	sum, err := s.summaries.GetByIDInSpace(ctx, summaryID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	if sum.Status != model.SummaryAuthorized || sum.TargetBotUID == nil || *sum.TargetBotUID != target {
+		return nil, apperr.Forbidden(i18n.KeyMatterView)
+	}
+	if (action == "discard" || action == "scope_matter") && !containsUID(ownedBots, target) {
+		return nil, apperr.Forbidden(i18n.KeySummaryOnlyCreator)
+	}
+	_, match, label, matched := preferenceScopeMatch(sum, m, target)
+	if !matched {
+		return nil, apperr.Forbidden(i18n.KeyMatterView)
+	}
+	if action == "discard" {
+		sum.Status = model.SummaryDiscarded
+	} else if action == "scope_matter" {
+		scope := "仅当前事项"
+		sum.Scope = &scope
+		sum.ScopeType = "matter"
+		sum.ScopeKey = &m.ID
+		_, match, label, _ = preferenceScopeMatch(sum, m, target)
+	} else {
+		if err := applySummaryCalibration(sum, action, time.Now()); err != nil {
+			return nil, err
+		}
+	}
+	if err := s.summaries.Update(ctx, sum); err != nil {
+		return nil, err
+	}
+	if err := s.activity.Record(ctx, m.ID, actorUID, "preference_hint_"+action, map[string]any{
+		"summary_id":        sum.ID,
+		"source_matter_id":  sum.MatterID,
+		"target_bot":        sum.TargetBotUID,
+		"match":             match,
+		"current_matter_id": m.ID,
+	}); err != nil {
+		log.Printf("[WARN] preference hint activity failed matter=%s: %v", m.ID, err)
+	}
+	hint := preferenceHintFromSummary(sum, match, label)
+	return &hint, nil
+}
+
+func preferenceHintFromSummary(p *model.MatterSummary, match, label string) PreferenceHint {
+	scope, scopeKey, content := "", "", ""
+	if p.Scope != nil {
+		scope = *p.Scope
+	}
+	if p.ScopeKey != nil {
+		scopeKey = *p.ScopeKey
+	}
+	if p.Content != nil {
+		content = *p.Content
+	}
+	return PreferenceHint{
+		SummaryID: p.ID, MatterID: p.MatterID, Status: p.Status, Scope: scope, ScopeType: p.ScopeType, ScopeKey: scopeKey,
+		Content: content, Confidence: p.Confidence, HitCount: p.HitCount, MissCount: p.MissCount,
+		LastAppliedAt: p.LastAppliedAt, UpdatedAt: p.UpdatedAt, Match: match, MatchLabel: label,
+	}
+}
+
+func buildPreferenceContext(hints []PreferenceHint) string {
+	if len(hints) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("Matched Preference hints:\n")
+	for i, h := range hints {
+		label := strings.TrimSpace(h.MatchLabel)
+		if label == "" {
+			label = strings.TrimSpace(h.Match)
+		}
+		if label == "" {
+			label = "matched"
+		}
+		scope := strings.TrimSpace(h.Scope)
+		if scope == "" {
+			scope = normalizePreferenceScopeTypeValue(h.ScopeType)
+		}
+		fmt.Fprintf(&b, "%d. [%s", i+1, label)
+		if scope != "" {
+			fmt.Fprintf(&b, " · %s", scope)
+		}
+		fmt.Fprintf(&b, " · confidence %d · hit %d · miss %d] %s\n",
+			h.Confidence, h.HitCount, h.MissCount, compactPreferenceContent(h.Content))
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func compactPreferenceContent(content string) string {
+	lines := strings.Split(content, "\n")
+	out := make([]string, 0, 3)
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		line = strings.TrimLeft(line, "-•* \t")
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if len([]rune(line)) > 180 {
+			rs := []rune(line)
+			line = string(rs[:180]) + "..."
+		}
+		out = append(out, line)
+		if len(out) >= 3 {
+			break
+		}
+	}
+	return strings.Join(out, " / ")
+}
+
+func preferenceRecordFromSummary(p *model.MatterSummary, sourceMatter *model.Matter) PreferenceRecord {
+	target, scope, scopeKey, content := "", "", "", ""
+	if p.TargetBotUID != nil {
+		target = *p.TargetBotUID
+	}
+	if p.Scope != nil {
+		scope = *p.Scope
+	}
+	if p.ScopeKey != nil {
+		scopeKey = *p.ScopeKey
+	}
+	if p.Content != nil {
+		content = *p.Content
+	}
+	rec := PreferenceRecord{
+		SummaryID: p.ID, MatterID: p.MatterID, TargetBotUID: target, Status: p.Status,
+		Scope: scope, ScopeType: p.ScopeType, ScopeKey: scopeKey, Content: content,
+		Confidence: p.Confidence, HitCount: p.HitCount, MissCount: p.MissCount,
+		LastAppliedAt: p.LastAppliedAt, UpdatedAt: p.UpdatedAt,
+	}
+	if sourceMatter != nil {
+		rec.MatterSeqNo = sourceMatter.SeqNo
+		rec.MatterTitle = sourceMatter.Title
+	}
+	return rec
+}
+
+func preferenceDuplicateGroupKey(rec PreferenceRecord) string {
+	text := normalizePreferenceDuplicateText(rec.Content)
+	target := strings.ToLower(strings.TrimSpace(rec.TargetBotUID))
+	if text == "" || target == "" {
+		return ""
+	}
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(target + "\n" + text))
+	return fmt.Sprintf("prefdup:%x", h.Sum64())
+}
+
+func normalizePreferenceDuplicateText(text string) string {
+	lines := strings.Split(strings.TrimSpace(text), "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		line = strings.TrimLeft(line, "-•* \t")
+		line = strings.Join(strings.Fields(line), " ")
+		if line != "" {
+			out = append(out, strings.ToLower(line))
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
+func preferenceDuplicateBetter(a, b PreferenceRecord) bool {
+	if rankPreferenceStatus(a.Status) != rankPreferenceStatus(b.Status) {
+		return rankPreferenceStatus(a.Status) > rankPreferenceStatus(b.Status)
+	}
+	if rankPreferenceScope(a.ScopeType) != rankPreferenceScope(b.ScopeType) {
+		return rankPreferenceScope(a.ScopeType) > rankPreferenceScope(b.ScopeType)
+	}
+	if a.HitCount != b.HitCount {
+		return a.HitCount > b.HitCount
+	}
+	if a.MissCount != b.MissCount {
+		return a.MissCount < b.MissCount
+	}
+	if a.Confidence != b.Confidence {
+		return a.Confidence > b.Confidence
+	}
+	return a.UpdatedAt.After(b.UpdatedAt)
+}
+
+func rankPreferenceStatus(status string) int {
+	if status == model.SummaryAuthorized {
+		return 2
+	}
+	if status == model.SummaryDiscarded {
+		return 1
+	}
+	return 0
+}
+
+func rankPreferenceScope(scopeType string) int {
+	switch normalizePreferenceScopeTypeValue(scopeType) {
+	case "matter":
+		return 5
+	case "project":
+		return 4
+	case "bot":
+		return 3
+	case "space":
+		return 2
+	case "global":
+		return 1
+	default:
+		return 0
+	}
+}
+
+func preferenceDuplicateReason(rec PreferenceRecord) string {
+	status := "已授权"
+	if rec.Status == model.SummaryDiscarded {
+		status = "已撤销"
+	}
+	scope := normalizePreferenceScopeTypeValue(rec.ScopeType)
+	if scope == "" {
+		scope = "unknown"
+	}
+	return fmt.Sprintf("建议保留: %s, scope=%s, 命中 %d, 失准 %d, 信心 %d", status, scope, rec.HitCount, rec.MissCount, rec.Confidence)
+}
+
+func preferenceScopeMatch(p *model.MatterSummary, m *model.Matter, targetBot string) (int, string, string, bool) {
+	scopeType := normalizePreferenceScopeTypeValue(p.ScopeType)
+	scopeKey := ""
+	if p.ScopeKey != nil {
+		scopeKey = strings.TrimSpace(*p.ScopeKey)
+	}
+	switch scopeType {
+	case "matter":
+		if scopeKey == m.ID {
+			return 0, "matter", "当前事项", true
+		}
+	case "project":
+		if m.ProjectID != nil && scopeKey == *m.ProjectID {
+			return 1, "project", "同项目", true
+		}
+	case "bot":
+		if scopeKey == "" || scopeKey == targetBot {
+			return 2, "bot", "同负责人", true
+		}
+	case "space":
+		if scopeKey == "" || scopeKey == m.SpaceID {
+			return 3, "space", "同空间", true
+		}
+	case "global":
+		return 4, "global", "通用", true
+	}
+	return 0, "", "", false
+}
+
+func normalizePreferenceScopeTypeValue(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "matter", "project", "bot", "space", "global":
+		return strings.ToLower(strings.TrimSpace(v))
+	default:
+		return "matter"
+	}
+}
+
+func parsePreferenceScopeTypeInput(v *string) (string, error) {
+	if v == nil || strings.TrimSpace(*v) == "" {
+		return "", nil
+	}
+	switch strings.ToLower(strings.TrimSpace(*v)) {
+	case "matter", "project", "bot", "space", "global":
+		return strings.ToLower(strings.TrimSpace(*v)), nil
+	default:
+		return "", apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
+}
+
+func defaultPreferenceScopeKey(scopeType string, m *model.Matter, targetBot string) *string {
+	var v string
+	switch normalizePreferenceScopeTypeValue(scopeType) {
+	case "matter":
+		v = m.ID
+	case "project":
+		if m.ProjectID != nil {
+			v = *m.ProjectID
+		}
+	case "bot":
+		v = targetBot
+	case "space":
+		v = m.SpaceID
+	case "global":
+		return nil
+	}
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return nil
+	}
+	return &v
 }
 
 // ---------------------------------------------------------------------------
@@ -765,11 +1499,17 @@ func (s *V2Service) GenerateSummary(ctx context.Context, matterID, spaceID strin
 	}
 
 	sum := &model.MatterSummary{
-		MatterID:  m.ID,
-		SpaceID:   m.SpaceID,
-		Status:    model.SummaryDraft,
-		Content:   &args.Content,
-		CreatedBy: actorUID,
+		MatterID:            m.ID,
+		SpaceID:             m.SpaceID,
+		Status:              model.SummaryDraft,
+		Content:             &args.Content,
+		CreatedBy:           actorUID,
+		ScopeType:           "matter",
+		ScopeKey:            &m.ID,
+		EvidenceMatterID:    &m.ID,
+		EvidenceEntryIDs:    collectTimelineEntryIDs(timeline, 30),
+		EvidenceFeedbackIDs: collectFeedbackIDs(feedbacks, 50),
+		Confidence:          50,
 	}
 	if err := s.summaries.Create(ctx, sum); err != nil {
 		return nil, err
@@ -799,7 +1539,7 @@ func (s *V2Service) LatestSummary(ctx context.Context, matterID, spaceID string,
 // target bot to be one of the caller's own bots (PRD 鉴权通则 + 护栏4).
 // There is NO write-into-agent-memory leg: OCTO exposes no such interface
 // today, so `authorized` is the honest terminal state (gap list).
-func (s *V2Service) ResolveSummary(ctx context.Context, matterID, spaceID, summaryID string, callerUIDs []string, actorUID, action string, content, targetBot, scope *string, ownedBots []string) (*model.MatterSummary, error) {
+func (s *V2Service) ResolveSummary(ctx context.Context, matterID, spaceID, summaryID string, callerUIDs []string, actorUID, action string, content, targetBot, scope, scopeType, scopeKey *string, ownedBots []string) (*model.MatterSummary, error) {
 	m, err := s.matters.GetByID(ctx, matterID, spaceID)
 	if err != nil {
 		return nil, err
@@ -816,16 +1556,49 @@ func (s *V2Service) ResolveSummary(ctx context.Context, matterID, spaceID, summa
 		if targetBot == nil || *targetBot == "" || !containsUID(ownedBots, *targetBot) {
 			return nil, apperr.Forbidden(i18n.KeyExecutorNotOwnBot)
 		}
+		parsedScopeType, err := parsePreferenceScopeTypeInput(scopeType)
+		if err != nil {
+			return nil, err
+		}
 		sum.Status = model.SummaryAuthorized
 		sum.TargetBotUID = targetBot
 		if scope != nil {
 			sum.Scope = scope
+		}
+		if parsedScopeType != "" {
+			sum.ScopeType = parsedScopeType
+		}
+		if scopeKey != nil {
+			k := strings.TrimSpace(*scopeKey)
+			if k == "" {
+				sum.ScopeKey = nil
+			} else {
+				sum.ScopeKey = &k
+			}
+		}
+		if sum.ScopeType == "" {
+			sum.ScopeType = "matter"
+		}
+		if parsedScopeType != "" && scopeKey == nil {
+			sum.ScopeKey = defaultPreferenceScopeKey(sum.ScopeType, m, *targetBot)
+		} else if sum.ScopeKey == nil || *sum.ScopeKey == "" {
+			sum.ScopeKey = defaultPreferenceScopeKey(sum.ScopeType, m, *targetBot)
+		}
+		if sum.EvidenceMatterID == nil || *sum.EvidenceMatterID == "" {
+			sum.EvidenceMatterID = &m.ID
+		}
+		if sum.Confidence < 60 {
+			sum.Confidence = 60
 		}
 		if content != nil && strings.TrimSpace(*content) != "" {
 			sum.Content = content
 		}
 	case "discard":
 		sum.Status = model.SummaryDiscarded
+	case "hit", "miss":
+		if err := applySummaryCalibration(sum, action, time.Now()); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
 	}
@@ -838,7 +1611,7 @@ func (s *V2Service) ResolveSummary(ctx context.Context, matterID, spaceID, summa
 	}
 	// Close the 护栏4 loop: the bot learns the verdict by doorbell and can
 	// flip its candidate entry to confirmed (authorize) or drop it (discard).
-	if sum.TargetBotUID != nil && *sum.TargetBotUID != "" {
+	if (action == "authorize" || action == "discard") && sum.TargetBotUID != nil && *sum.TargetBotUID != "" {
 		key := i18n.KeyDoorbellSummaryApproved
 		event := "matter.doorbell.summary_approved"
 		if action == "discard" {
@@ -850,13 +1623,94 @@ func (s *V2Service) ResolveSummary(ctx context.Context, matterID, spaceID, summa
 	return sum, nil
 }
 
+func applySummaryCalibration(sum *model.MatterSummary, action string, now time.Time) error {
+	if sum.Status != model.SummaryAuthorized {
+		return apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
+	switch action {
+	case "hit":
+		sum.HitCount++
+		sum.LastAppliedAt = &now
+		sum.Confidence += 5
+	case "miss":
+		sum.MissCount++
+		sum.LastAppliedAt = &now
+		sum.Confidence -= 10
+	default:
+		return apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
+	if sum.Confidence < 0 {
+		sum.Confidence = 0
+	}
+	if sum.Confidence > 100 {
+		sum.Confidence = 100
+	}
+	return nil
+}
+
+func collectTimelineEntryIDs(timeline []*model.TimelineEntry, limit int) model.JSONStringSlice {
+	if limit <= 0 {
+		limit = len(timeline)
+	}
+	out := make(model.JSONStringSlice, 0, limit)
+	seen := map[string]struct{}{}
+	for _, entry := range timeline {
+		if entry == nil {
+			continue
+		}
+		id := strings.TrimSpace(entry.ID)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+		if len(out) >= limit {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func collectFeedbackIDs(feedbacks []*model.MatterFeedback, limit int) model.JSONStringSlice {
+	if limit <= 0 {
+		limit = len(feedbacks)
+	}
+	out := make(model.JSONStringSlice, 0, limit)
+	seen := map[string]struct{}{}
+	for _, feedback := range feedbacks {
+		if feedback == nil {
+			continue
+		}
+		id := strings.TrimSpace(feedback.ID)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+		if len(out) >= limit {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 // EnqueueAssignedDoorbell lets other services ring the assignment bell.
 func (s *V2Service) EnqueueAssignedDoorbell(ctx context.Context, m *model.Matter, actorUID, target string) {
 	params := map[string]any{"Title": m.Title, "Seq": m.SeqNo, "Actor": actorUID}
 	_ = s.transition.EnqueueStandalone(ctx, m, actorUID, target, DoorbellAssigned, i18n.KeyDoorbellAssigned, params)
 }
-
-var _ = time.Now // keep time import if refactors drop direct uses
 
 // ---------------------------------------------------------------------------
 // AgentCard (declared half stored, earned half derived — doc 04 §五)
@@ -866,6 +1720,13 @@ var _ = time.Now // keep time import if refactors drop direct uses
 type AgentCardView struct {
 	Declared *model.MatterAgentCard `json:"declared"`
 	Earned   *repository.AgentStat  `json:"earned"`
+	Viewer   AgentCardViewer        `json:"viewer"`
+}
+
+type AgentCardViewer struct {
+	Relationship    string `json:"relationship"`
+	CanEdit         bool   `json:"can_edit"`
+	DeclaredVisible bool   `json:"declared_visible"`
 }
 
 // GetAgentCard merges the halves. callerUIDs gates the declared half:
@@ -876,14 +1737,30 @@ func (s *V2Service) GetAgentCard(ctx context.Context, spaceID, botUID string, ca
 	if err != nil {
 		return nil, err
 	}
-	if declared != nil && declared.Visibility == "private" && !containsUID(callerUIDs, declared.OwnerUID) && !containsUID(callerUIDs, botUID) {
-		declared = nil // 主人设为私密 — 对外如同未填写
+	canEdit := containsUID(callerUIDs, botUID)
+	viewer := AgentCardViewer{
+		Relationship:    "space_member",
+		CanEdit:         canEdit,
+		DeclaredVisible: declared != nil,
+	}
+	if canEdit {
+		viewer.Relationship = "creator"
+	}
+	if declared != nil {
+		isOwner := canEdit || containsUID(callerUIDs, declared.OwnerUID)
+		if declared.Visibility == "private" && !isOwner {
+			declared = nil // 主人设为私密 — 对外如同未填写
+			viewer.DeclaredVisible = false
+		} else {
+			declared = filterAgentCardForViewer(declared, isOwner)
+			viewer.DeclaredVisible = true
+		}
 	}
 	stats, err := s.AgentStats(ctx, spaceID, []string{botUID})
 	if err != nil {
 		return nil, err
 	}
-	return &AgentCardView{Declared: declared, Earned: stats[botUID]}, nil
+	return &AgentCardView{Declared: declared, Earned: stats[botUID], Viewer: viewer}, nil
 }
 
 // PutAgentCard upserts the declared half. Owner gate is the handler's job
@@ -895,7 +1772,149 @@ func (s *V2Service) PutAgentCard(ctx context.Context, card *model.MatterAgentCar
 	if card.Visibility != "space" && card.Visibility != "private" {
 		return apperr.InvalidInput(i18n.KeyInvalidRequest)
 	}
+	if err := normalizeAgentCard(card); err != nil {
+		return err
+	}
 	return s.cards.Upsert(ctx, card)
+}
+
+func filterAgentCardForViewer(card *model.MatterAgentCard, isOwner bool) *model.MatterAgentCard {
+	cp := *card
+	cp.Skills = append(model.JSONStringSlice(nil), card.Skills...)
+	cp.Systems = append(model.JSONStringSlice(nil), card.Systems...)
+	cp.Capabilities = append(model.AgentCardCapabilities(nil), card.Capabilities...)
+	if isOwner {
+		return &cp
+	}
+	filtered := make(model.AgentCardCapabilities, 0, len(cp.Capabilities))
+	for _, cap := range cp.Capabilities {
+		if cap.Visibility == "owner" {
+			continue
+		}
+		filtered = append(filtered, cap)
+	}
+	cp.Capabilities = filtered
+	return &cp
+}
+
+func normalizeAgentCard(card *model.MatterAgentCard) error {
+	card.Skills = normalizeStringList(card.Skills, 30, 100)
+	card.Systems = normalizeStringList(card.Systems, 30, 100)
+	seen := map[string]bool{}
+	caps := make(model.AgentCardCapabilities, 0, len(card.Capabilities)+len(card.Skills))
+	for _, cap := range card.Capabilities {
+		cap.Name = trimMax(cap.Name, 80)
+		if cap.Name == "" {
+			continue
+		}
+		key := strings.ToLower(cap.Name)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		cap.Description = trimMax(cap.Description, 400)
+		cap.Source = normalizeCapabilitySource(cap.Source)
+		cap.Status = normalizeCapabilityStatus(cap.Status)
+		cap.Homepage = trimMax(cap.Homepage, 300)
+		if isSensitiveOpenClawCapability(cap) {
+			cap.Visibility = "owner"
+		} else if cap.Visibility != "owner" {
+			cap.Visibility = "space"
+		}
+		caps = append(caps, cap)
+		if len(caps) >= 60 {
+			break
+		}
+	}
+	for _, skill := range card.Skills {
+		if len(caps) >= 60 {
+			break
+		}
+		key := strings.ToLower(skill)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		caps = append(caps, model.AgentCardCapability{
+			Name:       skill,
+			Source:     "manual",
+			Status:     "claimed",
+			Visibility: "space",
+		})
+	}
+	card.Capabilities = caps
+	return nil
+}
+
+func normalizeStringList(in []string, maxItems, maxLen int) model.JSONStringSlice {
+	out := make(model.JSONStringSlice, 0, len(in))
+	seen := map[string]bool{}
+	for _, item := range in {
+		item = trimMax(item, maxLen)
+		if item == "" {
+			continue
+		}
+		key := strings.ToLower(item)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, item)
+		if len(out) >= maxItems {
+			break
+		}
+	}
+	return out
+}
+
+func trimMax(s string, max int) string {
+	s = strings.TrimSpace(s)
+	if max > 0 && len([]rune(s)) > max {
+		r := []rune(s)
+		s = string(r[:max])
+	}
+	return s
+}
+
+func normalizeCapabilitySource(s string) string {
+	src := strings.ToLower(strings.TrimSpace(s))
+	if src == "openclaw" || strings.HasPrefix(src, "openclaw-") || src == "agents-skills-personal" {
+		return "openclaw"
+	}
+	switch src {
+	case "manual", "custom":
+		return src
+	default:
+		return "manual"
+	}
+}
+
+func normalizeCapabilityStatus(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "ready", "claimed", "needs_setup", "disabled", "unknown":
+		return strings.ToLower(strings.TrimSpace(s))
+	default:
+		return "claimed"
+	}
+}
+
+func isSensitiveOpenClawCapability(cap model.AgentCardCapability) bool {
+	if cap.Source != "openclaw" {
+		return false
+	}
+	text := strings.ToLower(cap.Name + " " + cap.Description + " " + cap.Homepage)
+	keys := []string{
+		"1password", "password", "secret", "credential", "token", "keychain",
+		"mail", "email", "gmail", "calendar", "contact", "browser",
+		"filesystem", "file-system", "file system", "shell", "terminal", "ssh",
+		"lark", "feishu", "drive", "sheet", "doc", "notes", "reminder",
+	}
+	for _, key := range keys {
+		if strings.Contains(text, key) {
+			return true
+		}
+	}
+	return false
 }
 
 // SendBack queues a manual homecoming post (PRD 手动「发回」钮). Needs a
@@ -951,6 +1970,7 @@ func (s *V2Service) SubmitSummaryDraft(ctx context.Context, matterID, spaceID st
 	sum := &model.MatterSummary{
 		MatterID: m.ID, SpaceID: m.SpaceID, Status: model.SummaryDraft,
 		Content: &content, TargetBotUID: &actorUID, CreatedBy: actorUID,
+		ScopeType: "matter", ScopeKey: &m.ID, EvidenceMatterID: &m.ID, Confidence: 50,
 	}
 	if err := s.summaries.Create(ctx, sum); err != nil {
 		return nil, err

@@ -340,6 +340,45 @@ func TestSetupRouter_RoutesRegistered(t *testing.T) {
 	}
 }
 
+func TestRegisterWebUIRoutes_EntrypointsServeIndexWithoutRedirect(t *testing.T) {
+	r := gin.New()
+	registerWebUIRoutes(r)
+
+	for _, path := range []string{"/", "/ui", "/ui/", "/ui/index.html"} {
+		t.Run(path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d", w.Code)
+			}
+			if loc := w.Header().Get("Location"); loc != "" {
+				t.Fatalf("expected no redirect Location, got %q", loc)
+			}
+			if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
+				t.Fatalf("expected html content type, got %q", ct)
+			}
+			if !strings.Contains(w.Body.String(), "<title>Octo · 事项</title>") {
+				t.Fatal("expected embedded Matter UI index")
+			}
+		})
+	}
+}
+
+func TestRegisterWebUIRoutes_MissingStaticFileIs404(t *testing.T) {
+	r := gin.New()
+	registerWebUIRoutes(r)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/not-found.js", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", w.Code)
+	}
+}
+
 // ─── Response helpers ───────────────────────────────────
 
 func TestOk_WithData(t *testing.T) {

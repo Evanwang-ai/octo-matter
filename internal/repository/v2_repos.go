@@ -206,6 +206,23 @@ func (r *OutboxRepo) HasLive(ctx context.Context, matterID, targetUID, event str
 	return true, nil
 }
 
+// ListByMatter returns the outbox-derived orchestration edges for one matter.
+func (r *OutboxRepo) ListByMatter(ctx context.Context, matterID string, limit int) ([]*model.OutboxRow, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 30
+	}
+	var out []*model.OutboxRow
+	_, err := r.runner.Select("*").From("matter_outbox").
+		Where("matter_id = ?", matterID).
+		OrderBy("created_at DESC").
+		Limit(uint64(limit)).
+		LoadContext(ctx, &out)
+	if out == nil {
+		out = []*model.OutboxRow{}
+	}
+	return out, err
+}
+
 // ---------------------------------------------------------------------------
 // Feedback (圈一笔)
 // ---------------------------------------------------------------------------
@@ -263,9 +280,18 @@ func (r *SummaryRepo) Create(ctx context.Context, s *model.MatterSummary) error 
 	if s.Status == "" {
 		s.Status = model.SummaryDraft
 	}
+	if s.ScopeType == "" {
+		s.ScopeType = "matter"
+	}
+	if s.Confidence == 0 {
+		s.Confidence = 50
+	}
 	_, err := r.runner.InsertInto("matter_summaries").
 		Columns("id", "matter_id", "space_id", "status", "content",
-			"target_bot_uid", "scope", "created_by", "created_at", "updated_at").
+			"target_bot_uid", "scope", "scope_type", "scope_key",
+			"evidence_matter_id", "evidence_entry_ids", "evidence_feedback_ids",
+			"confidence", "hit_count", "miss_count", "last_applied_at",
+			"created_by", "created_at", "updated_at").
 		Record(s).ExecContext(ctx)
 	return err
 }
@@ -299,6 +325,20 @@ func (r *SummaryRepo) GetByID(ctx context.Context, id, matterID string) (*model.
 	return &s, nil
 }
 
+func (r *SummaryRepo) GetByIDInSpace(ctx context.Context, id, spaceID string) (*model.MatterSummary, error) {
+	var s model.MatterSummary
+	err := r.runner.Select("*").From("matter_summaries").
+		Where("id = ? AND space_id = ?", id, spaceID).
+		LoadOneContext(ctx, &s)
+	if err != nil {
+		if errors.Is(err, dbr.ErrNotFound) {
+			return nil, apperr.MatterNotFound()
+		}
+		return nil, err
+	}
+	return &s, nil
+}
+
 // ListAuthorizedByBot returns authorized preference summaries targeting one
 // bot (the AgentCard "preference 文件" rail — real S-derived data).
 func (r *SummaryRepo) ListAuthorizedByBot(ctx context.Context, spaceID, botUID string, limit int) ([]*model.MatterSummary, error) {
@@ -316,13 +356,69 @@ func (r *SummaryRepo) ListAuthorizedByBot(ctx context.Context, spaceID, botUID s
 	return out, err
 }
 
+// ListAuthorizedHintsByBot returns a wider authorized preference window for
+// explicit recall against a matter. Service-layer matching keeps the rules
+// readable because scope semantics combine matter, project, bot and space.
+func (r *SummaryRepo) ListAuthorizedHintsByBot(ctx context.Context, spaceID, botUID string, limit int) ([]*model.MatterSummary, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	var out []*model.MatterSummary
+	_, err := r.runner.Select("*").From("matter_summaries").
+		Where("space_id = ? AND target_bot_uid = ? AND status = ?", spaceID, botUID, model.SummaryAuthorized).
+		OrderBy("updated_at DESC").Limit(uint64(limit)).
+		LoadContext(ctx, &out)
+	if out == nil {
+		out = []*model.MatterSummary{}
+	}
+	return out, err
+}
+
+func (r *SummaryRepo) ListByBot(ctx context.Context, spaceID, botUID, status string, limit int) ([]*model.MatterSummary, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	q := r.runner.Select("*").From("matter_summaries").
+		Where("space_id = ? AND target_bot_uid = ?", spaceID, botUID)
+	switch status {
+	case model.SummaryAuthorized, model.SummaryDiscarded:
+		q = q.Where("status = ?", status)
+	default:
+		q = q.Where("status IN (?, ?)", model.SummaryAuthorized, model.SummaryDiscarded)
+	}
+	var out []*model.MatterSummary
+	_, err := q.OrderBy("updated_at DESC").Limit(uint64(limit)).LoadContext(ctx, &out)
+	if out == nil {
+		out = []*model.MatterSummary{}
+	}
+	return out, err
+}
+
 func (r *SummaryRepo) Update(ctx context.Context, s *model.MatterSummary) error {
 	s.UpdatedAt = time.Now()
+	if s.ScopeType == "" {
+		s.ScopeType = "matter"
+	}
+	if s.Confidence < 0 {
+		s.Confidence = 0
+	}
+	if s.Confidence > 100 {
+		s.Confidence = 100
+	}
 	_, err := r.runner.Update("matter_summaries").
 		Set("status", s.Status).
 		Set("content", s.Content).
 		Set("target_bot_uid", s.TargetBotUID).
 		Set("scope", s.Scope).
+		Set("scope_type", s.ScopeType).
+		Set("scope_key", s.ScopeKey).
+		Set("evidence_matter_id", s.EvidenceMatterID).
+		Set("evidence_entry_ids", s.EvidenceEntryIDs).
+		Set("evidence_feedback_ids", s.EvidenceFeedbackIDs).
+		Set("confidence", s.Confidence).
+		Set("hit_count", s.HitCount).
+		Set("miss_count", s.MissCount).
+		Set("last_applied_at", s.LastAppliedAt).
 		Set("updated_at", s.UpdatedAt).
 		Where("id = ?", s.ID).ExecContext(ctx)
 	return err

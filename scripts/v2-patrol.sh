@@ -8,7 +8,6 @@
 # Exit 0 = clean, 1 = findings. Read-only; safe to run any time.
 set -uo pipefail
 
-DEPLOY_DIR="${DEPLOY_DIR:-/Users/evanwang/Desktop/工作/Create/My-ai-context/项目/Octo/Code/octo-deployment/docker}"
 FINDINGS=0
 note() { printf '  ⚠️  %s\n' "$*"; FINDINGS=$((FINDINGS+1)); }
 okay() { printf '  ✅ %s\n' "$*"; }
@@ -79,7 +78,7 @@ LLMRPT=$(tail -c 300000 ~/.openclaw/logs/gateway.err.log 2>/dev/null | python3 -
 import sys, datetime
 cut = int(sys.argv[1]); n = 0; last = ''
 for ln in sys.stdin:
-    if ('FailoverError' in ln or '预扣费' in ln or 'model fallback' in ln) and 'candidate_failed' not in ln[:40]:
+    if ('FailoverError' in ln or '预扣费' in ln or 'model fallback' in ln) and 'candidate_failed' not in ln:
         try:
             t = datetime.datetime.fromisoformat(ln.split(' ', 1)[0]).timestamp()
         except Exception:

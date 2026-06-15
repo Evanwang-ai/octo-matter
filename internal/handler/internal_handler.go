@@ -2,6 +2,7 @@ package handler
 
 import (
 	"crypto/subtle"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -18,18 +19,19 @@ import (
 // (modules/runtime/bot_task.go postMatterTimeline/postMatterActivity) and the
 // bot-task queue fleet's PR-B.3 relocated here.
 type InternalHandler struct {
-	token     string
-	matters   *repository.MatterRepo
-	timeline  *repository.TimelineRepo
-	activity  *repository.ActivityRepo
-	botTasks  *service.BotTaskService
-	consume   func(ctx *gin.Context, matterID string, uids []string)
+	token    string
+	matters  *repository.MatterRepo
+	timeline *repository.TimelineRepo
+	activity *repository.ActivityRepo
+	botTasks *service.BotTaskService
+	v2       *service.V2Service
+	consume  func(ctx *gin.Context, matterID string, uids []string)
 }
 
 func NewInternalHandler(token string, matters *repository.MatterRepo, timeline *repository.TimelineRepo, activity *repository.ActivityRepo, botTasks *service.BotTaskService, v2 *service.V2Service) *InternalHandler {
 	return &InternalHandler{
 		token: token, matters: matters, timeline: timeline,
-		activity: activity, botTasks: botTasks,
+		activity: activity, botTasks: botTasks, v2: v2,
 		consume: func(c *gin.Context, matterID string, uids []string) {
 			if v2 != nil {
 				v2.ConsumeDoorbells(c.Request.Context(), matterID, uids)
@@ -266,13 +268,128 @@ func (h *InternalHandler) ClaimBotTasks(c *gin.Context) {
 		if t.ClaimToken != nil {
 			claim = *t.ClaimToken
 		}
-		out = append(out, gin.H{
+		row := gin.H{
 			"id": t.ID, "matter_id": t.MatterID, "space_id": t.SpaceID,
 			"bot_uid": t.BotUID, "title": t.Title, "prompt": prompt,
 			"claim_token": claim, "status": t.Status,
-		})
+		}
+		var matter *model.Matter
+		matter, err := h.matters.GetByID(c.Request.Context(), t.MatterID, t.SpaceID)
+		if err != nil {
+			log.Printf("[WARN] bot-task matter brief skipped task=%d matter=%s: %v", t.ID, t.MatterID, err)
+		} else {
+			row["matter_brief"] = botTaskMatterBrief(matter)
+		}
+		agentContext := ""
+		projectContext := ""
+		preferenceContext := ""
+		if h.v2 != nil {
+			agentCtx, err := h.v2.AgentContextForBot(c.Request.Context(), t.SpaceID, t.BotUID, 8)
+			if err != nil {
+				log.Printf("[WARN] bot-task agent context skipped task=%d bot=%s: %v", t.ID, t.BotUID, err)
+			} else {
+				row["agent_context"] = agentCtx
+				agentContext = agentCtx.Context
+			}
+			if matter != nil {
+				projectCtx, err := h.v2.ProjectContextForMatter(c.Request.Context(), matter, 5)
+				if err != nil {
+					log.Printf("[WARN] bot-task project context skipped task=%d matter=%s: %v", t.ID, t.MatterID, err)
+				} else {
+					row["project_context"] = projectCtx
+					projectContext = projectCtx.Context
+				}
+			}
+			hints, err := h.v2.PreferenceHintsForBotTask(c.Request.Context(), t.MatterID, t.SpaceID, t.BotUID, 5)
+			if err != nil {
+				log.Printf("[WARN] bot-task preference context skipped task=%d matter=%s bot=%s: %v", t.ID, t.MatterID, t.BotUID, err)
+			} else {
+				row["preference_context"] = hints.PreferenceContext
+				row["preference_hints"] = hints.Data
+				preferenceContext = hints.PreferenceContext
+			}
+		}
+		row["run_context"] = botTaskRunContext(matter, agentContext, projectContext, preferenceContext)
+		out = append(out, row)
 	}
 	c.JSON(http.StatusOK, gin.H{"tasks": out})
+}
+
+func botTaskMatterBrief(m *model.Matter) gin.H {
+	description := ""
+	if m.Description != nil {
+		description = *m.Description
+	}
+	constraints := ""
+	if m.BriefConstraints != nil {
+		constraints = *m.BriefConstraints
+	}
+	outputSpec := ""
+	if m.BriefOutputSpec != nil {
+		outputSpec = *m.BriefOutputSpec
+	}
+	leader := ""
+	if m.LeaderUID != nil {
+		leader = *m.LeaderUID
+	}
+	return gin.H{
+		"matter_id":                 m.ID,
+		"seq_no":                    m.SeqNo,
+		"title":                     m.Title,
+		"description":               description,
+		"brief_constraints":         constraints,
+		"brief_output_spec":         outputSpec,
+		"status":                    m.Status,
+		"leader_uid":                leader,
+		"assignment_epoch":          m.AssignmentEpoch,
+		"expected_duration_minutes": m.ExpectedDuration,
+		"last_activity_at":          m.LastActivityAt,
+		"source_channel_id":         m.SourceChannelID,
+		"source_name":               m.SourceName,
+	}
+}
+
+func botTaskRunContext(m *model.Matter, agentContext, projectContext, preferenceContext string) string {
+	var b strings.Builder
+	if m != nil {
+		b.WriteString("Matter run context\n\n")
+		b.WriteString("Task\n")
+		fmt.Fprintf(&b, "- Matter: M-%d\n", m.SeqNo)
+		fmt.Fprintf(&b, "- Title: %s\n", strings.TrimSpace(m.Title))
+		if m.Description != nil && strings.TrimSpace(*m.Description) != "" {
+			fmt.Fprintf(&b, "- Description: %s\n", strings.TrimSpace(*m.Description))
+		}
+		if m.BriefConstraints != nil && strings.TrimSpace(*m.BriefConstraints) != "" {
+			fmt.Fprintf(&b, "- Constraints: %s\n", strings.TrimSpace(*m.BriefConstraints))
+		}
+		if m.BriefOutputSpec != nil && strings.TrimSpace(*m.BriefOutputSpec) != "" {
+			fmt.Fprintf(&b, "- Output: %s\n", strings.TrimSpace(*m.BriefOutputSpec))
+		}
+		fmt.Fprintf(&b, "- Status: %s\n", m.Status)
+		fmt.Fprintf(&b, "- Assignment epoch: %d\n", m.AssignmentEpoch)
+	}
+	if strings.TrimSpace(agentContext) != "" {
+		if b.Len() > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(strings.TrimSpace(agentContext))
+		b.WriteString("\n")
+	}
+	if strings.TrimSpace(projectContext) != "" {
+		if b.Len() > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(strings.TrimSpace(projectContext))
+		b.WriteString("\n")
+	}
+	if strings.TrimSpace(preferenceContext) != "" {
+		if b.Len() > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(strings.TrimSpace(preferenceContext))
+		b.WriteString("\n")
+	}
+	return strings.TrimSpace(b.String())
 }
 
 func (h *InternalHandler) ListBotTasks(c *gin.Context) {
