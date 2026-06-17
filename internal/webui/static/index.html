@@ -144,6 +144,8 @@
   .nav-item .ni-ic { width: 18px; height: 18px; flex: 0 0 18px; display: flex; align-items: center; justify-content: center; color: rgba(28,28,35,.4); }
   .nav-item .ni-ic svg { width: 18px; height: 18px; }
   .nav-item .ni-label { flex: 1; min-width: 0; }
+  .nav-item .ni-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ff3b30; color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
+  .nav-item .ni-badge:empty { display: none; }
   .nav-scrim, .insp-scrim { display: none; }
 
   /* ============ ZONE 3 · center ============ */
@@ -167,6 +169,10 @@
   .crumb .here .crumb-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .crumb .cid { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); font-weight: 500; flex: 0 0 auto; }
   .crumb .title-plain { font-size: 14px; font-weight: 700; color: var(--text); }
+  .crumb .crumb-link { font-size: 13px; font-weight: 500; color: var(--text-3); text-decoration: none; }
+  .crumb .crumb-link:hover { color: var(--text); }
+  .crumb .crumb-sep { font-size: 12px; color: var(--text-4); margin: 0 4px; }
+  .crumb .crumb-current { font-size: 13px; font-weight: 600; color: var(--text); }
   .topbar-right { display: flex; align-items: center; gap: 4px; }
   .tb-icon {
     width: 30px; height: 30px; border-radius: 8px;
@@ -679,6 +685,19 @@
   }
   .pc-leader { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px; font-size: 11.5px; color: var(--text-3); }
   .pc-actions { position: absolute; right: 12px; bottom: 10px; }
+  .proj-thead { display: grid; grid-template-columns: 1fr 140px 70px 80px 80px 36px; gap: 8px; padding: 8px 16px; font-size: 12px; font-weight: 500; color: var(--text-4); border-bottom: 1px solid var(--hairline-soft); }
+  .proj-list { display: flex; flex-direction: column; }
+  .proj-row { display: grid; grid-template-columns: 1fr 140px 70px 80px 80px 36px; gap: 8px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--hairline-soft); cursor: pointer; transition: background .1s; }
+  .proj-row:hover { background: var(--fill-1); }
+  .proj-row.archived { opacity: .55; }
+  .pr-name { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pr-ic { flex: 0 0 18px; width: 18px; height: 18px; color: var(--text-3); }
+  .pr-ic svg { width: 18px; height: 18px; }
+  .pr-lead { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--text-2); min-width: 0; }
+  .pr-count { font-size: 12.5px; color: var(--text-2); font-family: var(--mono); }
+  .pr-scope { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pr-date { font-size: 12px; color: var(--text-4); white-space: nowrap; }
+  .pr-more { display: flex; justify-content: center; }
   .pc-more {
     width: 26px; height: 26px; border: 1px solid rgba(28,28,35,.08); border-radius: 999px;
     background: #fff; color: rgba(28,28,35,.58); font: inherit; font-size: 14px; line-height: 1; cursor: pointer;
@@ -903,6 +922,66 @@
   .pcard-auth { color: var(--done); border-color: var(--done-border); }
   .pcard-auth:hover { background: var(--done-bg); }
   .pcard-discard { color: var(--text-3); margin-left: 4px; }
+  /* ---- inbox split-pane ---- */
+  .inbox-split { display: flex; height: 100%; overflow: hidden; }
+  .inbox-left { width: 30%; min-width: 300px; max-width: 440px; flex: 0 0 auto; border-right: 1px solid var(--hairline-soft); display: flex; flex-direction: column; overflow: hidden; }
+  @media (max-width: 900px) { .inbox-split { flex-direction: column; } .inbox-left { width: 100%; max-width: none; min-width: 0; max-height: 45%; border-right: none; border-bottom: 1px solid var(--hairline-soft); } .inbox-right { min-height: 0; } }
+  .inbox-left-head { padding: 8px 12px; flex: 0 0 auto; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--hairline-soft); }
+  .inbox-left.collapsed { width: 0 !important; min-width: 0; max-width: 0; padding: 0; border: none; overflow: hidden; }
+  .ibx-filter-zone { flex: 1; min-width: 0; position: relative; }
+  .ibx-filter-trigger { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border: none; border-radius: 8px; background: transparent; font-size: 13px; font-weight: 500; color: var(--text); cursor: pointer; }
+  .ibx-filter-trigger:hover { background: var(--fill-2); }
+  .ibx-filter-trigger .ibx-ft-label { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ibx-filter-trigger svg { width: 16px; height: 16px; color: var(--text-3); flex: 0 0 16px; }
+  .ibx-drop { display: none; position: absolute; top: calc(100% + 4px); left: 0; min-width: 160px; z-index: 50; background: var(--surface-card); border: 1px solid var(--hairline-soft); border-radius: 10px; box-shadow: var(--shadow-popover); overflow: hidden; padding: 4px; }
+  .ibx-drop.open { display: block; }
+  .ibx-drop-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; font-size: 13px; color: var(--text-2); cursor: pointer; border: none; background: none; width: 100%; text-align: left; }
+  .ibx-drop-item:hover { background: var(--fill-1); color: var(--text); }
+  .ibx-drop-item.active { font-weight: 600; color: var(--accent); }
+  .ibx-newbtn { width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid var(--border-soft); border-radius: 8px; background: transparent; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+  .ibx-newbtn:hover { background: var(--fill-2); color: var(--text); border-color: var(--hairline-strong); }
+  .ibx-newbtn svg { width: 16px; height: 16px; }
+  .ibx-toggle { width: 30px; height: 30px; flex: 0 0 30px; border: none; border-radius: 8px; background: transparent; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+  .ibx-toggle:hover { background: var(--fill-2); color: var(--text); }
+  .ibx-toggle svg { width: 18px; height: 18px; }
+  .ibx-expand-float { position: absolute; top: 10px; left: 10px; z-index: 10; background: var(--surface-card); border: 1px solid var(--hairline-soft); box-shadow: var(--shadow-card); }
+  .ibx-resize { width: 4px; flex: 0 0 4px; cursor: col-resize; background: transparent; transition: background .15s; position: relative; z-index: 5; }
+  .ibx-resize:hover, .ibx-resize:active { background: var(--accent-border); }
+  .inbox-left-list { flex: 1; overflow-y: auto; }
+  .inbox-right { flex: 1; min-width: 0; overflow: hidden; background: var(--panel); display: flex; flex-direction: column; }
+  .inbox-right-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-3); font-size: 14px; }
+  .inbox-right .content-inner { max-width: 800px; }
+  /* inbox mail-row */
+  .mail-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--hairline-soft); transition: background .1s; position: relative; }
+  .mail-row:hover { background: var(--fill-1); }
+  .mail-row.active { background: var(--accent-tint); }
+  .mail-row-st { flex: 0 0 16px; width: 16px; height: 16px; }
+  .mail-row-st svg { width: 16px; height: 16px; }
+  .mail-row .mav { width: 36px; height: 36px; flex: 0 0 36px; font-size: 14px; border-radius: 10px; }
+  .mail-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .mail-row-top { display: flex; align-items: center; gap: 6px; }
+  .mail-row-sender { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+  .mail-row-time { margin-left: auto; font-size: 12px; color: var(--text-3); white-space: nowrap; flex: 0 0 auto; }
+  .mail-row-subject { font-size: 13.5px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
+  .mail-row-preview { font-size: 12.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
+
+  .pref-list { display: flex; flex-direction: column; }
+  .pref-row { display: flex; align-items: flex-start; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--hairline-soft); cursor: pointer; transition: background .1s; }
+  .pref-row:hover { background: var(--fill-1); margin: 0 -16px; padding-left: 16px; padding-right: 16px; border-radius: 8px; }
+  .pref-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .pref-rule { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--text); }
+  .pref-evidence { font-size: 12px; color: var(--text-3); line-height: 1.45; }
+  .pref-avoid { font-size: 12px; color: var(--amber); line-height: 1.45; }
+  .pref-meta { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+  .pref-meta .pill { height: 20px; font-size: 10.5px; padding: 0 7px; }
+  .pref-scope { font-size: 10.5px; font-weight: 650; color: var(--text-4); background: var(--fill-2); padding: 2px 7px; border-radius: 4px; }
+  .pref-src { font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .pref-src:hover { text-decoration: underline; }
+  .pref-actions { flex: 0 0 auto; display: flex; gap: 6px; }
+  .pref-act { height: 28px; padding: 0 10px; border: 1px solid var(--border-soft); border-radius: 6px; background: transparent; color: var(--text-2); font-size: 12px; cursor: pointer; transition: all .15s; }
+  .pref-act:hover { background: var(--fill-2); border-color: var(--hairline-strong); }
+  .pref-act-warn { color: var(--text-3); }
+  .pref-act-warn:hover { color: #ff3b30; border-color: #ff3b30; background: rgba(255,59,48,.06); }
 
   /* ============ automation ============ */
   .auto-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; }
@@ -1372,6 +1451,14 @@
   .matter-field label { font-size: 14px; line-height: 20px; font-weight: 600; color: rgba(28,28,35,.76); }
   .matter-field .req { color: #ff3b30; margin-left: 2px; }
   .matter-field .hint { font-size: 11.5px; color: var(--text-3); line-height: 1.5; font-weight: 400; }
+  .nm-sep { border: none; border-top: 1px solid var(--border-soft); margin: 2px 0; }
+  .nm-fold { margin: 0; }
+  .nm-fold summary { font-size: 13px; color: var(--text-2); cursor: pointer; padding: 6px 0; user-select: none; list-style: none; }
+  .nm-fold summary::before { content: "▸ "; }
+  .nm-fold[open] summary::before { content: "▾ "; }
+  .nm-fold summary::-webkit-details-marker { display: none; }
+  .nm-fold-hint { font-size: 11.5px; color: var(--text-3); margin-left: 6px; font-weight: 400; }
+  .nm-fold > .matter-field { margin-top: 10px; }
   .matter-input, .matter-textarea, .matter-select {
     width: 100%; outline: none; background: rgba(46,50,56,.05); border: 1px solid var(--border-soft); border-radius: 8px;
     color: var(--text); font-family: inherit; font-size: 14px; line-height: 22px;
@@ -2276,9 +2363,7 @@
     <nav class="modnav" id="modnav">
       <div class="modnav-h">
         <div class="mh-title">事项</div>
-        <div class="mh-ws" id="spaceChip" title="当前空间"></div>
         <div class="mh-spacer"></div>
-        <button class="mh-add" id="newMatterTop" title="新建事项" type="button"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 3.6v10.8M3.6 9h10.8"/></svg></button>
       </div>
       <div class="modnav-scroll"><div class="nav-list" id="navList"></div></div>
     </nav>
@@ -2414,6 +2499,21 @@ function loadAuth(){
   } catch (e) { /* storage 不可用时停留在连接面板 */ }
 }
 function authReady(){ return !!(auth.token && auth.space); }
+var uidResolved = false;
+function resolveUid(){
+  if (uidResolved || !auth.token || auth.uid) return Promise.resolve();
+  uidResolved = true;
+  return fetch("/v1/auth/verify", { method: "POST", headers: { "Content-Type": "application/json", token: auth.token }, body: "{}" }).then(function(res){
+    if (!res.ok) return;
+    return res.json();
+  }).then(function(j){
+    if (j && j.uid){
+      auth.uid = j.uid;
+      auth.name = j.name || auth.name || j.uid;
+      try { localStorage.setItem("uid", auth.uid); localStorage.setItem("name", auth.name); } catch(e){}
+    }
+  }).catch(function(){});
+}
 /* octo-web 只把 token/uid/name 放进 localStorage(跨标签页白名单),
    currentSpaceId 是 WKApp 内存字段、不持久化 —— 所以新标签页只有 token。
    有 token 没空间时,直接问 octo-server 要空间列表(同源 /api/v1),
@@ -2607,7 +2707,7 @@ function prefRulePreview(content){
   if (!content) return "";
   var lines = String(content).split("\n").map(function(s){ return s.trim(); }).filter(Boolean);
   if (!lines.length) return "";
-  // 去掉 bullet、旧 P-* 前缀和可选 rule: 前缀,让卡片展示真正的规则。
+  // 去掉 bullet、旧 P-* 前缀和可选 rule: 前缀,让Preference展示真正的规则。
   var first = lines[0].replace(/^\s*[-•*]\s*/, "").trim();
   first = first.replace(/^P-(?:new|\d+)\s*\[?[a-z]*\]?\s*/i, "").trim();
   first = first.replace(/^rule\s*:\s*/i, "").trim();
@@ -2767,19 +2867,22 @@ function scopeLabel(p){ return p && p.scope === "private" ? "私有项目" : "�
 
 /* ---------------- shell / nav ---------------- */
 var NAV_ITEMS = [
-  { key: "views", hash: "#/inbox", label: "视图",
-    ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="4.2" height="13" rx="1"/><rect x="8.9" y="3.5" width="4.2" height="9" rx="1"/><rect x="14.8" y="3.5" width="2.2" height="11" rx="1"/></svg>' },
-  { key: "automation", hash: "#/automation", label: "自动化",
-    ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="11" r="6"/><path d="M10 8v3l2 1.4M10 5V3M7.5 3.2h5"/></svg>' },
+  { key: "myinbox", hash: "#/inbox", label: "收件箱",
+    ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l7-3.5L17 7v8l-7 3.5L3 15z"/><path d="M3 7l7 3.5L17 7"/><path d="M10 10.5V18"/></svg>',
+    badge: true },
   { key: "projects", hash: "#/projects", label: "项目",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5h3l1.6 1.8h5.4A1.5 1.5 0 0 1 16 8.3V15a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 3 15z"/></svg>' },
-  { key: "cards", hash: "#/cards", label: "卡片",
+  { key: "automation", hash: "#/automation", label: "自动化",
+    ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="11" r="6"/><path d="M10 8v3l2 1.4M10 5V3M7.5 3.2h5"/></svg>' },
+  { key: "cards", hash: "#/cards", label: "Preference",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M7 8h6M7 11h4"/></svg>' }
 ];
 function buildNav(){
   $("#navList").innerHTML = NAV_ITEMS.map(function(n){
     return '<div class="nav-item" data-nav="' + n.key + '" data-hash="' + n.hash + '" role="link" tabindex="0">'
-      + '<span class="ni-ic">' + n.ic + '</span><span class="ni-label">' + n.label + "</span></div>";
+      + '<span class="ni-ic">' + n.ic + '</span><span class="ni-label">' + n.label + "</span>"
+      + (n.badge ? '<span class="ni-badge" id="navBadge_' + n.key + '"></span>' : "")
+      + "</div>";
   }).join("");
   $$("[data-hash]", $("#navList")).forEach(function(el){
     el.addEventListener("click", function(){
@@ -2789,7 +2892,6 @@ function buildNav(){
   });
 }
 function setNav(key){
-  if (key === "inbox" || key === "board" || key === "timeline") key = "views";
   $$(".nav-item").forEach(function(n){ n.classList.toggle("active", n.getAttribute("data-nav") === key); });
 }
 function setCrumbText(label){
@@ -2818,12 +2920,9 @@ function closeDrawer(){
   $("#navScrim").classList.remove("open");
 }
 function setNavBadge(n){
-  var el = $('.nav-item[data-nav="views"]');
-  if (!el) return;
-  var b = $(".nav-badge", el);
-  if (!n){ if (b) b.remove(); return; }
-  if (!b){ b = document.createElement("span"); b.className = "nav-badge"; el.appendChild(b); }
-  b.textContent = n > 99 ? "99+" : String(n);
+  var b = $("#navBadge_myinbox");
+  if (!b) return;
+  b.textContent = n ? (n > 99 ? "99+" : String(n)) : "";
 }
 
 /* ---------------- 通用浮层菜单(fixed 定位) ---------------- */
@@ -2860,8 +2959,10 @@ function paintIdentity(){
   me.classList.toggle("off", !authReady());
   me.title = authReady() ? ((auth.name || auth.uid || "已连接") + " · 点开改连接") : "未连接 · 点开填 token";
   var chip = $("#spaceChip");
-  chip.textContent = auth.space ? (spaceName() || "我的空间") : "未连接";
-  chip.title = auth.space ? ("空间 " + (spaceName() || auth.space)) : "还没选空间";
+  if (chip){
+    chip.textContent = auth.space ? (spaceName() || "我的空间") : "未连接";
+    chip.title = auth.space ? ("空间 " + (spaceName() || auth.space)) : "还没选空间";
+  }
   if (auth.space && !spaceName()) resolveSpaceName();
 }
 
@@ -2900,8 +3001,7 @@ function skelRows(n, h){
 }
 function listSkeleton(title){
   return '<div class="content"><div class="content-inner wide inbox-page">'
-    + '<div class="list-head"><div class="list-title">' + esc(title) + "</div></div>"
-    + '<div class="list-sub">加载中…</div>' + skelRows(6, 64) + "</div></div>";
+    + skelRows(6, 64) + "</div></div>";
 }
 function errorState(e, retryHash){
   return '<div class="content"><div class="content-inner">'
@@ -2921,16 +3021,19 @@ function parseHash(){
   var h = (location.hash || "#/inbox").replace(/^#\//, "");
   if (h.indexOf("matter/") === 0) return { view: "matter", id: h.slice(7) };
   if (h.indexOf("project/") === 0) return { view: "project", id: h.slice(8) };
-  if (h === "board" || h === "timeline" || h === "projects" || h === "automation" || h === "cards") return { view: h };
-  if (h === "mine" || h === "initiated" || h === "archived") return { view: "inbox", tab: h };
-  if (h === "review-me") return { view: "inbox", tab: "review" };
-  return { view: "inbox", tab: "all" };
+  if (h === "timeline" || h === "board") { location.hash = "#/inbox"; return { view: "myinbox", tab: "all" }; }
+  if (h === "projects" || h === "automation" || h === "cards") return { view: h };
+  if (h === "mine") return { view: "myinbox", tab: "mine" };
+  if (h === "review-me") return { view: "myinbox", tab: "review" };
+  if (h === "initiated") return { view: "myinbox", tab: "initiated" };
+  if (h === "archived") return { view: "myinbox", tab: "archived" };
+  if (h === "inbox") return { view: "myinbox", tab: "all" };
+  return { view: "myinbox", tab: "all" };
 }
 function matterViewSwitchHTML(active){
   return '<div class="matter-view-switch" role="tablist" aria-label="事项视图">'
     + '<a class="mvs-btn' + (active === "list" ? " active" : "") + '" href="#/inbox" role="tab" aria-selected="' + (active === "list") + '">列表</a>'
     + '<a class="mvs-btn' + (active === "board" ? " active" : "") + '" href="#/board" role="tab" aria-selected="' + (active === "board") + '">看板</a>'
-    + '<a class="mvs-btn' + (active === "timeline" ? " active" : "") + '" href="#/timeline" role="tab" aria-selected="' + (active === "timeline") + '">时间线</a>'
     + "</div>";
 }
 function render(){
@@ -2952,13 +3055,11 @@ function render(){
     return Promise.resolve();
   }
   if (r.view === "matter") p = renderMatter(my, r.id);
-  else if (r.view === "board") p = renderBoard(my);
-  else if (r.view === "timeline") p = renderTimeline(my);
   else if (r.view === "projects") p = renderProjects(my);
   else if (r.view === "automation") p = renderAutomation(my);
   else if (r.view === "cards") p = renderCards(my);
   else if (r.view === "project") p = renderProjectDetail(my, r.id);
-  else p = renderInbox(my, r.tab || "all");
+  else p = renderMyInbox(my, r.tab || "all");
   return p.catch(function(e){
     if (my !== renderToken) return;
     errToast(e);
@@ -2975,10 +3076,15 @@ var inboxState = null; // { rows, page, params, key }
 var expandedRows = {};
 var projShowArchived = false;
 var INBOX_TABS = [
-  { k: "all", hash: "#/inbox", label: "全部", title: "收件箱" },
+  { k: "all", hash: "#/inbox", label: "全部", title: "全部事项" },
+  { k: "initiated", hash: "#/initiated", label: "我发起的", title: "我发起的" },
+  { k: "archived", hash: "#/archived", label: "已归档", title: "已归档" }
+];
+var MY_INBOX_TABS = [
+  { k: "all", hash: "#/inbox", label: "全部", title: "全部" },
+  { k: "review", hash: "#/review-me", label: "待确认", title: "待确认" },
   { k: "mine", hash: "#/mine", label: "我负责的", title: "我负责的" },
   { k: "initiated", hash: "#/initiated", label: "我发起的", title: "我发起的" },
-  { k: "review", hash: "#/review-me", label: "待确认", title: "待确认" },
   { k: "archived", hash: "#/archived", label: "已归档", title: "已归档" }
 ];
 function tabInfo(k){
@@ -3028,13 +3134,233 @@ function tabCountHTML(t, active, liveN){
   if (t.k === "review" && n > 0) return '<span class="tab-badge">' + txt + "</span>";
   return '<span class="inbox-filter-count">' + txt + "</span>";
 }
+/* ---- 收件箱(个人待办 · split-pane 邮件式) ---- */
+var myInboxTab = "all";
+var myInboxState = null;
+var myInboxSel = null;
+function myInboxTabInfo(k){ return MY_INBOX_TABS.find(function(t){ return t.k === k; }) || MY_INBOX_TABS[0]; }
+function mailRowSender(m){
+  if (myInboxTab === "review") return m.leader || m.creator_id || "";
+  return m.creator_id || m.leader || "";
+}
+function mailRowPreview(m){
+  if (m.status === "blocked" && m.block_reason_text) return m.block_reason_text;
+  return m.description || "";
+}
+var STATUS_ICON = {
+  backlog:     '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#999" stroke-width="1.2" stroke-dasharray="2.5 2.5"/></svg>',
+  open:        '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#999" stroke-width="1.2"/></svg>',
+  in_progress: '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#e5a100" stroke-width="1.2"/><path d="M9 5v4l2.5 1.5" stroke="#e5a100" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  blocked:     '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#d4483b" stroke-width="1.2"/><path d="M9 6v4M9 12.5v0" stroke="#d4483b" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  review:      '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#e5a100" stroke-width="1.2"/><path d="M6.5 9.2l2 1.8 3.5-4" stroke="#e5a100" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  done:        '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" fill="#16a34a" stroke="#16a34a" stroke-width="1.2"/><path d="M6 9.2l2 2 4-4.4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  cancelled:   '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#999" stroke-width="1.2"/><path d="M6.5 6.5l5 5M11.5 6.5l-5 5" stroke="#999" stroke-width="1.2" stroke-linecap="round"/></svg>',
+  archived:    '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#999" stroke-width="1.2"/><path d="M6.5 6.5l5 5M11.5 6.5l-5 5" stroke="#999" stroke-width="1.2" stroke-linecap="round"/></svg>'
+};
+function statusIconSVG(s){ return STATUS_ICON[s] || STATUS_ICON.open; }
+function mailRowHTML(m, sel){
+  var sender = mailRowSender(m);
+  var preview = mailRowPreview(m);
+  var time = m.last_activity_at || m.updated_at || m.created_at;
+  return '<div class="mail-row' + (sel === m.id ? " active" : "") + '" data-mid="' + esc(m.id) + '">'
+    + av(sender)
+    + '<div class="mail-row-body">'
+    + '<div class="mail-row-top"><span class="mail-row-sender">' + esc(uname(sender)) + '</span>' + aiTagHTML(sender)
+    + '<span class="mail-row-time">' + esc(fmtRelative(time)) + '</span><span class="mail-row-st">' + statusIconSVG(m.status) + '</span></div>'
+    + '<div class="mail-row-subject">' + esc(m.title) + '</div>'
+    + (preview ? '<div class="mail-row-preview">' + esc(preview) + '</div>' : '')
+    + '</div></div>';
+}
+function fmtRelative(d){
+  if (!d) return "";
+  var ms = Date.now() - new Date(d).getTime();
+  if (ms < 0) ms = 0;
+  var s = ms / 1000;
+  if (s < 60) return "刚刚";
+  var m = s / 60;
+  if (m < 60) return Math.floor(m) + "分钟前";
+  var h = m / 60;
+  if (h < 24) return Math.floor(h) + "小时前";
+  var dy = h / 24;
+  if (dy < 2) return "昨天";
+  if (dy < 30) return Math.floor(dy) + "天前";
+  return fmtShortDate(d);
+}
+function renderMyInbox(my, tab){
+  if (tab) myInboxTab = tab;
+  setNav("myinbox");
+  setCrumbText("收件箱");
+  $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="inbox-split">'
+    + '<div class="inbox-left"><div class="inbox-left-head">' + skelRows(2, 48) + '</div><div class="inbox-left-list"></div></div>'
+    + '<div class="inbox-right"><div class="inbox-right-empty">加载中…</div></div>'
+    + '</div></div>';
+  var params = inboxParams(myInboxTab);
+  return Promise.all([
+    api("/matters", { params: params }),
+    loadMembers().catch(function(){ return []; }),
+    getProjects().catch(function(){ return []; })
+  ]).then(function(res){
+    if (my !== renderToken) return;
+    myInboxState = { rows: listData(res[0]).map(normMatter), page: pageInfo(res[0]) };
+    myInboxSel = null;
+    paintMyInbox(my);
+  });
+}
+var inboxLeftCollapsed = false;
+var inboxLeftWidth = null;
+function paintMyInbox(my){
+  if (!myInboxState) return;
+  var rows = sortRows(myInboxState.rows);
+  var curTabInfo = myInboxTabInfo(myInboxTab);
+  var filterSVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>';
+  var dropItems = MY_INBOX_TABS.map(function(t){
+    return '<button class="ibx-drop-item' + (myInboxTab === t.k ? " active" : "") + '" data-mitab="' + t.k + '" type="button">' + t.label + "</button>";
+  }).join("");
+  var filterHTML = '<div class="ibx-filter-zone">'
+    + '<button class="ibx-filter-trigger" id="ibxFilterTrigger" type="button">' + filterSVG + '<span class="ibx-ft-label">' + esc(curTabInfo.label) + '</span></button>'
+    + '<div class="ibx-drop" id="ibxDrop">' + dropItems + '</div></div>';
+  var empty = rows.length ? "" : '<div class="inbox-right-empty" style="padding:40px;text-align:center">'
+    + esc(curTabInfo.label) + " 没有事项</div>";
+  var listHTML = rows.map(function(m){ return mailRowHTML(m, myInboxSel); }).join("");
+  var toggleSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg>';
+  $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="inbox-split" style="position:relative">'
+    + (inboxLeftCollapsed ? '<button class="ibx-toggle ibx-expand-float" id="ibxExpand" type="button" title="展开列表">' + toggleSVG + '</button>' : '')
+    + '<div class="inbox-left' + (inboxLeftCollapsed ? " collapsed" : "") + '" id="inboxLeft"' + (inboxLeftWidth && !inboxLeftCollapsed ? ' style="width:' + inboxLeftWidth + 'px"' : '') + '>'
+    + '<div class="inbox-left-head">' + filterHTML
+    + '<button class="ibx-newbtn" id="ibxNew" type="button" title="新建事项"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg></button>'
+    + '<button class="ibx-toggle" id="ibxCollapse" type="button" title="收起列表">' + toggleSVG + '</button></div>'
+    + '<div class="inbox-left-list">' + (listHTML || empty) + '</div>'
+    + '</div>'
+    + '<div class="ibx-resize" id="ibxResize"></div>'
+    + '<div class="inbox-right" id="inboxRight">'
+    + (myInboxSel ? '' : '<div class="inbox-right-empty">选择一个事项查看详情</div>')
+    + '</div>'
+    + '</div></div>';
+  var ibxTrigger = $("#ibxFilterTrigger");
+  var ibxDrop = $("#ibxDrop");
+  if (ibxTrigger) ibxTrigger.addEventListener("click", function(e){
+    e.stopPropagation();
+    ibxDrop.classList.toggle("open");
+  });
+  if (ibxDrop) document.addEventListener("click", function(){ ibxDrop.classList.remove("open"); }, { once: true });
+  $$("[data-mitab]").forEach(function(el){
+    el.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (ibxDrop) ibxDrop.classList.remove("open");
+      location.hash = myInboxTabInfo(el.getAttribute("data-mitab")).hash;
+    });
+  });
+  var ibxNewBtn = $("#ibxNew");
+  if (ibxNewBtn) ibxNewBtn.addEventListener("click", function(){ openMatterModal({}); });
+  var collapseEl = $("#ibxCollapse");
+  if (collapseEl) collapseEl.addEventListener("click", function(){
+    inboxLeftCollapsed = true;
+    paintMyInbox(my);
+    if (myInboxSel) loadInboxDetail(my, myInboxSel);
+  });
+  var expandEl = $("#ibxExpand");
+  if (expandEl) expandEl.addEventListener("click", function(){
+    inboxLeftCollapsed = false;
+    paintMyInbox(my);
+    if (myInboxSel) loadInboxDetail(my, myInboxSel);
+  });
+  var resizeEl = $("#ibxResize");
+  if (resizeEl) resizeEl.addEventListener("mousedown", function(e){
+    e.preventDefault();
+    var left = $("#inboxLeft");
+    if (!left) return;
+    var startX = e.clientX, startW = left.offsetWidth;
+    var onMove = function(ev){
+      var w = Math.max(200, Math.min(600, startW + ev.clientX - startX));
+      left.style.width = w + "px";
+      inboxLeftWidth = w;
+    };
+    var onUp = function(){ document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+  $$(".mail-row[data-mid]").forEach(function(el){
+    el.addEventListener("click", function(){
+      var id = el.getAttribute("data-mid");
+      myInboxSel = id;
+      $$(".mail-row.active").forEach(function(a){ a.classList.remove("active"); });
+      el.classList.add("active");
+      loadInboxDetail(my, id);
+    });
+  });
+  if (myInboxSel) loadInboxDetail(my, myInboxSel);
+  else if (rows.length){
+    myInboxSel = rows[0].id;
+    var first = $(".mail-row[data-mid]");
+    if (first) first.classList.add("active");
+    loadInboxDetail(my, myInboxSel);
+  }
+}
+function loadInboxDetail(my, id){
+  var right = $("#inboxRight");
+  if (!right) return;
+  right.innerHTML = '<div class="inbox-right-empty">加载中…</div>';
+  Promise.all([
+    api("/matters/" + id),
+    settle(api("/matters/" + id + "/tree")),
+    settle(api("/matters/" + id + "/timeline", { params: { limit: 100 } })),
+    settle(api("/matters/" + id + "/activities", { params: { limit: 100 } })),
+    getProjects().catch(function(){ return []; }),
+    loadMembers().catch(function(){ return []; }),
+    settle(api("/matters/" + id + "/feedback"))
+  ]).then(function(res){
+    if (my !== renderToken || myInboxSel !== id) return;
+    var m = normMatter(res[0]);
+    if (!m || !m.id){ right.innerHTML = '<div class="inbox-right-empty">事项已不存在</div>'; return; }
+    cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], fb: res[6], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null, trailOpen: false };
+    right.innerHTML = '<div class="content" id="detailScroll" style="overflow-y:auto;height:100%"><div class="content-inner">'
+      + '<h1 class="issue-title">' + esc(m.title) + "</h1>"
+      + '<div class="issue-sub">' + pillHTML(m.status)
+      + (m.schedule_id ? '<span class="mode-tag" title="schedule_id: ' + esc(m.schedule_id) + '">自动化建的</span>' : "")
+      + "</div>"
+      + blockerBannerHTML(m)
+      + reviewBannerHTML(m)
+      + briefHTML(m)
+      + (m.parent_matter_id ? '<div class="detail-block" id="parentLinkBox">' + parentLinkHTML() + "</div>" : "")
+      + subsBlockHTML(m)
+      + recentTrailBlockHTML()
+      + timelineBlockHTML(m)
+      + "</div></div>"
+      + '<div class="composer-wrap"><div class="composer-inner" style="position:relative"><div class="composer">'
+      + '<textarea class="composer-input" id="composerInput" rows="1" placeholder="说一句 — 会记进这单的动态"></textarea>'
+      + '<div class="composer-tools">'
+      + '<button class="composer-icon" id="cmpMention" type="button" title="@ 提及"><svg viewBox="0 0 24 24"><path d="M16 12a4 4 0 1 1-2.2-3.58"/><path d="M16 8v5a2.2 2.2 0 0 0 4.4 0v-1a8.4 8.4 0 1 0-3.1 6.5"/></svg></button>'
+      + '<div class="mention-picker" id="mentionPicker"><input class="mp-search" id="mpSearch" placeholder="搜索成员或 Bot…"><div class="mp-list" id="mpList"></div></div>'
+      + '<button class="composer-icon" id="cmpAttach" type="button" title="加附件"><svg viewBox="0 0 24 24"><path d="M8.5 12.5 14 7a3.2 3.2 0 0 1 4.5 4.5l-7.4 7.4a5 5 0 0 1-7.1-7.1l7.6-7.6"/></svg></button>'
+      + '<input type="file" id="cmpFile" multiple style="display:none">'
+      + "</div>"
+      + '<button class="composer-send" id="composerSend" type="button">发送</button>'
+      + "</div></div></div>";
+    paintInspector();
+    showInspector();
+    bindDetail(my);
+    if (m.parent_matter_id){
+      api("/matters/" + m.parent_matter_id).then(function(p){
+        if (my !== renderToken || !cur || cur.id !== id) return;
+        cur.parent = normMatter(p);
+        var pl = $("#parentLinkBox");
+        if (pl) pl.innerHTML = parentLinkHTML();
+        bindParentLink();
+      }).catch(function(){});
+    }
+    loadDetailContextLater(my, id, m);
+  }).catch(function(e){
+    right.innerHTML = '<div class="inbox-right-empty">加载失败: ' + esc(e.message || "") + '</div>';
+  });
+}
+
 function renderInbox(my, tab){
   if (tab) inboxTab = tab;
   var info = tabInfo(inboxTab);
   setNav("inbox");
   hideInspector();
-  setCrumbText(info.title);
-  $("#centerCol").innerHTML = listSkeleton(info.title);
+  setCrumbText("事项");
+  $("#centerCol").innerHTML = listSkeleton("事项");
   var params = inboxParams(inboxTab);
   return Promise.all([
     api("/matters", { params: params }),
@@ -3138,14 +3464,12 @@ function paintInbox(my){
     + '<button type="button" class="board-filter-trigger' + (activeN ? " has-filters" : "") + (boardFilterOpen ? " open" : "") + '" id="boardFilterBtn" aria-haspopup="menu" aria-expanded="' + (boardFilterOpen ? "true" : "false") + '" aria-label="筛选事项">' + FILTER_SVG + '<span>筛选</span><span class="bf-count">' + activeN + "</span></button>"
     + boardFilterPopoverHTML()
     + "</div>";
-  var subCount = activeN ? (filteredRows.length + "/" + inboxState.rows.length) : inboxState.rows.length;
   $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
-    + '<div class="list-head"><div class="list-title">' + esc(info.title) + '</div><div class="list-head-actions">' + matterViewSwitchHTML("list") + filterControl + '<button class="new-btn" id="newMatterBtn" type="button">+ 新建</button></div></div>'
-    + '<div class="list-sub">' + esc(info.label) + " · " + subCount + " 个事项" + (inboxState.page.has_more ? " · 还有更多" : "") + "</div>"
+    + '<div class="list-head"><div class="list-head-actions">' + matterViewSwitchHTML("list") + filterControl + '<button class="new-btn" id="newMatterBtn" type="button">+ 新建</button></div></div>'
     + '<div class="inbox-toolbar"><div class="inbox-filterbar" role="tablist">' + tabs + "</div>"
     + '<input class="list-search" id="listSearch" type="search" placeholder="搜索标题或编号" value="' + esc(inboxSearch) + '" aria-label="搜索事项"></div>'
     + '<div class="board-active-filters">' + boardChipHTML() + "</div>"
-    + (rows.length ? '<div class="inbox-table-head" aria-hidden="true"><span>状态</span><span>事项</span><span>项目</span><span>编号</span><span>负责人</span><span>创建</span></div>' : "")
+    + (rows.length ? '<div class="inbox-table-head" aria-hidden="true"><span>状态</span><span>事项</span><span>项目</span><span>编号</span><span>领队</span><span>创建</span></div>' : "")
     + '<div class="mlist">' + (rows.length ? rowsWithChildren(rows, q) : empty) + "</div>"
     + more + "</div></div>";
   bindInbox(my);
@@ -3347,10 +3671,8 @@ function renderBoard(my){
   setNav("board");
   loadBoardDisplayState();
   hideInspector();
-  setCrumbText("看板");
+  setCrumbText("事项");
   $("#centerCol").innerHTML = '<div class="content board-content"><div class="content-inner wide inbox-page board-shell">'
-    + '<div class="board-head"><div class="board-head-main"><div class="list-title">看板</div>'
-    + '<div class="list-sub board-summary">加载中…</div></div></div>'
     + '<div class="sk-cols">' + '<div class="skel" style="height:240px"></div>'.repeat(5) + "</div></div></div>";
   return Promise.all([
     getProjects().catch(function(){ return []; }),
@@ -3526,7 +3848,7 @@ function boardDisplayToggleHTML(key, label, sub, on){
 }
 function boardDisplayPopoverHTML(){
   return '<div class="board-filter-pop board-display-pop' + (boardDisplayOpen ? " open" : "") + '" id="boardDisplayPop" role="menu" aria-label="显示设置">'
-    + '<div class="bf-pop-head"><div><div class="bf-pop-title">显示设置</div><div class="bf-pop-sub">密度 / 空列 / 卡片字段</div></div>'
+    + '<div class="bf-pop-head"><div><div class="bf-pop-title">显示设置</div><div class="bf-pop-sub">密度 / 空列 / Preference字段</div></div>'
     + '<button type="button" class="bf-clear" id="boardDisplayReset">重置</button></div>'
     + '<div class="bf-section"><div class="bf-section-title">密度</div><div class="bd-segments">'
     + '<button type="button" class="bd-segment' + (boardDensity !== "compact" ? " is-active" : "") + '" data-board-density="comfortable">舒适</button>'
@@ -3535,9 +3857,9 @@ function boardDisplayPopoverHTML(){
     + '<div class="bf-section"><div class="bf-section-title">列</div><div class="bf-options">'
     + boardDisplayToggleHTML("hideEmpty", "隐藏空列", "筛选后只保留有事项的状态列", boardHideEmpty)
     + "</div></div>"
-    + '<div class="bf-section"><div class="bf-section-title">卡片字段</div><div class="bf-options">'
-    + boardDisplayToggleHTML("showDate", "显示日期", "保留卡片右上角时间信息", boardShowDate)
-    + boardDisplayToggleHTML("showAssignee", "显示负责人", "保留卡片底部负责人", boardShowAssignee)
+    + '<div class="bf-section"><div class="bf-section-title">Preference字段</div><div class="bf-options">'
+    + boardDisplayToggleHTML("showDate", "显示日期", "保留Preference右上角时间信息", boardShowDate)
+    + boardDisplayToggleHTML("showAssignee", "显示负责人", "保留Preference底部负责人", boardShowAssignee)
     + boardDisplayToggleHTML("showSource", "显示来源", "保留来源会话/材料线索", boardShowSource)
     + "</div></div></div>";
 }
@@ -3622,8 +3944,7 @@ function paintBoard(my){
     ? '<div class="board-no-results"><span><b>没有匹配事项</b> · 换个条件,或清空当前筛选。</span><button type="button" id="boardNoResultsClear">清空筛选</button></div>'
     : "";
   $("#centerCol").innerHTML = '<div class="content board-content"><div class="content-inner wide inbox-page board-shell" data-density="' + esc(boardDensity) + '" data-hide-empty="' + hideEmptyAttr + '">'
-    + '<div class="board-head"><div class="board-head-main"><div class="list-title">看板</div>'
-    + '<div class="list-sub board-summary">按状态分列 · ' + boardRows.length + "/" + boardAll.length + " 个事项" + (boardPage.has_more ? " · 只载入了前 100" : "") + "</div></div>"
+    + '<div class="board-head"><div class="board-head-main"></div>'
     + '<div class="board-actions">'
     + matterViewSwitchHTML("board")
     + '<button type="button" class="board-filter-trigger' + (activeN ? " has-filters" : "") + (boardFilterOpen ? " open" : "") + '" id="boardFilterBtn" aria-haspopup="menu" aria-expanded="' + (boardFilterOpen ? "true" : "false") + '" aria-label="筛选事项">' + FILTER_SVG + '<span>筛选</span><span class="bf-count">' + activeN + "</span></button>"
@@ -4291,17 +4612,17 @@ var CARD_STATUS_CLS = { draft: "gray", authorized: "done", hit: "progress", miss
 function renderCards(my){
   setNav("cards");
   hideInspector();
-  setCrumbText("卡片");
+  setCrumbText("Preference");
   $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
-    + '<div class="list-head"><div class="list-title">偏好卡片</div>'
-    + '<div class="list-head-actions"><button class="new-btn" id="newCardBtn" type="button">+ 新建卡片</button></div></div>'
-    + '<div class="list-sub">从 Matter 中生长出来的行为规则</div>'
-    + skelRows(4, 72)
+    + skelRows(4, 56)
     + '</div></div>';
   return api("/preference-cards", { params: { limit: 100 } }).then(function(json){
     if (my !== renderToken) return;
     cardsCache = (json && json.data) || [];
     paintCards(my);
+  }).catch(function(e){
+    if (my !== renderToken) return;
+    $(".content-inner").innerHTML = '<div class="err-state">Preference 加载失败: ' + esc(e.message || "") + '</div>';
   });
 }
 
@@ -4310,64 +4631,146 @@ function paintCards(my){
   var html = cards.length ? cards.map(function(c){
     var statusCls = CARD_STATUS_CLS[c.status] || "gray";
     var matterId = c.matter_id;
-    var matterLink = matterId ? '<a href="#/matter/' + esc(matterId) + '" class="card-matter-link" onclick="event.stopPropagation()">来源事项 →</a>' : '';
-    return '<div class="pcard" data-card-id="' + esc(c.id) + '" role="button" tabindex="0">'
-      + '<div class="pcard-top">'
-      + '<span class="pill ' + statusCls + '"><span class="dot"></span>' + esc(CARD_STATUS_LABEL[c.status] || c.status) + '</span>'
-      + '<span class="pcard-scope">' + esc(CARD_SCOPE_LABEL[c.scope] || c.scope) + '</span>'
-      + (c.agent_uid ? '<span class="pcard-agent">' + esc(uname(c.agent_uid)) + ' ' + aiTagHTML(c.agent_uid) + '</span>' : '')
-      + '<span class="pcard-time">' + esc(fmtTime(c.created_at)) + '</span>'
+    var srcLink = matterId ? '<a href="#/matter/' + esc(matterId) + '" class="pref-src" onclick="event.stopPropagation()">来源事项</a>' : '';
+    var actions = '';
+    if (c.status === "draft"){
+      actions = '<button class="pref-act" data-auth="' + esc(c.id) + '" onclick="event.stopPropagation()" title="确认这条偏好">确认</button>'
+        + '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" onclick="event.stopPropagation()" title="弃用">弃用</button>';
+    } else if (c.status === "authorized" || c.status === "hit"){
+      actions = '<button class="pref-act pref-act-warn" data-suspend="' + esc(c.id) + '" onclick="event.stopPropagation()" title="暂停使用">停用</button>';
+    }
+    return '<div class="pref-row" data-card-id="' + esc(c.id) + '" role="button" tabindex="0">'
+      + '<div class="pref-main">'
+      + '<div class="pref-rule">' + esc(c.content) + '</div>'
+      + (c.evidence ? '<div class="pref-evidence">' + esc(c.evidence) + '</div>' : '')
+      + (c.avoid ? '<div class="pref-avoid">' + esc(c.avoid) + '</div>' : '')
       + '</div>'
-      + '<div class="pcard-content">' + esc(c.content) + '</div>'
-      + (c.evidence ? '<div class="pcard-evidence">evidence: ' + esc(c.evidence) + '</div>' : '')
-      + (c.avoid ? '<div class="pcard-avoid">avoid: ' + esc(c.avoid) + '</div>' : '')
-      + '<div class="pcard-foot">' + matterLink
-      + (c.status === "draft" ? '<button class="pcard-action pcard-auth" data-auth="' + esc(c.id) + '" onclick="event.stopPropagation()">授权</button>'
-        + '<button class="pcard-action pcard-discard" data-discard="' + esc(c.id) + '" onclick="event.stopPropagation()">弃用</button>' : '')
-      + '</div></div>';
-  }).join('') : '<div class="empty-state"><div class="es-t">还没有偏好卡片</div><div class="es-s">完成 Matter 后,从人的验收/打回/批注中提炼行为规则</div></div>';
+      + '<div class="pref-meta">'
+      + '<span class="pill ' + statusCls + '"><span class="dot"></span>' + esc(CARD_STATUS_LABEL[c.status] || c.status) + '</span>'
+      + '<span class="pref-scope">' + esc(CARD_SCOPE_LABEL[c.scope] || c.scope) + '</span>'
+      + srcLink
+      + '</div>'
+      + '<div class="pref-actions">' + actions + '</div>'
+      + '</div>';
+  }).join('') : '<div class="empty-state"><div class="es-t">还没有 Preference</div><div class="es-s">完成 Matter 后,从验收反馈中自动提炼行为规则</div></div>';
 
-  $(".content-inner").innerHTML = '<div class="list-head"><div class="list-title">偏好卡片</div>'
-    + '<div class="list-head-actions"><button class="new-btn" id="newCardBtn" type="button">+ 新建卡片</button></div></div>'
-    + '<div class="list-sub">' + cards.length + ' 张卡片 — 从 Matter 中生长出来的行为规则</div>'
-    + '<div class="cards-grid">' + html + '</div>';
+  $(".content-inner").innerHTML = '<div class="list-head"><div class="list-head-actions"></div></div>'
+    + '<div class="inbox-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索偏好（全文检索）" style="max-width:400px" aria-label="搜索偏好"></div></div>'
+    + '<div class="pref-list">' + html + '</div>';
 
-  $$("[data-auth]").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      api("/preference-cards/" + btn.getAttribute("data-auth"), { method: "PUT", body: { status: "authorized" } }).then(function(){
-        toast("已授权"); renderCards(my);
-      }).catch(function(e){ errToast(e); });
-    });
-  });
-  $$("[data-discard]").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      api("/preference-cards/" + btn.getAttribute("data-discard"), { method: "PUT", body: { status: "discarded" } }).then(function(){
+  var list = $(".pref-list");
+  if (list) list.addEventListener("click", function(e){
+    var authBtn = e.target.closest("[data-auth]");
+    if (authBtn){
+      e.stopPropagation();
+      api("/preference-cards/" + authBtn.getAttribute("data-auth"), { method: "PUT", body: { status: "authorized" } }).then(function(){
+        toast("已确认"); renderCards(my);
+      }).catch(function(er){ errToast(er); });
+      return;
+    }
+    var discardBtn = e.target.closest("[data-discard]");
+    if (discardBtn){
+      e.stopPropagation();
+      api("/preference-cards/" + discardBtn.getAttribute("data-discard"), { method: "PUT", body: { status: "discarded" } }).then(function(){
         toast("已弃用"); renderCards(my);
-      }).catch(function(e){ errToast(e); });
-    });
+      }).catch(function(er){ errToast(er); });
+      return;
+    }
+    var suspendBtn = e.target.closest("[data-suspend]");
+    if (suspendBtn){
+      e.stopPropagation();
+      api("/preference-cards/" + suspendBtn.getAttribute("data-suspend"), { method: "PUT", body: { status: "discarded" } }).then(function(){
+        toast("已停用"); renderCards(my);
+      }).catch(function(er){ errToast(er); });
+      return;
+    }
+    var card = e.target.closest(".pref-row[data-card-id]");
+    if (card){
+      var c = cardsCache.find(function(x){ return x.id === card.getAttribute("data-card-id"); });
+      if (c) openEditCardModal(my, c);
+    }
   });
-  var nb = $("#newCardBtn");
-  if (nb) nb.addEventListener("click", function(){ openNewCardModal(my); });
+  var cs = $("#cardSearch");
+  if (cs){
+    var searchTimer = 0;
+    cs.addEventListener("input", function(){
+      clearTimeout(searchTimer);
+      var q = cs.value.trim();
+      if (!q){ cardsCache = null; renderCards(my); return; }
+      searchTimer = setTimeout(function(){
+        api("/preference-cards/search", { params: { q: q } }).then(function(json){
+          if (my !== renderToken) return;
+          cardsCache = (json && json.data) || [];
+          paintCards(my);
+          var cs2 = $("#cardSearch"); if (cs2){ cs2.value = q; cs2.focus(); }
+        });
+      }, 300);
+    });
+  }
+}
+
+function cardFormHTML(c){
+  var isEdit = !!c.id;
+  var scopeOpts = ["project","bot","space","matter","global"].map(function(s){
+    return '<option value="' + s + '"' + (c.scope === s ? " selected" : "") + '>' + (CARD_SCOPE_LABEL[s] || s) + '</option>';
+  }).join("");
+  var statusOpts = isEdit ? ["draft","authorized","hit","miss","discarded"].map(function(s){
+    return '<option value="' + s + '"' + (c.status === s ? " selected" : "") + '>' + (CARD_STATUS_LABEL[s] || s) + '</option>';
+  }).join("") : "";
+  return '<div class="matter-form">'
+    + '<div class="matter-field"><label>行为规则<span class="req">*</span></label>'
+    + '<textarea class="matter-textarea" id="ncContent" rows="4" placeholder="一条可执行的祈使句">' + esc(c.content || "") + '</textarea></div>'
+    + '<div class="matter-field"><label>证据 (evidence)</label>'
+    + '<textarea class="matter-textarea" id="ncEvidence" rows="2" placeholder="M-123 圈点 先说结论">' + esc(c.evidence || "") + '</textarea></div>'
+    + '<div class="matter-field"><label>不适用场景 (avoid)</label>'
+    + '<textarea class="matter-textarea" id="ncAvoid" rows="2" placeholder="用户明确要求探索式头脑风暴时">' + esc(c.avoid || "") + '</textarea></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+    + '<div class="matter-field"><label>作用域</label><select class="matter-select" id="ncScope">' + scopeOpts + '</select></div>'
+    + (isEdit ? '<div class="matter-field"><label>状态</label><select class="matter-select" id="ncStatus">' + statusOpts + '</select></div>' : '<div></div>')
+    + '</div></div>';
+}
+
+function openEditCardModal(my, c){
+  var mo = $("#modal");
+  mo.className = "modal";
+  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">编辑 Preference</div></div>'
+    + '<button class="modal-x" id="mx" type="button">×</button></div>'
+    + '<div class="modal-body">' + cardFormHTML(c) + '</div>'
+    + '<div class="modal-foot">'
+    + '<button class="ff-cancel" style="color:var(--block);border-color:var(--block-border)" id="ncDelete" type="button">删除</button>'
+    + '<span style="flex:1"></span>'
+    + '<button class="ff-cancel" id="ncCancel" type="button">取消</button>'
+    + '<button class="ff-save" id="ncOk" type="button">保存</button></div>';
+  $("#modalScrim").classList.add("open");
+  $("#mx").onclick = $("#ncCancel").onclick = function(){ closeModal(); };
+  $("#ncDelete").onclick = function(){
+    if (!confirm("确定删除这张 Preference？")) return;
+    api("/preference-cards/" + c.id, { method: "DELETE" }).then(function(){
+      closeModal(); toast("已删除"); renderCards(my);
+    }).catch(function(e){ errToast(e); });
+  };
+  $("#ncOk").onclick = function(){
+    var content = $("#ncContent").value.trim();
+    if (!content){ toast("规则不能为空"); return; }
+    var body = { content: content, scope: $("#ncScope").value };
+    var st = $("#ncStatus"); if (st) body.status = st.value;
+    var ev = $("#ncEvidence").value.trim(); body.evidence = ev || "";
+    var av = $("#ncAvoid").value.trim(); body.avoid = av || "";
+    api("/preference-cards/" + c.id, { method: "PUT", body: body }).then(function(){
+      closeModal(); toast("已保存"); renderCards(my);
+    }).catch(function(e){ errToast(e); });
+  };
 }
 
 function openNewCardModal(my){
   var mo = $("#modal");
   mo.className = "modal";
-  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">新建偏好卡片</div></div>'
+  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">新建 Preference</div></div>'
     + '<button class="modal-x" id="mx" type="button">×</button></div>'
-    + '<div class="modal-body"><div class="matter-form">'
-    + '<div class="matter-field"><label>行为规则<span class="req">*</span></label>'
-    + '<textarea class="matter-textarea" id="ncContent" rows="3" placeholder="一条可执行的祈使句,例如:做产品审计时先给可执行改动清单,再给原则解释"></textarea></div>'
-    + '<div class="matter-field"><label>证据 (evidence)</label>'
-    + '<input class="matter-input" id="ncEvidence" placeholder="M-123 圈点 &quot;先说结论,不要让我找&quot;"></div>'
-    + '<div class="matter-field"><label>不适用场景 (avoid)</label>'
-    + '<input class="matter-input" id="ncAvoid" placeholder="用户明确要求探索式头脑风暴时"></div>'
-    + '<div class="matter-field"><label>作用域</label>'
-    + '<select class="matter-select" id="ncScope"><option value="project">项目</option><option value="bot">Bot</option><option value="space">空间</option><option value="matter">事项</option><option value="global">全局</option></select></div>'
-    + '</div></div>'
+    + '<div class="modal-body">' + cardFormHTML({ scope: "project" }) + '</div>'
     + '<div class="modal-foot"><button class="ff-cancel" id="ncCancel" type="button">取消</button>'
     + '<button class="ff-save" id="ncOk" type="button">创建</button></div>';
-  mo.style.display = "flex";
+  $("#modalScrim").classList.add("open");
   $("#mx").onclick = $("#ncCancel").onclick = function(){ closeModal(); };
   $("#ncOk").onclick = function(){
     var content = $("#ncContent").value.trim();
@@ -4378,7 +4781,7 @@ function openNewCardModal(my){
     if (ev) body.evidence = ev;
     if (av) body.avoid = av;
     api("/preference-cards", { method: "POST", body: body }).then(function(){
-      closeModal(); toast("卡片已创建"); renderCards(my);
+      closeModal(); toast("Preference已创建"); renderCards(my);
     }).catch(function(e){ errToast(e); });
   };
 }
@@ -4417,32 +4820,32 @@ function renderProjects(my){
     var liveN = projects.filter(function(p){ return !p.archived; }).length;
     var archN = projects.length - liveN;
     var shown = projects.filter(function(p){ return projShowArchived || !p.archived; });
-    var cards = shown.map(function(p){
+    var rows = shown.map(function(p){
       var leader = p.default_leader_uid
-        ? '<div class="pc-leader">' + av(p.default_leader_uid, "mav-sm") + '<span>' + esc(uname(p.default_leader_uid)) + "</span>" + aiTagHTML(p.default_leader_uid) + "</div>" : "";
-      return '<div class="proj-card' + (p.archived ? " archived" : "") + '" data-id="' + esc(p.id) + '" role="link" tabindex="0">'
-        + '<div class="pc-ic">' + FOLDER_SVG + "</div>"
-        + '<div class="pc-main"><div class="pc-name" title="' + esc(p.name) + '">' + esc(p.name) + "</div>"
-        + '<div class="pc-sub">' + (p.description ? esc(p.description) + " · " : "") + esc(fmtYM(p.created_at)) + "</div>"
-        + '<span class="pc-status">' + scopeLabel(p) + "</span>"
-        + (p.archived ? '<span class="pc-status">已归档</span>' : "")
-        + leader
-        + "</div>"
-        + '<span class="pc-count" data-count-for="' + esc(p.id) + '" style="visibility:hidden">…</span>'
-        + '<div class="pc-actions"><button class="pc-more" type="button" data-menu="' + esc(p.id) + '" aria-label="项目操作" title="分享 / 重命名 / 归档">⋯</button></div>'
+        ? av(p.default_leader_uid, "mav-sm") + '<span style="max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(uname(p.default_leader_uid)) + "</span>" + aiTagHTML(p.default_leader_uid)
+        : '<span style="color:var(--text-4)">No lead</span>';
+      return '<div class="proj-row' + (p.archived ? " archived" : "") + '" data-id="' + esc(p.id) + '" role="link" tabindex="0">'
+        + '<span class="pr-name"><span class="pr-ic">' + FOLDER_SVG + '</span>' + esc(p.name) + "</span>"
+        + '<span class="pr-lead">' + leader + "</span>"
+        + '<span class="pr-count" data-count-for="' + esc(p.id) + '">…</span>'
+        + '<span class="pr-scope">' + scopeLabel(p) + (p.archived ? " · 已归档" : "") + "</span>"
+        + '<span class="pr-date">' + esc(fmtShortDate(p.created_at)) + "</span>"
+        + '<span class="pr-more"><button class="pc-more" type="button" data-menu="' + esc(p.id) + '" title="⋯">⋯</button></span>'
         + "</div>";
     }).join("");
-    $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide">'
-      + '<div class="list-head"><div class="list-title">项目</div><button class="new-btn" id="newProjBtn" type="button">+ 新建项目</button></div>'
+    var thead = '<div class="proj-thead"><span>名称</span><span>领队</span><span>事项</span><span>范围</span><span>创建</span><span></span></div>';
+    $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
+      + '<div class="list-head"><div class="list-head-actions">'
+      + '<button class="new-btn" id="newProjBtn" type="button">+ 新建项目</button></div></div>'
       + '<div class="list-sub">' + liveN + " 个项目"
       + (archN ? ' · <a class="sub-link" id="toggleArch" role="button" tabindex="0">' + (projShowArchived ? "收起已归档" : "显示已归档 " + archN) + "</a>" : "") + "</div>"
-      + (shown.length ? '<div class="proj-grid">' + cards + "</div>"
+      + (shown.length ? thead + '<div class="proj-list">' + rows + "</div>"
         : '<div class="empty-state"><div class="es-t">还没有项目</div><div class="es-s">建一个文件夹,新事项就能归进去</div></div>')
       + "</div></div>";
     $("#newProjBtn").addEventListener("click", function(){ openProjectModal(null); });
     var ta = $("#toggleArch");
     if (ta) ta.addEventListener("click", function(){ projShowArchived = !projShowArchived; renderProjects(my); });
-    $$(".proj-card").forEach(function(el){
+    $$(".proj-row").forEach(function(el){
       el.addEventListener("click", function(e){
         if (e.target instanceof Element && e.target.closest("[data-menu]")) return;
         location.hash = "#/project/" + el.getAttribute("data-id");
@@ -4700,13 +5103,21 @@ function paintProjectDetail(my){
   if (!st) return;
   var p = st.project;
   var name = p ? p.name : "项目";
-  setCrumbText("项目 · " + name);
+  $("#crumb").innerHTML = '<a href="#/projects" class="crumb-link">项目</a><span class="crumb-sep">&gt;</span><span class="crumb-current">' + esc(name) + "</span>";
+  setTopSourceChip(null);
   var rows = sortRows(st.rows);
   var srcN = st.sources ? st.sources.length : null;
-  var tabs = '<div class="inbox-filterbar" role="tablist">'
-    + '<div class="inbox-filter' + (st.tab === "matters" ? " active" : "") + '" data-ptab="matters" role="tab" tabindex="0" aria-selected="' + (st.tab === "matters") + '"><span>事项</span><span class="inbox-filter-count">' + rows.length + "</span></div>"
-    + '<div class="inbox-filter' + (st.tab === "context" ? " active" : "") + '" data-ptab="context" role="tab" tabindex="0" aria-selected="' + (st.tab === "context") + '"><span>上下文</span>' + (srcN === null ? "" : '<span class="inbox-filter-count">' + srcN + "</span>") + "</div>"
-    + "</div>";
+  if (!st.viewMode) st.viewMode = "list";
+  var projModes = [
+    { k: "list", label: "列表", tab: "matters" },
+    { k: "board", label: "看板", tab: "matters" },
+    { k: "context", label: "上下文", tab: "context" }
+  ];
+  var curMode = st.tab === "context" ? "context" : st.viewMode;
+  var curModeLabel = (projModes.find(function(m){ return m.k === curMode; }) || projModes[0]).label;
+  var modeDropItems = projModes.map(function(m){
+    return '<button class="ibx-drop-item' + (curMode === m.k ? " active" : "") + '" data-pmode="' + m.k + '" type="button">' + m.label + "</button>";
+  }).join("");
   var body;
   if (st.tab === "context"){
     var leaderRight = (p && p.default_leader_uid)
@@ -4719,39 +5130,58 @@ function paintProjectDetail(my){
       + ctxRowsHTML()
       + "</div>";
   } else {
-    var listHtml = rows.map(function(m){
-      var r = rowHTML(m, { noExpand: !!m.parent_matter_id });
-      if (expandedRows[m.id]){
-        var kids = cache.children[m.id];
-        if (kids === undefined) r += '<div class="mrow m-none m-child">读取中…</div>';
-        else if (kids.length) r += sortRows(kids).map(function(k){ return rowHTML(k, { child: true, noExpand: true }); }).join("");
-      }
-      return r;
-    }).join("");
-    body = (rows.length
-      ? '<div class="inbox-table-head" aria-hidden="true"><span>状态</span><span>事项</span><span>项目</span><span>编号</span><span>负责人</span><span>创建</span></div><div class="mlist">' + listHtml + "</div>"
-      : '<div class="empty-state"><div class="es-t">这个项目还空着</div><div class="es-s">点「新建」,第一件事就归在这里</div></div>');
+    if (st.viewMode === "board"){
+      var cols = BOARD_COLS.map(function(c){
+        var cards = rows.filter(function(m){ return m.status === c.st; });
+        return '<div class="board-col ' + c.cls + (cards.length ? "" : " is-empty") + '" data-status="' + c.st + '">'
+          + '<div class="board-col-h"><span class="bc-dot"></span>' + esc(stName(c.st)) + '<span class="bc-cnt">' + cards.length + "</span></div>"
+          + '<div class="board-cards">' + (cards.map(boardCardHTML).join("") || '<div class="board-empty">没有事项</div>') + "</div></div>";
+      }).join("");
+      body = '<div class="board-shell"><div class="board-viewport"><div class="board-wrap">' + cols + "</div></div></div>";
+    } else {
+      var listHtml = rows.map(function(m){
+        var r = rowHTML(m, { noExpand: !!m.parent_matter_id });
+        if (expandedRows[m.id]){
+          var kids = cache.children[m.id];
+          if (kids === undefined) r += '<div class="mrow m-none m-child">读取中…</div>';
+          else if (kids.length) r += sortRows(kids).map(function(k){ return rowHTML(k, { child: true, noExpand: true }); }).join("");
+        }
+        return r;
+      }).join("");
+      body = rows.length
+        ? '<div class="inbox-table-head" aria-hidden="true"><span>状态</span><span>事项</span><span>项目</span><span>编号</span><span>领队</span><span>创建</span></div><div class="mlist">' + listHtml + "</div>"
+        : '<div class="empty-state"><div class="es-t">这个项目还空着</div><div class="es-s">点「新建」,第一件事就归在这里</div></div>';
+    }
   }
+  var filterSVG2 = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>';
   $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
-    + '<div class="list-head"><div class="list-title">' + esc(name) + '</div>'
-    + '<div style="display:flex;gap:8px;align-items:center">'
-    + '<button class="new-btn" id="newMatterBtn" type="button">+ 新建</button>'
+    + '<div class="list-head"><div class="list-title">' + esc(name) + '</div><div class="list-head-actions">'
+    + '<div class="ibx-filter-zone"><button class="ibx-filter-trigger" id="projModeTrigger" type="button">' + filterSVG2 + '<span class="ibx-ft-label">' + esc(curModeLabel) + '</span></button>'
+    + '<div class="ibx-drop" id="projModeDrop">' + modeDropItems + '</div></div>'
     + (p ? '<button class="pc-more" id="projMoreBtn" type="button" aria-label="项目操作" title="分享 / 重命名 / 归档">⋯</button>' : "")
     + "</div></div>"
     + '<div class="list-sub">' + rows.length + " 个事项 · " + scopeLabel(p) + (p && p.archived ? " · 已归档" : "") + "</div>"
-    + '<div class="inbox-toolbar">' + tabs + "</div>"
     + body
     + "</div></div>";
-  $("#newMatterBtn").addEventListener("click", function(){ openMatterModal({ projectId: st.id }); });
-  var more = $("#projMoreBtn");
-  if (more) more.addEventListener("click", function(e){ e.stopPropagation(); openProjectMenu(p, more); });
-  $$("[data-ptab]").forEach(function(el){
-    el.addEventListener("click", function(){
-      st.tab = el.getAttribute("data-ptab");
+  var projTrigger = $("#projModeTrigger");
+  var projDrop = $("#projModeDrop");
+  if (projTrigger) projTrigger.addEventListener("click", function(e){
+    e.stopPropagation();
+    projDrop.classList.toggle("open");
+  });
+  if (projDrop) document.addEventListener("click", function(){ projDrop.classList.remove("open"); }, { once: true });
+  $$("[data-pmode]").forEach(function(el){
+    el.addEventListener("click", function(e){
+      e.stopPropagation();
+      var mode = el.getAttribute("data-pmode");
+      if (mode === "context"){ st.tab = "context"; }
+      else { st.tab = "matters"; st.viewMode = mode; }
       st.adding = false;
       paintProjectDetail(my);
     });
   });
+  var more = $("#projMoreBtn");
+  if (more) more.addEventListener("click", function(e){ e.stopPropagation(); openProjectMenu(p, more); });
   $$(".mrow[data-id]").forEach(function(el){
     el.addEventListener("click", function(){ location.hash = "#/matter/" + el.getAttribute("data-id"); });
   });
@@ -5437,19 +5867,11 @@ function contextPartSettled(part){
   return { ok: false, e: apiError(200, code, code) };
 }
 function crumbDetail(m){
-  var projSeg = m.project_id
-    ? '<span class="proj" id="crumbProj">' + esc(projName(m.project_id) || "项目") + '</span><span class="sep">·</span>'
-    : "";
-  $("#crumb").innerHTML = '<span class="back" id="backBtn" title="返回" role="button" tabindex="0">←</span>'
-    + projSeg
-    + '<span class="here"><span class="cid">' + esc(seqLabel(m)) + '</span><span class="crumb-title" title="' + esc(m.title) + '">' + esc(m.title) + "</span></span>";
-  $("#backBtn").addEventListener("click", function(){
-    if (history.length > 1) history.back();
-    else location.hash = "#/inbox";
-  });
-  if (m.project_id){
-    $("#crumbProj").addEventListener("click", function(){ location.hash = "#/project/" + m.project_id; });
-  }
+  var projLink = m.project_id
+    ? '<a href="#/project/' + esc(m.project_id) + '" class="crumb-link">' + esc(projName(m.project_id) || "项目") + '</a><span class="crumb-sep">&gt;</span>'
+    : '<a href="#/inbox" class="crumb-link">收件箱</a><span class="crumb-sep">&gt;</span>';
+  $("#crumb").innerHTML = projLink
+    + '<span class="crumb-current"><span class="cid" style="color:var(--text-3);font-weight:400;margin-right:4px">' + esc(seqLabel(m)) + '</span>' + esc(m.title) + "</span>";
   setTopSourceChip(m);
 }
 function parentLinkHTML(){
@@ -5498,11 +5920,11 @@ function briefHTML(m){
       + (m.expected_duration_minutes ? '<span class="bm"><span>预计</span><b>' + esc(m.expected_duration_minutes) + " 分钟</b></span>" : "")
       + "</div>"
     : "";
-  return '<div class="detail-block"><div class="brief"><div class="brief-grid"><div class="brief-main"><div class="wo-label">目标</div>'
-    + (goal ? '<div class="goal-line">目标: ' + esc(goal) + "</div>" : '<div class="free-text none">没写描述 — 只有标题这一句</div>')
+  return '<div class="detail-block"><div class="brief"><div class="brief-grid"><div class="brief-main"><div class="wo-label">Brief</div>'
+    + (goal ? '<div class="goal-line">' + esc(goal) + "</div>" : '<div class="free-text none">没写描述 — 只有标题这一句</div>')
     + (rest ? '<div class="brief-rest">' + mdHTML(rest) + "</div>" : "")
-    + (m.brief_constraints ? '<div class="constraint-label">硬约束</div>' + (bulletsHTML(m.brief_constraints) || '<div class="brief-rest" style="margin-top:0">' + esc(m.brief_constraints) + "</div>") : "")
-    + (m.brief_output_spec ? '<div class="constraint-label">输出要求</div>' + (bulletsHTML(m.brief_output_spec) || '<div class="brief-rest" style="margin-top:0">' + esc(m.brief_output_spec) + "</div>") : "")
+    + (m.brief_output_spec ? '<div class="constraint-label">追踪目标</div>' + (bulletsHTML(m.brief_output_spec) || '<div class="brief-rest" style="margin-top:0">' + esc(m.brief_output_spec) + "</div>") : "")
+    + (m.brief_constraints ? '<div class="constraint-label">约束</div>' + (bulletsHTML(m.brief_constraints) || '<div class="brief-rest" style="margin-top:0">' + esc(m.brief_constraints) + "</div>") : "")
     + '</div><div class="brief-side"><div class="wo-label">来源</div>' + srcLine + metas
     + briefAttachHTML(m)
     + "</div></div></div></div>";
@@ -6015,7 +6437,19 @@ function bindDetail(my){
       });
     };
     if (asFeedback && !hasAtts){
-      fireFeedback(function(){ ta.value = ""; autoGrow(); render(); }).catch(errToast).then(done);
+      api("/matters/" + cur.id + "/timeline", { method: "POST", body: { content: v } }).then(function(){
+        return fireFeedback(null);
+      }).then(function(){
+        ta.value = ""; autoGrow();
+        return api("/matters/" + cur.id + "/timeline", { params: { limit: 100 } }).then(function(json){
+          if (my !== renderToken || !cur) return;
+          cur.timeline = { ok: true, v: json };
+          var blockEl = $("#repliesBlock");
+          if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
+          var sc2 = $("#detailScroll");
+          if (sc2) sc2.scrollTop = sc2.scrollHeight;
+        });
+      }).catch(errToast).then(done);
       return;
     }
     var tlBody = { content: v || "附件" };
@@ -6247,20 +6681,24 @@ function preferencePanelHTML(){
     preview = prefPreview(row);
   }
   var canOpen = isMe(m.creator_id) && (m.status === "done" || row);
-  var hintTarget = (cur.prefHints && cur.prefHints.ok && cur.prefHints.v && cur.prefHints.v.target_bot_uid) || m.leader_id || "";
+  var hintTarget = (cur.prefHints && cur.prefHints.ok && cur.prefHints.v && cur.prefHints.v.target_bot_uid) || m.leader || "";
   var owned = ownedBotInfo();
   var canManageHints = !!(hintTarget && ((owned.owned && owned.owned[hintTarget]) || (!owned.known && isMe(m.creator_id))));
   var manageTarget = (row && row.target_bot_uid) || hintTarget;
-  var canManagePrefs = !!(manageTarget && ((owned.owned && owned.owned[manageTarget]) || (!owned.known && isMe(m.creator_id))));
-  var manageNote = manageTarget && !canManagePrefs && (row || hints.length)
+  var isBotOwner = !!(manageTarget && owned.owned && owned.owned[manageTarget]);
+  var canManagePrefs = isBotOwner || isMe(m.creator_id);
+  var manageNote = !canManagePrefs && manageTarget && (row || hints.length)
     ? '<div class="pref-perm-note">Preference 管理仅 bot creator 可见;你仍可标记召回是否有用。</div>' : "";
   var body = '<div class="pref-inspector"><div class="pref-record ' + esc(status) + '">'
     + '<div class="pref-record-top"><span class="pref-record-dot"></span><span class="pref-record-title">' + esc(title) + "</span></div>"
     + '<div class="pref-record-sub">' + esc(sub) + "</div>"
     + (row && row.status === "authorized" ? prefHealthHTML(row) : "")
     + (preview ? '<div class="pref-preview">' + esc(preview) + "</div>" : "")
+    + (row && row.status === "draft" && canManagePrefs
+      ? '<div style="display:flex;gap:8px;margin-top:8px"><button class="pref-act" id="prefAuthBtn" type="button" style="color:var(--done)">授权</button><button class="pref-act pref-act-warn" id="prefDiscardBtn" type="button">弃用</button></div>'
+      : "")
     + (canOpen ? '<button class="pref-open" id="prefPanelOpen" type="button">' + (row ? "查看 Preference" : "提炼 Preference") + "</button>" : "")
-    + (canManagePrefs ? '<button class="pref-open" id="prefManageOpen" type="button" data-pref-bot="' + esc(manageTarget) + '">管理</button>' : "")
+    + (canManagePrefs && !(row && row.status === "draft") ? '<button class="pref-open" id="prefManageOpen" type="button" data-pref-bot="' + esc(manageTarget) + '">管理</button>' : "")
     + manageNote
     + "</div>"
     + hints.slice(0, 4).map(function(h){
@@ -6297,7 +6735,7 @@ function paintInspector(){
     var so = ST[k];
     return '<div class="status-opt' + (k === m.status ? " current" : "") + (k === "cancelled" ? " danger" : "") + '" data-status="' + k + '" role="menuitemradio" aria-checked="' + (k === m.status ? "true" : "false") + '" tabindex="-1">'
       + '<span class="so-check-slot">' + (k === m.status ? "✓" : "") + "</span>"
-      + '<span class="pg-dot ' + so.ring + '"></span>'
+      + '<span class="mail-row-st">' + statusIconSVG(k) + '</span>'
       + '<span class="so-main"><span class="so-name">' + so.name + '</span><span class="so-sub">' + esc(statusOptionHint(k, m)) + "</span></span></div>";
   }).join("");
   var projOpts = (cache.projects || []).filter(function(p){
@@ -6306,7 +6744,7 @@ function paintInspector(){
     return '<option value="' + esc(p.id) + '"' + (m.project_id === p.id ? " selected" : "") + ">" + esc(p.name) + "</option>";
   }).join("");
   var assigneesHTML = m.assignees.length
-    ? '<div class="prow"><span class="pk">经手人</span><span class="pv"><span class="assignee-wrap">' + m.assignees.map(avChip).join("") + "</span></span></div>"
+    ? '<div class="prow"><span class="pk">协作</span><span class="pv"><span class="assignee-wrap">' + m.assignees.map(avChip).join("") + "</span></span></div>"
     : "";
   var srcRow = m.source_name
     ? '<div class="prow"><span class="pk">来源</span><span class="pv">' + esc(srcLabel(m.source_name))
@@ -6322,11 +6760,11 @@ function paintInspector(){
     + '<div class="hb-main">' + esc(c.main) + "</div></div>"
     + '<div class="status-field" id="statusField">'
     + '<div class="status-trigger" id="statusTrigger" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false" aria-controls="statusMenu">'
-    + '<span class="status-ring ' + s.ring + '"></span><span class="st-name">' + s.name + '</span><span class="st-chev">▾</span></div>'
+    + '<span class="mail-row-st">' + statusIconSVG(m.status) + '</span><span class="st-name">' + s.name + '</span><span class="st-chev">▾</span></div>'
     + '<div class="status-menu" id="statusMenu" role="menu">' + opts + "</div></div>"
     + '<div class="props-divider"></div>'
     + '<div class="prow"><span class="pk">发起人</span><span class="pv">' + avChip(m.creator_id) + "</span></div>"
-    + '<div class="prow"><span class="pk">负责人</span><span class="pv">' + (m.leader ? avChip(m.leader) : '<span class="pv-none">没定</span>') + "</span></div>"
+    + '<div class="prow"><span class="pk">领队</span><span class="pv">' + (m.leader ? avChip(m.leader) : '<span class="pv-none">没定</span>') + "</span></div>"
     + assigneesHTML
     + '<div class="props-divider"></div>'
     + '<div class="prow" style="display:block"><span class="pk" style="display:block;margin-bottom:6px">项目</span>'
@@ -6449,6 +6887,20 @@ function bindInspector(){
   var prefManage = $("#prefManageOpen");
   if (prefManage) prefManage.addEventListener("click", function(){
     openPreferenceManager(prefManage.getAttribute("data-pref-bot") || "");
+  });
+  var prefAuth = $("#prefAuthBtn");
+  if (prefAuth && cur.summary) prefAuth.addEventListener("click", function(){
+    prefAuth.disabled = true;
+    api("/matters/" + cur.id + "/summary/" + cur.summary.id, { method: "PUT", body: { action: "authorize" } }).then(function(){
+      toast("已授权"); render();
+    }).catch(errToast);
+  });
+  var prefDiscard = $("#prefDiscardBtn");
+  if (prefDiscard && cur.summary) prefDiscard.addEventListener("click", function(){
+    prefDiscard.disabled = true;
+    api("/matters/" + cur.id + "/summary/" + cur.summary.id, { method: "PUT", body: { action: "discard" } }).then(function(){
+      toast("已弃用"); render();
+    }).catch(errToast);
   });
   $$("[data-pref-hint-action]", $("#props")).forEach(function(btn){
     btn.addEventListener("click", function(){
@@ -7276,11 +7728,10 @@ function openMatterModal(opts){
 function buildNewMatterModal(opts){
   var mo = $("#modal");
   mo.className = "modal";
-  var st = {
-    sel: auth.uid ? [auth.uid] : [],
-    dl: { sel: null, time: "19:00" },
-    files: []
-  };
+  var leaderSt = { sel: [] };
+  var collabSt = { sel: [] };
+  var dlSt = { sel: null, time: "19:00" };
+  var fileSt = [];
   var allProj = liveProjects();
   var defaultProj = allProj.find(function(p){ return p.scope === "default"; });
   var pickId = opts.projectId || (defaultProj ? defaultProj.id : "");
@@ -7294,36 +7745,34 @@ function buildNewMatterModal(opts){
   mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">新建事项</div></div>'
     + '<button class="modal-x" id="mx" type="button">×</button></div>'
     + '<div class="modal-body"><div class="matter-form">'
-    + '<div class="matter-field" id="fTitle"><label>事项名称<span class="req">*</span></label>'
-    + '<input class="matter-input" id="nmTitle" maxlength="200" placeholder="例如: Octo 产品 Web 端输入体验优化">'
-    + '<div class="f-err">名称不能为空</div></div>'
-    + '<div class="matter-field" id="fGoal"><label>主要目标</label>'
-    + '<div class="matter-text-wrap"><textarea class="matter-textarea" id="nmGoal" maxlength="200" placeholder="用一两句话说清这件事(派给虾时必填)"></textarea>'
-    + '<span class="matter-counter" id="nmGoalCount">0/200</span></div>'
-    + '<div class="f-err">派活给虾,得用一两句话说清要什么</div></div>'
-    + '<div class="matter-field" id="fProj"><label>所属项目</label>'
+    + '<div class="matter-field"><label>领队</label>'
+    + '<div class="mp-box" id="nmLeader" role="button" tabindex="0"></div></div>'
+    + '<div class="matter-field"><label>协作</label>'
+    + '<div class="mp-box" id="nmCollab" role="button" tabindex="0"></div>'
+    + '<div class="hint">领队可以调度的 Agent;留空则领队单干</div></div>'
+    + '<hr class="nm-sep">'
+    + '<div class="matter-field" id="fTitle"><label>主题<span class="req">*</span></label>'
+    + '<input class="matter-input" id="nmTitle" maxlength="500" placeholder="一句话概括这件事">'
+    + '<div class="f-err">主题不能为空</div></div>'
+    + '<div class="matter-field" id="fBrief"><label>Brief</label>'
+    + '<textarea class="matter-textarea" id="nmBrief" style="min-height:120px" maxlength="4000" placeholder="描述你要什么——背景、要求、约束都可以写在这里"></textarea></div>'
+    + '<div class="matter-field"><label>附件</label>'
+    + '<button class="ctx-file-zone" id="nmAttachPick" type="button"><span class="cf-ic">' + FILE_SVG + '</span><span class="cf-main"><span class="cf-title">添加附件</span><span class="cf-sub">简历、文档、数据等材料</span></span></button>'
+    + '<input type="file" id="nmFiles" multiple style="display:none"><div class="nm-attach-list" id="nmAttachList"></div></div>'
+    + '<details class="nm-fold"><summary>追踪目标<span class="nm-fold-hint">长程任务建议填写</span></summary>'
+    + '<div class="matter-field"><textarea class="matter-textarea" id="nmGoal" style="min-height:64px" maxlength="4000" placeholder="什么结果你会满意?"></textarea></div></details>'
+    + '<details class="nm-fold"><summary>更多选项</summary>'
+    + '<div class="matter-field" id="fProj"><label>项目</label>'
     + '<select class="matter-select" id="nmProj">' + projOpts + "</select>"
     + '<div id="nmScope"></div></div>'
-    + '<div class="matter-field"><label>材料 / 附件</label>'
-    + '<button class="ctx-file-zone" id="nmAttachPick" type="button"><span class="cf-ic">' + FILE_SVG + '</span><span class="cf-main"><span class="cf-title">选择附件</span><span class="cf-sub">简历、访谈记录、需求文档等会在创建后写入产出区</span></span></button>'
-    + '<input type="file" id="nmFiles" multiple style="display:none"><div class="nm-attach-list" id="nmAttachList"></div>'
-    + '<div class="hint">可空;如果这些材料属于整个项目,优先放到项目上下文。</div></div>'
-    + '<div class="matter-field"><label>约束</label>'
-    + '<textarea class="matter-textarea" id="nmCons" style="min-height:64px" placeholder="范围、口径、红线(可空)"></textarea></div>'
-    + '<div class="matter-field"><label>输出要求</label>'
-    + '<textarea class="matter-textarea" id="nmSpec" style="min-height:64px" placeholder="交回什么才算合格(可空)"></textarea></div>'
-    + '<div class="matter-field"><label>负责人</label>'
-    + '<div class="mp-box" id="nmWho" role="button" tabindex="0"></div>'
-    + '<div class="hint">第一位是负责人,其余进协作名单;可以选 bot</div></div>'
     + '<div class="matter-field" id="fDl"><label>截止日期</label>'
-    + '<div class="dl-box" id="nmDl" role="button" tabindex="0"></div>'
-    + '<div class="hint">可空;到点没动静会有人来催</div></div>'
-    + '<div class="matter-field"><label>协作模式</label><select class="matter-select" id="nmMode">' + modeOpts + "</select>"
-    + '<div class="hint">要拆给多人/多个 bot 协作才需要选;一个人能干完就保持单干</div></div>'
+    + '<div class="dl-box" id="nmDl" role="button" tabindex="0"></div></div>'
+    + '<div class="matter-field"><label>协作模式</label><select class="matter-select" id="nmMode">' + modeOpts + "</select></div>"
+    + "</details>"
     + "</div></div>"
     + '<div class="modal-foot"><div class="matter-error" id="nmErr" style="margin-right:auto"></div>'
     + '<button class="ff-cancel" id="nmCancel" type="button">取消</button>'
-    + '<button class="ff-save" id="nmOk" type="button">确定</button></div>';
+    + '<button class="ff-save" id="nmOk" type="button">发送</button></div>';
   openModal(function(){ closeDlPop(); closeFloatMenu(); });
   $("#mx").onclick = closeModal;
   $("#nmCancel").onclick = closeModal;
@@ -7336,13 +7785,13 @@ function buildNewMatterModal(opts){
   var paintNmFiles = function(){
     var row = $("#nmAttachList");
     if (!row) return;
-    row.innerHTML = st.files.map(function(f, i){
+    row.innerHTML = fileSt.map(function(f, i){
       return '<span class="file-chip" style="cursor:default"><span class="fic">📎</span><span class="fnm">' + esc(f.name || "file")
         + '</span><button type="button" data-nm-rmfile="' + i + '" style="border:none;background:none;cursor:pointer;padding:0 2px">✕</button></span>';
     }).join("");
     $$("[data-nm-rmfile]", row).forEach(function(btn){
       btn.addEventListener("click", function(){
-        st.files.splice(Number(btn.getAttribute("data-nm-rmfile")), 1);
+        fileSt.splice(Number(btn.getAttribute("data-nm-rmfile")), 1);
         paintNmFiles();
       });
     });
@@ -7352,24 +7801,25 @@ function buildNewMatterModal(opts){
     var files = Array.prototype.slice.call($("#nmFiles").files || []);
     $("#nmFiles").value = "";
     if (!files.length) return;
-    st.files = st.files.concat(files);
+    fileSt = fileSt.concat(files);
     paintNmFiles();
   });
-  var picker = bindMemberPicker($("#nmWho"), st, { ph: "选负责人,可多选" });
+  var leaderPicker = bindMemberPicker($("#nmLeader"), leaderSt, { ph: "选择领队", single: true });
+  var collabPicker = bindMemberPicker($("#nmCollab"), collabSt, { ph: "添加可调度 Agent" });
   $("#nmProj").addEventListener("change", function(){
     clearInvalid("#fProj");
     syncScope();
     var p = projById($("#nmProj").value);
-    if (p && p.default_leader_uid){ // 选了项目就带上它的默认负责人(跟原型一致)
-      st.sel = [p.default_leader_uid];
-      picker.paint();
+    if (p && p.default_leader_uid){
+      leaderSt.sel = [p.default_leader_uid];
+      leaderPicker.paint();
     }
   });
   var syncDl = function(){
     var box = $("#nmDl");
-    if (st.dl.sel){
-      box.innerHTML = '<span class="dl-date">' + st.dl.sel.y + "-" + pad2(st.dl.sel.m + 1) + "-" + pad2(st.dl.sel.d)
-        + '</span><span class="dl-time">' + esc(st.dl.time) + '</span><span class="mp-chev">▾</span>';
+    if (dlSt.sel){
+      box.innerHTML = '<span class="dl-date">' + dlSt.sel.y + "-" + pad2(dlSt.sel.m + 1) + "-" + pad2(dlSt.sel.d)
+        + '</span><span class="dl-time">' + esc(dlSt.time) + '</span><span class="mp-chev">▾</span>';
     } else {
       box.innerHTML = '<span class="dl-ph">选日期和时间</span><span class="mp-chev">▾</span>';
     }
@@ -7377,36 +7827,29 @@ function buildNewMatterModal(opts){
   syncDl();
   $("#nmDl").addEventListener("click", function(e){
     e.stopPropagation();
-    openDlPop($("#nmDl"), st.dl, function(out){
-      st.dl = out;
+    openDlPop($("#nmDl"), dlSt, function(out){
+      dlSt = out;
       clearInvalid("#fDl");
       syncDl();
     });
   });
-  var goal = $("#nmGoal");
-  goal.addEventListener("input", function(){
-    $("#nmGoalCount").textContent = goal.value.length + "/200";
-    clearInvalid("#fGoal");
-  });
   $("#nmTitle").addEventListener("input", function(){ clearInvalid("#fTitle"); });
-  setTimeout(function(){ var f = $("#nmTitle"); if (f) f.focus(); }, 50);
+  setTimeout(function(){ var f = $("#nmLeader"); if (f) f.focus(); }, 50);
   $("#nmOk").onclick = function(){
     var title = $("#nmTitle").value.trim();
-    var goalV = goal.value.trim();
+    var briefV = ($("#nmBrief").value || "").trim();
+    var goalV = ($("#nmGoal") ? $("#nmGoal").value : "").trim();
     var pj = $("#nmProj").value;
     var firstBad = null;
     var mark = function(id, bad){
       var f = $(id);
+      if (!f) return bad;
       f.classList.toggle("invalid", bad);
       if (bad && !firstBad) firstBad = f;
       return bad;
     };
-    // 只有「名称」是硬必填;目标只在把活派给虾时才要求 —— 委托三拍是
-    // 给 bot 的契约,人对人不立这个规矩(P1 直觉优先)。
-    var botLeader = st.sel.length && /_bot$/i.test(st.sel[0]);
     var anyBad = false;
     anyBad = mark("#fTitle", !title) || anyBad;
-    anyBad = mark("#fGoal", botLeader && !goalV) || anyBad;
     if (anyBad){
       if (firstBad){
         var inp = $("input,textarea,select,[tabindex]", firstBad);
@@ -7415,41 +7858,40 @@ function buildNewMatterModal(opts){
       return;
     }
     var body = { title: title };
-    if (goalV) body.description = goalV;
+    if (briefV) body.description = briefV;
+    if (goalV) body.brief_output_spec = goalV;
     if (pj) body.project_id = pj;
-    if (st.dl.sel){
-      var hm = st.dl.time.split(":");
-      body.deadline = new Date(st.dl.sel.y, st.dl.sel.m, st.dl.sel.d, +hm[0], +hm[1], 0, 0).toISOString();
+    if (dlSt.sel){
+      var hm = dlSt.time.split(":");
+      body.deadline = new Date(dlSt.sel.y, dlSt.sel.m, dlSt.sel.d, +hm[0], +hm[1], 0, 0).toISOString();
     }
-    var cons = $("#nmCons").value.trim();
-    if (cons) body.brief_constraints = cons;
-    var spec = $("#nmSpec").value.trim();
-    if (spec) body.brief_output_spec = spec;
-    if (st.sel.length){
-      body.leader_uid = st.sel[0];
-      if (st.sel.length > 1) body.assignee_ids = st.sel.slice(1);
-    }
+    if (leaderSt.sel.length) body.leader_uid = leaderSt.sel[0];
+    if (collabSt.sel.length) body.assignee_ids = collabSt.sel;
     var md = $("#nmMode").value;
     if (md) body.mode = md;
     var btn = $("#nmOk");
-    btn.disabled = true; btn.textContent = st.files.length ? "上传附件…" : "创建中…";
-    var uploadP = st.files.length
-      ? Promise.all(st.files.map(function(f){ return uploadMatterAttachment(f, "new"); }))
+    btn.disabled = true; btn.textContent = fileSt.length ? "上传附件…" : "发送中…";
+    var uploadP = fileSt.length
+      ? Promise.all(fileSt.map(function(f){ return uploadMatterAttachment(f, "new"); }))
       : Promise.resolve([]);
     uploadP.then(function(atts){
       if (atts.length) body.input_attachments = atts;
-      btn.textContent = "创建中…";
+      btn.textContent = "发送中…";
       return api("/matters", { method: "POST", body: body });
     }).then(function(detail){
       var nm = normMatter(detail);
       closeModal();
       cache.projCounts = {};
-      toast("立好了 · " + (nm ? seqLabel(nm) : "") + (body.input_attachments ? " · " + body.input_attachments.length + " 份材料" : ""));
-      if (nm && nm.id) location.hash = "#/matter/" + nm.id;
-      else render();
+      toast("已发送 · " + (nm ? seqLabel(nm) : "") + (body.input_attachments ? " · " + body.input_attachments.length + " 份材料" : ""));
+      if (nm && nm.id && parseHash().view === "myinbox"){
+        myInboxSel = nm.id;
+        renderMyInbox(renderToken, myInboxTab);
+      } else if (nm && nm.id){
+        location.hash = "#/matter/" + nm.id;
+      } else { render(); }
     }).catch(function(e){
-      btn.disabled = false; btn.textContent = "确定";
-      $("#nmErr").textContent = e.message || "创建失败";
+      btn.disabled = false; btn.textContent = "发送";
+      $("#nmErr").textContent = e.message || "发送失败";
     });
   };
 }
@@ -8308,7 +8750,7 @@ function openKeysHelp(){
 
 /* ================= global wiring ================= */
 function bindGlobal(){
-  // data-uid → Agent 名片;capture 阻断行/卡片自身跳转
+  // data-uid → Agent 名片;capture 阻断行/Preference自身跳转
   document.addEventListener("click", function(e){
     var t = e.target instanceof Element ? e.target : null;
     if (!t) return;
@@ -8430,7 +8872,8 @@ function bindGlobal(){
   $("#railMatters").addEventListener("click", function(){ location.hash = "#/inbox"; });
   $("#railMe").addEventListener("click", function(){ showConnect(); });
   $("#railSettings").addEventListener("click", function(){ showConnect(); });
-  $("#newMatterTop").addEventListener("click", function(){
+  var topNewBtn = $("#newMatterTop");
+  if (topNewBtn) topNewBtn.addEventListener("click", function(){
     if (!authReady()){ showConnect(); return; }
     openMatterModal({});
   });
@@ -8458,11 +8901,12 @@ if (!location.hash) history.replaceState(null, "", "#/inbox");
 render();
 if (authReady()){
   loadMembers();
-  if (parseHash().view !== "inbox") setTimeout(fetchReviewBadge, 1400); // 收件箱路由自己会拉完整计数
+  resolveUid();
+  if (parseHash().view !== "inbox") setTimeout(fetchReviewBadge, 1400);
 }
 if (auth.token && !auth.space){
   discoverSpace().then(function(found){
-    if (found){ hideConnect(); paintIdentity(); loadMembers(); render(); }
+    if (found){ hideConnect(); paintIdentity(); resolveUid(); loadMembers(); render(); }
   });
 }
 </script>

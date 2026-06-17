@@ -28,10 +28,13 @@ type PreferenceCard struct {
 type CardJSON json.RawMessage
 
 func (c CardJSON) MarshalJSON() ([]byte, error) {
-	if c == nil {
+	if c == nil || len(c) == 0 {
 		return []byte("[]"), nil
 	}
-	return json.RawMessage(c).MarshalJSON()
+	if !json.Valid([]byte(c)) {
+		return []byte("[]"), nil
+	}
+	return []byte(c), nil
 }
 
 func (c *CardJSON) UnmarshalJSON(data []byte) error {

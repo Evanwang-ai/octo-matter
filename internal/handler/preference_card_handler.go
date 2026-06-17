@@ -68,11 +68,7 @@ func (h *PreferenceCardHandler) List(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL", "message": err.Error()}})
 		return
 	}
-	out := make([]cardWithMD, len(cards))
-	for i, card := range cards {
-		out[i] = withMD(card)
-	}
-	ok(c, gin.H{"data": out})
+	ok(c, gin.H{"data": cards})
 }
 
 func (h *PreferenceCardHandler) ListByMatter(c *gin.Context) {
@@ -96,11 +92,7 @@ func (h *PreferenceCardHandler) Search(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL", "message": err.Error()}})
 		return
 	}
-	out := make([]cardWithMD, len(cards))
-	for i, card := range cards {
-		out[i] = withMD(card)
-	}
-	ok(c, gin.H{"data": out})
+	ok(c, gin.H{"data": cards})
 }
 
 type updateCardReq struct {
