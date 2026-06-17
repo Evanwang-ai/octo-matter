@@ -253,6 +253,76 @@ func (r *OutboxRepo) ListByMatter(ctx context.Context, matterID string, limit in
 }
 
 // ---------------------------------------------------------------------------
+// Project outbox
+// ---------------------------------------------------------------------------
+
+type ProjectOutboxRepo struct{ runner dbr.SessionRunner }
+
+func NewProjectOutboxRepo(sess *dbr.Session) *ProjectOutboxRepo {
+	return &ProjectOutboxRepo{runner: sess}
+}
+
+func (r *ProjectOutboxRepo) Enqueue(ctx context.Context, row *model.ProjectOutboxRow) error {
+	row.ID = uuid.New().String()
+	now := time.Now()
+	row.CreatedAt, row.UpdatedAt = now, now
+	if row.State == "" {
+		row.State = model.OutboxPending
+	}
+	if row.NextRetryAt.IsZero() {
+		row.NextRetryAt = now
+	}
+	_, err := r.runner.InsertInto("matter_project_outbox").
+		Columns("id", "space_id", "project_id", "target_uid", "actor_uid", "event",
+			"message_key", "params", "state", "retry_count", "next_retry_at",
+			"last_error", "created_at", "updated_at").
+		Record(row).ExecContext(ctx)
+	return err
+}
+
+func (r *ProjectOutboxRepo) Due(ctx context.Context, limit int) ([]*model.ProjectOutboxRow, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	var out []*model.ProjectOutboxRow
+	_, err := r.runner.Select("*").From("matter_project_outbox").
+		Where("state = ? AND next_retry_at <= ?", model.OutboxPending, time.Now()).
+		OrderBy("next_retry_at ASC").
+		Limit(uint64(limit)).
+		LoadContext(ctx, &out)
+	if out == nil {
+		out = []*model.ProjectOutboxRow{}
+	}
+	return out, err
+}
+
+func (r *ProjectOutboxRepo) MarkDelivered(ctx context.Context, id string) error {
+	_, err := r.runner.Update("matter_project_outbox").
+		Set("state", model.OutboxDelivered).
+		Set("updated_at", time.Now()).
+		Where("id = ?", id).ExecContext(ctx)
+	return err
+}
+
+func (r *ProjectOutboxRepo) MarkFailed(ctx context.Context, id string, retryCount uint, nextRetry time.Time, lastErr string, dead bool) error {
+	state := model.OutboxPending
+	if dead {
+		state = model.OutboxDead
+	}
+	if len(lastErr) > 480 {
+		lastErr = lastErr[:480]
+	}
+	_, err := r.runner.Update("matter_project_outbox").
+		Set("state", state).
+		Set("retry_count", retryCount).
+		Set("next_retry_at", nextRetry).
+		Set("last_error", lastErr).
+		Set("updated_at", time.Now()).
+		Where("id = ?", id).ExecContext(ctx)
+	return err
+}
+
+// ---------------------------------------------------------------------------
 // Feedback (圈一笔)
 // ---------------------------------------------------------------------------
 

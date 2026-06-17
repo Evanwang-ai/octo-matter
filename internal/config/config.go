@@ -33,6 +33,7 @@ type Config struct {
 	OutboxRedeliverAfter     time.Duration // MATTER_OUTBOX_REDELIVER_MINUTES
 	OutboxMaxRetries         uint          // MATTER_OUTBOX_MAX_RETRIES
 	WatchdogInterval         time.Duration // MATTER_WATCHDOG_INTERVAL_SECONDS
+	DoorbellBackfill         time.Duration // MATTER_DOORBELL_BACKFILL_SECONDS
 	WatchdogReviveSilence    time.Duration // MATTER_WATCHDOG_REVIVE_MINUTES
 	WatchdogLeafSLA          time.Duration // MATTER_WATCHDOG_LEAF_SLA_MINUTES
 	WatchdogBlockAfterRevive time.Duration // MATTER_WATCHDOG_BLOCK_MINUTES
@@ -59,6 +60,7 @@ func Load() *Config {
 		OutboxRedeliverAfter:     time.Duration(envIntOrDefault("MATTER_OUTBOX_REDELIVER_MINUTES", 10)) * time.Minute,
 		OutboxMaxRetries:         uint(envIntOrDefault("MATTER_OUTBOX_MAX_RETRIES", 5)),
 		WatchdogInterval:         time.Duration(envIntOrDefault("MATTER_WATCHDOG_INTERVAL_SECONDS", 60)) * time.Second,
+		DoorbellBackfill:         time.Duration(envIntOrDefault("MATTER_DOORBELL_BACKFILL_SECONDS", 120)) * time.Second,
 		WatchdogReviveSilence:    time.Duration(envIntOrDefault("MATTER_WATCHDOG_REVIVE_MINUTES", 5)) * time.Minute,
 		WatchdogLeafSLA:          time.Duration(envIntOrDefault("MATTER_WATCHDOG_LEAF_SLA_MINUTES", 60)) * time.Minute,
 		WatchdogBlockAfterRevive: time.Duration(envIntOrDefault("MATTER_WATCHDOG_BLOCK_MINUTES", 15)) * time.Minute,

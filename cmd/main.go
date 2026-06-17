@@ -59,6 +59,7 @@ func main() {
 	// v2 repos
 	projectRepo := repository.NewProjectRepo(sess)
 	outboxRepo := repository.NewOutboxRepo(sess)
+	projectOutboxRepo := repository.NewProjectOutboxRepo(sess)
 	feedbackRepo := repository.NewFeedbackRepo(sess)
 	summaryRepo := repository.NewSummaryRepo(sess)
 	agentCardRepo := repository.NewAgentCardRepo(sess)
@@ -128,18 +129,18 @@ func main() {
 	}
 	v2Svc := service.NewV2Service(matterRepo, assigneeRepo, participantRepo, projectRepo, projectSourceRepo,
 		feedbackRepo, outboxRepo, summaryRepo, activityRepo, agentCardRepo, txMgr, transitionSvc, matterSvc, v2LLM)
-	v2Svc.SetDoorbell(notifier)
 	botTaskSvc := service.NewBotTaskService(botTaskRepo, matterRepo, timelineRepo, activityRepo, transitionSvc)
 	scheduleSvc := service.NewScheduleService(scheduleRepo, matterRepo, matterSvc, v2Svc, transitionSvc, cfg.ScheduleTick)
 
 	// Engine loops: transactional-outbox dispatcher + two-tier watchdog.
 	engineCtx, engineStop := context.WithCancel(context.Background())
 	defer engineStop()
-	engine := service.NewEngine(outboxRepo, matterRepo, transitionSvc, notifier, service.EngineConfig{
+	engine := service.NewEngine(outboxRepo, projectOutboxRepo, matterRepo, transitionSvc, notifier, service.EngineConfig{
 		DispatchInterval: cfg.OutboxDispatchInterval,
 		RedeliverAfter:   cfg.OutboxRedeliverAfter,
 		MaxRetries:       cfg.OutboxMaxRetries,
 		WatchdogInterval: cfg.WatchdogInterval,
+		DoorbellBackfill: cfg.DoorbellBackfill,
 		ReviveSilence:    cfg.WatchdogReviveSilence,
 		LeafSLA:          cfg.WatchdogLeafSLA,
 		BlockAfterRevive: cfg.WatchdogBlockAfterRevive,

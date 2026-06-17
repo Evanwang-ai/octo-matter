@@ -155,3 +155,145 @@ func TestMatterRepo_GetByID_NULLSourceMsgIDsScansAsNil(t *testing.T) {
 		t.Fatalf("legacy NULL row must render source_msgs as [] (aligned with timeline wire name); got %s", b)
 	}
 }
+
+func TestMatterRepo_MissingLeaderDoorbells(t *testing.T) {
+	sess, mock, cleanup := newMockSession(t)
+	defer cleanup()
+
+	now := time.Date(2026, 6, 17, 8, 0, 0, 0, time.UTC)
+	rows := sqlmock.NewRows([]string{
+		"id", "seq_no", "space_id", "title", "creator_id", "leader_uid",
+		"status", "created_at", "updated_at", "deleted_at",
+	}).AddRow(
+		"m-1", 7, "sp-1", "needs a bell", "human", "bot_leader",
+		string(model.MatterStatusOpen), now.Add(-10*time.Minute), now.Add(-10*time.Minute), nil,
+	)
+	mock.ExpectQuery(`(?s)LEFT JOIN matter_outbox o.*o\.event = 'matter\.doorbell\.assigned'.*o\.state IN \('pending', 'delivered', 'consumed'\).*m\.status IN \('open', 'in_progress'\).*o\.id IS NULL`).
+		WillReturnRows(rows)
+
+	r := &MatterRepo{runner: sess}
+	got, err := r.MissingLeaderDoorbells(context.Background(), "matter.doorbell.assigned", 2*time.Minute, 0)
+	if err != nil {
+		t.Fatalf("MissingLeaderDoorbells: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d matters, want 1", len(got))
+	}
+	if got[0].ID != "m-1" || got[0].LeaderOrEmpty() != "bot_leader" {
+		t.Fatalf("unexpected matter: %#v", got[0])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
+func TestMatterRepo_MissingLeaderDoorbells_EmptyEventDoesNotScan(t *testing.T) {
+	sess, mock, cleanup := newMockSession(t)
+	defer cleanup()
+
+	r := &MatterRepo{runner: sess}
+	got, err := r.MissingLeaderDoorbells(context.Background(), "", 2*time.Minute, 50)
+	if err != nil {
+		t.Fatalf("MissingLeaderDoorbells empty event: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("empty event must return no rows, got %d", len(got))
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
+func TestMatterRepo_ListActiveByProject(t *testing.T) {
+	sess, mock, cleanup := newMockSession(t)
+	defer cleanup()
+
+	now := time.Date(2026, 6, 17, 8, 30, 0, 0, time.UTC)
+	rows := sqlmock.NewRows([]string{
+		"id", "seq_no", "space_id", "project_id", "title", "creator_id", "leader_uid",
+		"status", "created_at", "updated_at", "deleted_at",
+	}).AddRow(
+		"m-ctx", 9, "sp-1", "project-1", "live matter", "human", "bot_leader",
+		string(model.MatterStatusInProgress), now.Add(-10*time.Minute), now, nil,
+	)
+	mock.ExpectQuery(`(?s)FROM matters.*project_id = 'project-1'.*space_id = 'sp-1'.*status IN \('open',\s*'in_progress'\).*leader_uid IS NOT NULL`).
+		WillReturnRows(rows)
+
+	r := &MatterRepo{runner: sess}
+	got, err := r.ListActiveByProject(context.Background(), "project-1", "sp-1", 0)
+	if err != nil {
+		t.Fatalf("ListActiveByProject: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d matters, want 1", len(got))
+	}
+	if got[0].ID != "m-ctx" || got[0].LeaderOrEmpty() != "bot_leader" {
+		t.Fatalf("unexpected matter: %#v", got[0])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
+func TestMatterRepo_ListActiveByProject_EmptyInputDoesNotScan(t *testing.T) {
+	sess, mock, cleanup := newMockSession(t)
+	defer cleanup()
+
+	r := &MatterRepo{runner: sess}
+	got, err := r.ListActiveByProject(context.Background(), "", "sp-1", 50)
+	if err != nil {
+		t.Fatalf("ListActiveByProject empty input: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("empty project must return no rows, got %d", len(got))
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
+func TestProjectOutboxRepo_EnqueueAndDue(t *testing.T) {
+	sess, mock, cleanup := newMockSession(t)
+	defer cleanup()
+
+	mock.ExpectExec("INSERT INTO `matter_project_outbox`").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	r := &ProjectOutboxRepo{runner: sess}
+	params := `{"ProjectID":"project-1"}`
+	if err := r.Enqueue(context.Background(), &model.ProjectOutboxRow{
+		SpaceID:    "sp-1",
+		ProjectID:  "project-1",
+		TargetUID:  "bot_leader",
+		ActorUID:   "human",
+		Event:      "matter.doorbell.context_added",
+		MessageKey: "notify.doorbell.context_added",
+		Params:     &params,
+	}); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+
+	now := time.Date(2026, 6, 17, 9, 0, 0, 0, time.UTC)
+	rows := sqlmock.NewRows([]string{
+		"id", "space_id", "project_id", "target_uid", "actor_uid", "event",
+		"message_key", "params", "state", "retry_count", "next_retry_at",
+		"last_error", "created_at", "updated_at",
+	}).AddRow(
+		"po-1", "sp-1", "project-1", "bot_leader", "human", "matter.doorbell.context_added",
+		"notify.doorbell.context_added", []byte(params), model.OutboxPending, uint(0), now,
+		nil, now, now,
+	)
+	mock.ExpectQuery("SELECT \\* FROM matter_project_outbox").
+		WillReturnRows(rows)
+
+	due, err := r.Due(context.Background(), 0)
+	if err != nil {
+		t.Fatalf("Due: %v", err)
+	}
+	if len(due) != 1 || due[0].ProjectID != "project-1" || due[0].TargetUID != "bot_leader" {
+		t.Fatalf("unexpected due rows: %#v", due)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}

@@ -17,14 +17,19 @@ import (
 // 02.5 §九 / 09 §blocker list against real MySQL:
 //
 //   - 负责 agent 把自己单子置「完成」被 server 拒绝 (完成限权)
+//
 //   - 改派后旧负责人回写收到专用错误码 (epoch fencing)
+//
 //   - update 必带 expected_version, 冲突 409 (CAS)
+//
 //   - 父→完成的 S 检查: 非取消子全部终态才允许
+//
 //   - 子迁移 → 父 events_seq+1 + outbox 门铃同事务落库 (transactional outbox)
+//
 //   - @反馈 → S 派生打回 + 门铃
 //
-//	MATTER_V2_IT_DSN='root:***@tcp(127.0.0.1:23306)/octo_matter_v2_it?charset=utf8mb4&parseTime=true&multiStatements=true&loc=UTC' \
-//	  go test -tags=integration ./internal/service/... -run V2Engine -v
+//     MATTER_V2_IT_DSN='root:***@tcp(127.0.0.1:23306)/octo_matter_v2_it?charset=utf8mb4&parseTime=true&multiStatements=true&loc=UTC' \
+//     go test -tags=integration ./internal/service/... -run V2Engine -v
 func v2ITDSN(t *testing.T) string {
 	t.Helper()
 	d := os.Getenv("MATTER_V2_IT_DSN")
@@ -41,6 +46,7 @@ type v2IT struct {
 	matters    *repository.MatterRepo
 	assignees  *repository.AssigneeRepo
 	outbox     *repository.OutboxRepo
+	projectOut *repository.ProjectOutboxRepo
 	feedbacks  *repository.FeedbackRepo
 	activity   *repository.ActivityRepo
 	tx         *repository.TxManager
@@ -71,13 +77,14 @@ func setupV2IT(t *testing.T) *v2IT {
 	projects := repository.NewProjectRepo(sess)
 	projectSources := repository.NewProjectSourceRepo(sess)
 	outbox := repository.NewOutboxRepo(sess)
+	projectOutbox := repository.NewProjectOutboxRepo(sess)
 	feedbacks := repository.NewFeedbackRepo(sess)
 	summaries := repository.NewSummaryRepo(sess)
 	tx := repository.NewTxManager(sess)
 	transition := NewTransitionService(matters, assignees, tx, "/matter/ui")
 	matterSvc := NewMatterService(matters, assignees, participants, channels, activity, tx, nil)
 	v2 := NewV2Service(matters, assignees, participants, projects, projectSources, feedbacks, outbox, summaries, activity, repository.NewAgentCardRepo(sess), tx, transition, matterSvc, nil)
-	return &v2IT{matters: matters, assignees: assignees, outbox: outbox,
+	return &v2IT{matters: matters, assignees: assignees, outbox: outbox, projectOut: projectOutbox,
 		feedbacks: feedbacks, activity: activity, tx: tx,
 		transition: transition, matterSvc: matterSvc, v2: v2}
 }
@@ -307,6 +314,91 @@ func TestV2Engine_FeedbackDerivesSentBack(t *testing.T) {
 	fresh, _ := w.matters.GetByID(ctx, m.ID, m.SpaceID)
 	if fresh.Status != model.MatterStatusInProgress {
 		t.Fatalf("persisted status: %s", fresh.Status)
+	}
+}
+
+func TestV2Engine_ProjectSourceRingsLiveMatterLeaders(t *testing.T) {
+	w := setupV2IT(t)
+	ctx := context.Background()
+	leader := "bot_orchestrator"
+	project := &model.MatterProject{
+		SpaceID:          "sp-it",
+		Name:             "shared project",
+		DefaultLeaderUID: &leader,
+		CreatorID:        "human",
+	}
+	if err := w.v2.projects.Create(ctx, project); err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	m := w.mustCreate(t, &model.Matter{
+		Title:     "live project matter",
+		CreatorID: "human",
+		LeaderUID: &leader,
+		ProjectID: &project.ID,
+		Status:    model.MatterStatusInProgress,
+	}, []string{leader})
+
+	if _, err := w.v2.AddProjectSource(ctx, &model.MatterProjectSource{
+		ProjectID: project.ID,
+		SpaceID:   project.SpaceID,
+		Kind:      "file",
+		Title:     "new brief.pdf",
+		CreatedBy: "human",
+	}); err != nil {
+		t.Fatalf("add project source: %v", err)
+	}
+
+	due, err := w.outbox.Due(ctx, 20, 0)
+	if err != nil {
+		t.Fatalf("outbox due: %v", err)
+	}
+	var found bool
+	for _, row := range due {
+		if row.MatterID == m.ID && row.TargetUID == leader && row.Event == DoorbellContextAdded {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("context_added doorbell not enqueued; due rows: %d", len(due))
+	}
+}
+
+func TestV2Engine_ProjectSourceRingsDefaultLeaderWithoutLiveMatters(t *testing.T) {
+	w := setupV2IT(t)
+	ctx := context.Background()
+	leader := "bot_orchestrator"
+	project := &model.MatterProject{
+		SpaceID:          "sp-it",
+		Name:             "quiet project",
+		DefaultLeaderUID: &leader,
+		CreatorID:        "human",
+	}
+	if err := w.v2.projects.Create(ctx, project); err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	if _, err := w.v2.AddProjectSource(ctx, &model.MatterProjectSource{
+		ProjectID: project.ID,
+		SpaceID:   project.SpaceID,
+		Kind:      "chat",
+		Title:     "forwarded thread",
+		CreatedBy: "human",
+	}); err != nil {
+		t.Fatalf("add project source: %v", err)
+	}
+
+	due, err := w.projectOut.Due(ctx, 20)
+	if err != nil {
+		t.Fatalf("project outbox due: %v", err)
+	}
+	var found bool
+	for _, row := range due {
+		if row.ProjectID == project.ID && row.TargetUID == leader && row.Event == DoorbellContextAdded {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("context_added project outbox not enqueued; due rows: %d", len(due))
 	}
 }
 

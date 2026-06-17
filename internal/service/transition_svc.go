@@ -32,18 +32,19 @@ const (
 	// 审核中/受阻自动发回来源会话; done stays a manual send-back in v1).
 	// Aliased to the model constant so the repo's consumption-hook exemption
 	// can never drift from the event the router writes.
-	DoorbellHomecoming = model.OutboxEventHomecoming
-	DoorbellNextSegment     = "matter.doorbell.next_segment"      // pipeline k → k+1
-	DoorbellVerify          = "matter.doorbell.verify"            // critic generator → verifier
-	DoorbellFeedback        = "matter.doorbell.feedback"          // 圈一笔 → 负责人
-	DoorbellBlocked         = "matter.doorbell.blocked"
-	DoorbellCancelled       = "matter.doorbell.cancelled"
-	DoorbellReassigned      = "matter.doorbell.reassigned"
-	DoorbellDone            = "matter.doorbell.done"
-	DoorbellReflect         = "matter.doorbell.reflect" // acceptance → 偏好沉淀 prompt
-	DoorbellRevive          = "matter.doorbell.watchdog_revive"
-	DoorbellWatchdogBlock   = "matter.doorbell.watchdog_blocked"
-	DoorbellSchedule        = "matter.doorbell.schedule"
+	DoorbellHomecoming    = model.OutboxEventHomecoming
+	DoorbellNextSegment   = "matter.doorbell.next_segment" // pipeline k → k+1
+	DoorbellVerify        = "matter.doorbell.verify"       // critic generator → verifier
+	DoorbellFeedback      = "matter.doorbell.feedback"     // 圈一笔 → 负责人
+	DoorbellBlocked       = "matter.doorbell.blocked"
+	DoorbellCancelled     = "matter.doorbell.cancelled"
+	DoorbellReassigned    = "matter.doorbell.reassigned"
+	DoorbellDone          = "matter.doorbell.done"
+	DoorbellReflect       = "matter.doorbell.reflect" // acceptance → 偏好沉淀 prompt
+	DoorbellRevive        = "matter.doorbell.watchdog_revive"
+	DoorbellWatchdogBlock = "matter.doorbell.watchdog_blocked"
+	DoorbellSchedule      = "matter.doorbell.schedule"
+	DoorbellContextAdded  = "matter.doorbell.context_added"
 )
 
 // TransitionInput is one guarded status-write request.

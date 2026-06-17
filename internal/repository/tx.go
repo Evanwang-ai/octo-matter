@@ -16,7 +16,9 @@ type TxRepos struct {
 	TimelineAttachment *TimelineAttachmentRepo
 	Activity           *ActivityRepo
 	Outbox             *OutboxRepo
+	ProjectOutbox      *ProjectOutboxRepo
 	Feedback           *FeedbackRepo
+	ProjectSource      *ProjectSourceRepo
 }
 
 // TxManager coordinates writes that must succeed or fail atomically.
@@ -45,7 +47,9 @@ func (m *TxManager) Do(ctx context.Context, fn func(r *TxRepos) error) error {
 		TimelineAttachment: &TimelineAttachmentRepo{runner: tx},
 		Activity:           &ActivityRepo{runner: tx},
 		Outbox:             &OutboxRepo{runner: tx},
+		ProjectOutbox:      &ProjectOutboxRepo{runner: tx},
 		Feedback:           &FeedbackRepo{runner: tx},
+		ProjectSource:      &ProjectSourceRepo{runner: tx},
 	}
 	if err := fn(repos); err != nil {
 		return err

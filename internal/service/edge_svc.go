@@ -206,6 +206,8 @@ func edgeCopy(row model.OutboxRow, kind string) (string, string) {
 		return "仍未回应,已告诉 " + target, "系统已把事项标为受阻"
 	case DoorbellSchedule:
 		return "定时任务已叫 " + target + " 执行", "cron 触发的结构外派活"
+	case DoorbellContextAdded:
+		return "新增上下文,已告诉 " + target, "结构外上下文变化提醒"
 	default:
 		if strings.HasPrefix(row.Event, "matter.doorbell.summary_") {
 			return "Preference 审批结果已告诉 " + target, "偏好草案的授权结果回铃"

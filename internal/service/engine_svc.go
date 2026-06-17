@@ -20,6 +20,7 @@ type EngineConfig struct {
 	RedeliverAfter   time.Duration // delivered-but-unconsumed re-ring
 	MaxRetries       uint          // outbox attempts before dead+escalate
 	WatchdogInterval time.Duration // watchdog scan cadence
+	DoorbellBackfill time.Duration // missing assigned-doorbell grace window
 	ReviveSilence    time.Duration // 复活档: parent silent this long → re-ring
 	LeafSLA          time.Duration // 复活档: leaf default SLA
 	BlockAfterRevive time.Duration // 受阻档: still silent this long after revive
@@ -31,27 +32,31 @@ func DefaultEngineConfig() EngineConfig {
 		RedeliverAfter:   10 * time.Minute,
 		MaxRetries:       5,
 		WatchdogInterval: 60 * time.Second,
+		DoorbellBackfill: 2 * time.Minute,
 		ReviveSilence:    5 * time.Minute,
 		LeafSLA:          60 * time.Minute,
 		BlockAfterRevive: 15 * time.Minute,
 	}
 }
 
+const engineActorUID = "octo-engine"
+
 // Engine runs the outbox dispatcher and the two-tier watchdog
 // (doc 02.5 送达保障 + doc 09 看门狗 — deterministic, zero LLM).
 type Engine struct {
-	outbox     *repository.OutboxRepo
-	matterRepo *repository.MatterRepo
-	transition *TransitionService
-	bell       notification.DoorbellSender
-	cfg        EngineConfig
+	outbox        *repository.OutboxRepo
+	projectOutbox *repository.ProjectOutboxRepo
+	matterRepo    *repository.MatterRepo
+	transition    *TransitionService
+	bell          notification.DoorbellSender
+	cfg           EngineConfig
 }
 
-func NewEngine(outbox *repository.OutboxRepo, matterRepo *repository.MatterRepo, transition *TransitionService, bell notification.DoorbellSender, cfg EngineConfig) *Engine {
+func NewEngine(outbox *repository.OutboxRepo, projectOutbox *repository.ProjectOutboxRepo, matterRepo *repository.MatterRepo, transition *TransitionService, bell notification.DoorbellSender, cfg EngineConfig) *Engine {
 	if bell == nil {
 		bell = notification.NoopDoorbell{}
 	}
-	return &Engine{outbox: outbox, matterRepo: matterRepo, transition: transition, bell: bell, cfg: cfg}
+	return &Engine{outbox: outbox, projectOutbox: projectOutbox, matterRepo: matterRepo, transition: transition, bell: bell, cfg: cfg}
 }
 
 // Start launches both loops until ctx is cancelled.
@@ -84,6 +89,11 @@ func (e *Engine) loop(ctx context.Context, every time.Duration, fn func(context.
 // dispatchOnce delivers due outbox rows. Single-instance deployment: no
 // SKIP LOCKED claim dance needed; the compose stack runs one matter container.
 func (e *Engine) dispatchOnce(ctx context.Context) {
+	e.dispatchMatterOutbox(ctx)
+	e.dispatchProjectOutbox(ctx)
+}
+
+func (e *Engine) dispatchMatterOutbox(ctx context.Context) {
 	rows, err := e.outbox.Due(ctx, 50, e.cfg.RedeliverAfter)
 	if err != nil {
 		log.Printf("[engine] outbox scan failed: %v", err)
@@ -122,6 +132,39 @@ func (e *Engine) dispatchOnce(ctx context.Context) {
 		if dead {
 			// 兜底要有兜底: escalate the dead doorbell to the creator once.
 			e.escalateDead(ctx, row)
+		}
+	}
+}
+
+func (e *Engine) dispatchProjectOutbox(ctx context.Context) {
+	if e.projectOutbox == nil {
+		return
+	}
+	rows, err := e.projectOutbox.Due(ctx, 50)
+	if err != nil {
+		log.Printf("[engine] project outbox scan failed: %v", err)
+		return
+	}
+	for _, row := range rows {
+		params := map[string]any{}
+		if row.Params != nil {
+			_ = json.Unmarshal([]byte(*row.Params), &params)
+		}
+		err := e.bell.SendDoorbell(row.SpaceID, row.Event, row.ActorUID, row.TargetUID, row.MessageKey, params)
+		if err == nil {
+			if uerr := e.projectOutbox.MarkDelivered(ctx, row.ID); uerr != nil {
+				log.Printf("[engine] project outbox mark delivered failed id=%s: %v", row.ID, uerr)
+			}
+			continue
+		}
+		retry := row.RetryCount + 1
+		dead := retry >= e.cfg.MaxRetries
+		backoff := time.Duration(1<<min(retry, 6)) * 30 * time.Second
+		if uerr := e.projectOutbox.MarkFailed(ctx, row.ID, retry, time.Now().Add(backoff), err.Error(), dead); uerr != nil {
+			log.Printf("[engine] project outbox mark failed failed id=%s: %v", row.ID, uerr)
+		}
+		if dead {
+			log.Printf("[engine] project outbox dead id=%s project=%s target=%s event=%s err=%v", row.ID, row.ProjectID, row.TargetUID, row.Event, err)
 		}
 	}
 }
@@ -195,6 +238,7 @@ func (e *Engine) escalateDead(ctx context.Context, row *model.OutboxRow) {
 //   - block: still silent after a revive → system 受阻 + ring the human
 func (e *Engine) watchdogOnce(ctx context.Context) {
 	now := time.Now()
+	backfilled := e.backfillMissingDoorbells(ctx)
 
 	parents, err := e.matterRepo.StuckParents(ctx, e.cfg.ReviveSilence, e.cfg.ReviveSilence)
 	if err != nil {
@@ -205,6 +249,9 @@ func (e *Engine) watchdogOnce(ctx context.Context) {
 		log.Printf("[engine] watchdog StuckLeaves failed: %v", err)
 	}
 	for _, m := range append(parents, leaves...) {
+		if backfilled[m.ID] {
+			continue // the assigned bell is already back in flight this tick
+		}
 		target := m.LeaderOrEmpty()
 		if target == "" {
 			target = m.CreatorID
@@ -242,6 +289,40 @@ func (e *Engine) watchdogOnce(ctx context.Context) {
 		}
 		log.Printf("[engine] watchdog blocked matter=%s (silent after revive)", m.ID)
 	}
+}
+
+func (e *Engine) backfillMissingDoorbells(ctx context.Context) map[string]bool {
+	backfilled := map[string]bool{}
+	if e.matterRepo == nil || e.transition == nil {
+		return backfilled
+	}
+	delay := e.cfg.DoorbellBackfill
+	if delay <= 0 {
+		delay = DefaultEngineConfig().DoorbellBackfill
+	}
+	rows, err := e.matterRepo.MissingLeaderDoorbells(ctx, DoorbellAssigned, delay, 50)
+	if err != nil {
+		log.Printf("[engine] watchdog missing-doorbell scan failed: %v", err)
+		return backfilled
+	}
+	for _, m := range rows {
+		target := m.LeaderOrEmpty()
+		if target == "" {
+			continue
+		}
+		params := map[string]any{
+			"Title":  m.Title,
+			"Seq":    m.SeqNo,
+			"source": "watchdog-backfill",
+		}
+		if err := e.transition.EnqueueStandalone(ctx, m, engineActorUID, target, DoorbellAssigned, i18n.KeyDoorbellAssigned, params); err != nil {
+			log.Printf("[engine] watchdog backfill doorbell failed matter=%s leader=%s: %v", m.ID, target, err)
+			continue
+		}
+		backfilled[m.ID] = true
+		log.Printf("[WATCHDOG] backfill doorbell for matter=%s leader=%s", m.ID, target)
+	}
+	return backfilled
 }
 
 func min(a, b uint) uint {

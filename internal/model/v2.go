@@ -52,6 +52,25 @@ type OutboxRow struct {
 	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
 }
 
+// ProjectOutboxRow is a project-level structural doorbell. It is used for
+// shared context changes before there is a specific Matter to carry the ring.
+type ProjectOutboxRow struct {
+	ID          string    `db:"id" json:"id"`
+	SpaceID     string    `db:"space_id" json:"space_id"`
+	ProjectID   string    `db:"project_id" json:"project_id"`
+	TargetUID   string    `db:"target_uid" json:"target_uid"`
+	ActorUID    string    `db:"actor_uid" json:"actor_uid"`
+	Event       string    `db:"event" json:"event"`
+	MessageKey  string    `db:"message_key" json:"message_key"`
+	Params      *string   `db:"params" json:"params,omitempty"` // JSON text
+	State       string    `db:"state" json:"state"`
+	RetryCount  uint      `db:"retry_count" json:"retry_count"`
+	NextRetryAt time.Time `db:"next_retry_at" json:"next_retry_at"`
+	LastError   *string   `db:"last_error" json:"last_error,omitempty"`
+	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
+}
+
 // MatterFeedback is one 圈一笔 (H taste signal, doc 11).
 type MatterFeedback struct {
 	ID        string    `db:"id" json:"id"`

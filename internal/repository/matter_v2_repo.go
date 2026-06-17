@@ -223,6 +223,68 @@ func (r *MatterRepo) RevivedStillSilent(ctx context.Context, escalateAfter time.
 	return out, err
 }
 
+// MissingLeaderDoorbells finds actionable matters whose current leader has no
+// non-dead doorbell for event. It is the engine's structural backstop for
+// missed assignment rings: normal transition code should write the outbox row,
+// but external/system-created work must still become visible to the leader.
+func (r *MatterRepo) MissingLeaderDoorbells(ctx context.Context, event string, delay time.Duration, limit int) ([]*model.Matter, error) {
+	if event == "" {
+		return []*model.Matter{}, nil
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	cutoff := time.Now().Add(-delay)
+	var out []*model.Matter
+	_, err := r.runner.SelectBySql(`
+		SELECT m.* FROM matters m
+		LEFT JOIN matter_outbox o
+		  ON o.matter_id = m.id
+		 AND o.target_uid = m.leader_uid
+		 AND o.event = ?
+		 AND o.state IN (?, ?, ?)
+		WHERE m.status IN (?, ?)
+		  AND m.deleted_at IS NULL
+		  AND m.leader_uid IS NOT NULL
+		  AND m.leader_uid <> ''
+		  AND COALESCE(m.last_transition_at, m.updated_at, m.created_at) < ?
+		  AND o.id IS NULL
+		ORDER BY m.created_at ASC
+		LIMIT ?`,
+		event,
+		model.OutboxPending, model.OutboxDelivered, model.OutboxConsumed,
+		string(model.MatterStatusOpen), string(model.MatterStatusInProgress),
+		cutoff, limit,
+	).LoadContext(ctx, &out)
+	if out == nil {
+		out = []*model.Matter{}
+	}
+	return out, err
+}
+
+// ListActiveByProject returns actionable matters in a project whose current
+// leader should be told about project-level shared context changes.
+func (r *MatterRepo) ListActiveByProject(ctx context.Context, projectID, spaceID string, limit int) ([]*model.Matter, error) {
+	if projectID == "" || spaceID == "" {
+		return []*model.Matter{}, nil
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	var out []*model.Matter
+	_, err := r.runner.Select("*").From("matters").
+		Where("project_id = ? AND space_id = ? AND deleted_at IS NULL", projectID, spaceID).
+		Where("status IN ?", []string{string(model.MatterStatusOpen), string(model.MatterStatusInProgress)}).
+		Where("leader_uid IS NOT NULL AND leader_uid <> ''").
+		OrderBy("updated_at DESC").
+		Limit(uint64(limit)).
+		LoadContext(ctx, &out)
+	if out == nil {
+		out = []*model.Matter{}
+	}
+	return out, err
+}
+
 // AgentStat is the S-derived 赚来半 aggregate for one uid. Preferences is
 // hydrated by the service layer (authorized smart-summaries targeting the
 // uid); InProgress lists the uid's live matters for the AgentCard 当前事项.
