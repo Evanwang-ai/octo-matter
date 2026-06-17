@@ -204,6 +204,62 @@ func TestMatterRepo_MissingLeaderDoorbells_EmptyEventDoesNotScan(t *testing.T) {
 	}
 }
 
+func TestMatterRepo_StuckLeaves(t *testing.T) {
+	sess, mock, cleanup := newMockSession(t)
+	defer cleanup()
+
+	now := time.Date(2026, 6, 17, 9, 0, 0, 0, time.UTC)
+	rows := sqlmock.NewRows([]string{
+		"id", "seq_no", "space_id", "title", "creator_id", "leader_uid",
+		"status", "last_activity_at", "created_at", "updated_at", "deleted_at",
+	}).AddRow(
+		"m-silent", 12, "sp-1", "silent leaf", "human", "bot_worker",
+		string(model.MatterStatusInProgress), now.Add(-2*time.Hour), now.Add(-3*time.Hour), now.Add(-2*time.Hour), nil,
+	)
+	mock.ExpectQuery(`(?s)NOT EXISTS \(SELECT 1 FROM matters c.*expected_duration_minutes.*last_watchdog_alert_at`).
+		WillReturnRows(rows)
+
+	r := &MatterRepo{runner: sess}
+	got, err := r.StuckLeaves(context.Background(), 60*time.Minute, 5*time.Minute)
+	if err != nil {
+		t.Fatalf("StuckLeaves: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != "m-silent" {
+		t.Fatalf("unexpected stuck leaves: %#v", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
+func TestMatterRepo_RevivedStillSilent(t *testing.T) {
+	sess, mock, cleanup := newMockSession(t)
+	defer cleanup()
+
+	now := time.Date(2026, 6, 17, 9, 0, 0, 0, time.UTC)
+	rows := sqlmock.NewRows([]string{
+		"id", "seq_no", "space_id", "title", "creator_id", "leader_uid",
+		"status", "last_watchdog_alert_at", "last_transition_at", "created_at", "updated_at", "deleted_at",
+	}).AddRow(
+		"m-revived", 13, "sp-1", "still silent", "human", "bot_worker",
+		string(model.MatterStatusInProgress), now.Add(-30*time.Minute), now.Add(-2*time.Hour), now.Add(-3*time.Hour), now.Add(-30*time.Minute), nil,
+	)
+	mock.ExpectQuery(`(?s)last_watchdog_alert_at IS NOT NULL.*last_transition_at.*last_watchdog_alert_at`).
+		WillReturnRows(rows)
+
+	r := &MatterRepo{runner: sess}
+	got, err := r.RevivedStillSilent(context.Background(), 15*time.Minute)
+	if err != nil {
+		t.Fatalf("RevivedStillSilent: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != "m-revived" {
+		t.Fatalf("unexpected still silent matters: %#v", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
 func TestMatterRepo_ListActiveByProject(t *testing.T) {
 	sess, mock, cleanup := newMockSession(t)
 	defer cleanup()
