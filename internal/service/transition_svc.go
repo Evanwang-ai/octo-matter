@@ -601,7 +601,12 @@ func enqueueDoorbell(ctx context.Context, outbox *repository.OutboxRepo, m *mode
 // EnqueueStandalone writes a doorbell outside a transition transaction
 // (assignment rings, schedule rings, watchdog re-rings).
 func (s *TransitionService) EnqueueStandalone(ctx context.Context, m *model.Matter, actor string, target, event, messageKey string, params map[string]any) error {
-	if target == "" || target == actor {
+	if target == "" {
+		return nil
+	}
+	// Bot creating a matter for itself still needs a doorbell to trigger its
+	// runtime. Only skip self-notification for human actors.
+	if target == actor && !strings.HasSuffix(actor, "_bot") {
 		return nil
 	}
 	err := s.tx.Do(ctx, func(r *repository.TxRepos) error {
