@@ -128,14 +128,15 @@ const (
 	KeyDoorbellWatchdogBlocked = "notify.doorbell.watchdog_blocked"
 	KeyDoorbellSchedule        = "notify.doorbell.schedule"
 	KeyDoorbellContextAdded    = "notify.doorbell.context_added"
+	KeyDoorbellProjectDead     = "notify.doorbell.project_dead"
 
 	// Manual send-back validation
 	KeySendBackNoSource = "err.matter.sendback_no_source"
 	KeySendBackNoBot    = "err.matter.sendback_no_bot"
 
 	// Preference draft (护栏4)
-	KeySummaryOnlyLeaderBot     = "err.matter.summary_only_leader_bot"
-	KeyDoorbellSummaryDraft     = "notify.doorbell.summary_draft"
-	KeyDoorbellSummaryApproved  = "notify.doorbell.summary_approved"
-	KeyDoorbellSummaryRejected  = "notify.doorbell.summary_rejected"
+	KeySummaryOnlyLeaderBot    = "err.matter.summary_only_leader_bot"
+	KeyDoorbellSummaryDraft    = "notify.doorbell.summary_draft"
+	KeyDoorbellSummaryApproved = "notify.doorbell.summary_approved"
+	KeyDoorbellSummaryRejected = "notify.doorbell.summary_rejected"
 )

@@ -46,17 +46,18 @@ const engineActorUID = "octo-engine"
 type Engine struct {
 	outbox        *repository.OutboxRepo
 	projectOutbox *repository.ProjectOutboxRepo
+	projectRepo   *repository.ProjectRepo
 	matterRepo    *repository.MatterRepo
 	transition    *TransitionService
 	bell          notification.DoorbellSender
 	cfg           EngineConfig
 }
 
-func NewEngine(outbox *repository.OutboxRepo, projectOutbox *repository.ProjectOutboxRepo, matterRepo *repository.MatterRepo, transition *TransitionService, bell notification.DoorbellSender, cfg EngineConfig) *Engine {
+func NewEngine(outbox *repository.OutboxRepo, projectOutbox *repository.ProjectOutboxRepo, projectRepo *repository.ProjectRepo, matterRepo *repository.MatterRepo, transition *TransitionService, bell notification.DoorbellSender, cfg EngineConfig) *Engine {
 	if bell == nil {
 		bell = notification.NoopDoorbell{}
 	}
-	return &Engine{outbox: outbox, projectOutbox: projectOutbox, matterRepo: matterRepo, transition: transition, bell: bell, cfg: cfg}
+	return &Engine{outbox: outbox, projectOutbox: projectOutbox, projectRepo: projectRepo, matterRepo: matterRepo, transition: transition, bell: bell, cfg: cfg}
 }
 
 // Start launches both loops until ctx is cancelled.
@@ -165,6 +166,7 @@ func (e *Engine) dispatchProjectOutbox(ctx context.Context) {
 		}
 		if dead {
 			log.Printf("[engine] project outbox dead id=%s project=%s target=%s event=%s err=%v", row.ID, row.ProjectID, row.TargetUID, row.Event, err)
+			e.escalateProjectDead(ctx, row)
 		}
 	}
 }
@@ -230,6 +232,54 @@ func (e *Engine) escalateDead(ctx context.Context, row *model.OutboxRow) {
 	params := map[string]any{"Title": m.Title, "Seq": m.SeqNo, "Reason": "门铃送达失败"}
 	if err := e.transition.EnqueueStandalone(ctx, m, "", m.CreatorID, DoorbellWatchdogBlock, i18n.KeyDoorbellWatchdogBlocked, params); err != nil {
 		log.Printf("[engine] dead-letter escalation failed matter=%s: %v", m.ID, err)
+	}
+}
+
+func (e *Engine) escalateProjectDead(ctx context.Context, row *model.ProjectOutboxRow) {
+	if e.projectOutbox == nil || e.projectRepo == nil {
+		return
+	}
+	p, err := e.projectRepo.GetByID(ctx, row.ProjectID, row.SpaceID)
+	if err != nil || p == nil {
+		log.Printf("[engine] project dead-letter lookup failed project=%s: %v", row.ProjectID, err)
+		return
+	}
+	if p.CreatorID == "" || p.CreatorID == row.TargetUID {
+		return
+	}
+	params := map[string]any{
+		"Title":         p.Name,
+		"ProjectID":     p.ID,
+		"Actor":         engineActorUID,
+		"failed_target": row.TargetUID,
+		"failed_event":  row.Event,
+		"failed_outbox": row.ID,
+		"dead_reason":   "project doorbell delivery failed",
+	}
+	if row.Params != nil {
+		var original map[string]any
+		if err := json.Unmarshal([]byte(*row.Params), &original); err == nil {
+			if source, ok := original["Source"]; ok {
+				params["Source"] = source
+			}
+		}
+	}
+	raw, err := json.Marshal(params)
+	if err != nil {
+		log.Printf("[engine] project dead-letter params failed project=%s: %v", p.ID, err)
+		return
+	}
+	rawStr := string(raw)
+	if err := e.projectOutbox.Enqueue(ctx, &model.ProjectOutboxRow{
+		SpaceID:    row.SpaceID,
+		ProjectID:  p.ID,
+		TargetUID:  p.CreatorID,
+		ActorUID:   engineActorUID,
+		Event:      DoorbellProjectDead,
+		MessageKey: i18n.KeyDoorbellProjectDead,
+		Params:     &rawStr,
+	}); err != nil {
+		log.Printf("[engine] project dead-letter escalation failed project=%s target=%s: %v", p.ID, p.CreatorID, err)
 	}
 }
 

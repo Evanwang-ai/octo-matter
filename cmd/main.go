@@ -135,7 +135,7 @@ func main() {
 	// Engine loops: transactional-outbox dispatcher + two-tier watchdog.
 	engineCtx, engineStop := context.WithCancel(context.Background())
 	defer engineStop()
-	engine := service.NewEngine(outboxRepo, projectOutboxRepo, matterRepo, transitionSvc, notifier, service.EngineConfig{
+	engine := service.NewEngine(outboxRepo, projectOutboxRepo, projectRepo, matterRepo, transitionSvc, notifier, service.EngineConfig{
 		DispatchInterval: cfg.OutboxDispatchInterval,
 		RedeliverAfter:   cfg.OutboxRedeliverAfter,
 		MaxRetries:       cfg.OutboxMaxRetries,

@@ -45,6 +45,7 @@ const (
 	DoorbellWatchdogBlock = "matter.doorbell.watchdog_blocked"
 	DoorbellSchedule      = "matter.doorbell.schedule"
 	DoorbellContextAdded  = "matter.doorbell.context_added"
+	DoorbellProjectDead   = "matter.doorbell.project_outbox_dead"
 )
 
 // TransitionInput is one guarded status-write request.
