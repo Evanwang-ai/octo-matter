@@ -49,6 +49,7 @@ type v2IT struct {
 	projectOut *repository.ProjectOutboxRepo
 	feedbacks  *repository.FeedbackRepo
 	activity   *repository.ActivityRepo
+	botTasks   *BotTaskService
 	tx         *repository.TxManager
 	transition *TransitionService
 	matterSvc  *MatterService
@@ -80,12 +81,15 @@ func setupV2IT(t *testing.T) *v2IT {
 	projectOutbox := repository.NewProjectOutboxRepo(sess)
 	feedbacks := repository.NewFeedbackRepo(sess)
 	summaries := repository.NewSummaryRepo(sess)
+	tasks := repository.NewBotTaskRepo(sess)
+	timeline := repository.NewTimelineRepo(sess)
 	tx := repository.NewTxManager(sess)
 	transition := NewTransitionService(matters, assignees, tx, "/matter/ui")
 	matterSvc := NewMatterService(matters, assignees, participants, channels, activity, tx, nil)
 	v2 := NewV2Service(matters, assignees, participants, projects, projectSources, feedbacks, outbox, summaries, activity, repository.NewAgentCardRepo(sess), tx, transition, matterSvc, nil)
+	botTasks := NewBotTaskService(tasks, matters, timeline, activity, transition)
 	return &v2IT{matters: matters, assignees: assignees, outbox: outbox, projectOut: projectOutbox,
-		feedbacks: feedbacks, activity: activity, tx: tx,
+		feedbacks: feedbacks, activity: activity, botTasks: botTasks, tx: tx,
 		transition: transition, matterSvc: matterSvc, v2: v2}
 }
 
@@ -284,6 +288,53 @@ func TestV2Engine_TransactionalOutboxAndEventsSeq(t *testing.T) {
 	}
 	if res["pending"] != true {
 		t.Fatalf("join with stale watermark must be pending; got %+v", res)
+	}
+}
+
+func TestV2Engine_BotTaskAckRingsParentLeader(t *testing.T) {
+	w := setupV2IT(t)
+	ctx := context.Background()
+	leader, worker := "bot_leader", "bot_worker"
+	parent := w.mustCreate(t, &model.Matter{Title: "parent", CreatorID: "human", LeaderUID: &leader, Status: model.MatterStatusInProgress}, []string{leader})
+	step := "ack-step"
+	child := w.mustCreate(t, &model.Matter{Title: "child", CreatorID: "human", ParentMatterID: &parent.ID, StepID: &step, LeaderUID: &worker, Status: model.MatterStatusInProgress}, []string{worker})
+
+	task, err := w.botTasks.Create(ctx, CreateInput{
+		MatterID: child.ID, SpaceID: child.SpaceID, BotUID: worker,
+		RequesterUID: leader, Title: "child final response",
+	})
+	if err != nil {
+		t.Fatalf("create bot task: %v", err)
+	}
+	claimed, err := w.botTasks.Claim(ctx, []string{worker}, "it-daemon", 1)
+	if err != nil {
+		t.Fatalf("claim bot task: %v", err)
+	}
+	if len(claimed) != 1 || claimed[0].ID != task.ID || claimed[0].ClaimToken == nil {
+		t.Fatalf("unexpected claimed tasks: %#v", claimed)
+	}
+	if _, err := w.botTasks.Ack(ctx, task.ID, *claimed[0].ClaimToken, model.BotTaskSucceeded, "final response", ""); err != nil {
+		t.Fatalf("ack bot task: %v", err)
+	}
+	p, err := w.matters.GetByID(ctx, parent.ID, parent.SpaceID)
+	if err != nil {
+		t.Fatalf("reload parent: %v", err)
+	}
+	if p.EventsSeq != 1 {
+		t.Fatalf("parent events_seq: got %d want 1", p.EventsSeq)
+	}
+	due, err := w.outbox.Due(ctx, 20, 0)
+	if err != nil {
+		t.Fatalf("outbox due: %v", err)
+	}
+	var found bool
+	for _, row := range due {
+		if row.MatterID == child.ID && row.TargetUID == leader && row.ActorUID == worker && row.Event == DoorbellChildHandedBack {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("parent leader completion doorbell not enqueued; due rows: %d", len(due))
 	}
 }
 

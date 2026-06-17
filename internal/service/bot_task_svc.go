@@ -165,12 +165,62 @@ func (s *BotTaskService) Ack(ctx context.Context, id int64, claimToken, status s
 	if err := s.activity.Record(ctx, m.ID, t.BotUID, action, detail); err != nil {
 		log.Printf("[WARN] bot-task activity writeback failed matter=%s: %v", m.ID, err)
 	}
-	// Ring whoever waits on this bot's work.
-	target := m.LeaderOrEmpty()
-	if target == "" || target == t.BotUID {
-		target = m.CreatorID
-	}
-	params := map[string]any{"Title": m.Title, "Seq": m.SeqNo, "Actor": t.BotUID}
-	_ = s.transition.EnqueueStandalone(ctx, m, t.BotUID, target, DoorbellChildHandedBack, i18n.KeyDoorbellChildHandedBack, params)
+	s.ringTaskWaiter(ctx, m, t, status, errorMsg)
 	return t, nil
+}
+
+func (s *BotTaskService) ringTaskWaiter(ctx context.Context, m *model.Matter, t *model.MatterBotTask, status, errorMsg string) {
+	var parent *model.Matter
+	if m.ParentMatterID != nil && *m.ParentMatterID != "" {
+		p, err := s.matters.GetByID(ctx, *m.ParentMatterID, m.SpaceID)
+		if err != nil {
+			log.Printf("[WARN] bot-task parent lookup failed child=%s parent=%s: %v", m.ID, *m.ParentMatterID, err)
+		} else {
+			parent = p
+			if err := s.matters.BumpParentEventsSeq(ctx, parent.ID); err != nil {
+				log.Printf("[WARN] bot-task parent events_seq bump failed child=%s parent=%s: %v", m.ID, parent.ID, err)
+			}
+		}
+	}
+
+	target, event, key, params := botTaskCompletionDoorbell(m, parent, t.BotUID, status, errorMsg)
+	if target == "" {
+		return
+	}
+	if err := s.transition.EnqueueStandalone(ctx, m, t.BotUID, target, event, key, params); err != nil {
+		log.Printf("[WARN] bot-task completion doorbell failed matter=%s target=%s event=%s: %v", m.ID, target, event, err)
+	}
+}
+
+func botTaskCompletionDoorbell(m, parent *model.Matter, botUID, status, errorMsg string) (target, event, key string, params map[string]any) {
+	params = map[string]any{
+		"Title":           m.Title,
+		"Seq":             m.SeqNo,
+		"Actor":           botUID,
+		"task_status":     status,
+		"child_matter_id": m.ID,
+		"child_title":     m.Title,
+	}
+	if parent != nil {
+		target = parent.LeaderOrEmpty()
+		if target == "" {
+			target = parent.CreatorID
+		}
+		params["parent_matter_id"] = parent.ID
+		params["parent_title"] = parent.Title
+	} else {
+		target = m.LeaderOrEmpty()
+		if target == "" || target == botUID {
+			target = m.CreatorID
+		}
+	}
+	if status == model.BotTaskFailed {
+		reason := strings.TrimSpace(errorMsg)
+		if reason == "" {
+			reason = "agent task failed"
+		}
+		params["Reason"] = reason
+		return target, DoorbellBlocked, i18n.KeyDoorbellBlocked, params
+	}
+	return target, DoorbellChildHandedBack, i18n.KeyDoorbellChildHandedBack, params
 }
