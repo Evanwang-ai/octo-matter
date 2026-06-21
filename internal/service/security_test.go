@@ -626,6 +626,38 @@ func TestMatterService_RemoveAssignee_NonCreatorCannotRemoveOthers(t *testing.T)
 	}
 }
 
+func TestMatterService_AddAssignee_HumanLeaderCanAdd(t *testing.T) {
+	leader := "leader"
+	matter := &model.Matter{ID: "t1", SpaceID: "sp1", CreatorID: "owner", LeaderUID: &leader, Status: model.MatterStatusOpen}
+	assigneeRepo := newFakeAssigneeRepo()
+	svc := newMatterSvc(newFakeMatterRepo(matter), assigneeRepo)
+
+	err := svc.AddAssignee(context.Background(), "t1", "sp1", []string{"leader"}, "leader", false, "worker")
+	if err != nil {
+		t.Fatalf("human leader should add assignee: %v", err)
+	}
+	ok, _ := assigneeRepo.IsAssignee(context.Background(), "t1", "worker")
+	if !ok {
+		t.Fatalf("worker was not added")
+	}
+}
+
+func TestMatterService_AddAssignee_BotLeaderCannotAddWithOwnerExpansion(t *testing.T) {
+	leader := "leader_bot"
+	matter := &model.Matter{ID: "t1", SpaceID: "sp1", CreatorID: "owner", LeaderUID: &leader, Status: model.MatterStatusOpen}
+	assigneeRepo := newFakeAssigneeRepo()
+	svc := newMatterSvc(newFakeMatterRepo(matter), assigneeRepo)
+
+	err := svc.AddAssignee(context.Background(), "t1", "sp1", []string{"leader_bot", "owner"}, "leader_bot", true, "worker")
+	if !errors.Is(err, apperr.ErrForbidden) {
+		t.Fatalf("bot leader should not add assignee even with owner expansion, got %v", err)
+	}
+	ok, _ := assigneeRepo.IsAssignee(context.Background(), "t1", "worker")
+	if ok {
+		t.Fatalf("worker should not be added")
+	}
+}
+
 // TestMatterService_GetMatter_PopulatesParticipantsAndChannels verifies that
 // GetMatter enriches the MatterDetail with participants and linked channels
 // from the respective repositories.

@@ -65,6 +65,23 @@ func TestFilterAgentCardForViewerHidesOwnerOnlyCapabilities(t *testing.T) {
 	}
 }
 
+func TestFilterAgentCardsByBotUIDs(t *testing.T) {
+	cards := []*model.MatterAgentCard{
+		{BotUID: "alpha_bot"},
+		nil,
+		{BotUID: "beta_bot"},
+		{BotUID: "gamma_bot"},
+	}
+
+	got := filterAgentCardsByBotUIDs(cards, []string{" gamma_bot ", "", "alpha_bot"})
+	if len(got) != 2 {
+		t.Fatalf("filtered len = %d, want 2: %#v", len(got), got)
+	}
+	if got[0].BotUID != "alpha_bot" || got[1].BotUID != "gamma_bot" {
+		t.Fatalf("filtered order mismatch: %#v", got)
+	}
+}
+
 func TestNormalizeAgentCardTreatsOpenClawSourceVariantsAsOpenClaw(t *testing.T) {
 	card := &model.MatterAgentCard{
 		Capabilities: model.AgentCardCapabilities{

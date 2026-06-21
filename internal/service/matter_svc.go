@@ -623,10 +623,13 @@ func (s *MatterService) ListParticipantIDs(ctx context.Context, matterID string)
 	return s.participantRepo.ListUserIDs(ctx, matterID)
 }
 
-func (s *MatterService) AddAssignee(ctx context.Context, matterID, spaceID string, callerUIDs []string, assigneeUserID string) error {
+func (s *MatterService) AddAssignee(ctx context.Context, matterID, spaceID string, callerUIDs []string, actorUID string, isBot bool, assigneeUserID string) error {
 	matter, err := s.matterRepo.GetByID(ctx, matterID, spaceID)
 	if err != nil {
 		return err
+	}
+	if isBot {
+		return apperr.ErrForbidden
 	}
 	isCreator := s.isCreator(matter, callerUIDs)
 	isLeader := matter.LeaderUID != nil && containsUID(callerUIDs, *matter.LeaderUID)
@@ -639,7 +642,7 @@ func (s *MatterService) AddAssignee(ctx context.Context, matterID, spaceID strin
 	}); err != nil {
 		return err
 	}
-	recordActivity(ctx, s.activity, matterID, actorFromCaller(callerUIDs), "assignee_added",
+	recordActivity(ctx, s.activity, matterID, actorUID, "assignee_added",
 		map[string]interface{}{"user_id": assigneeUserID})
 	return nil
 }

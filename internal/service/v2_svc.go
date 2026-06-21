@@ -32,11 +32,19 @@ type V2Service struct {
 	summaries      *repository.SummaryRepo
 	activity       *repository.ActivityRepo
 	cards          *repository.AgentCardRepo
-	botResources   *repository.BotResourceRepo
+	botResources   botResourceStore
 	tx             *repository.TxManager
 	transition     *TransitionService
 	matterSvc      *MatterService
 	llm            LLMToolCaller // nil when LLM_API_KEY is absent
+}
+
+type botResourceStore interface {
+	Add(ctx context.Context, matterID, botUID, ownerUID string) (*repository.MatterBotResource, error)
+	Remove(ctx context.Context, matterID, botUID string) error
+	ListByMatter(ctx context.Context, matterID string) ([]*repository.MatterBotResource, error)
+	BotUIDs(ctx context.Context, matterID string) ([]string, error)
+	IsResource(ctx context.Context, matterID, botUID string) (bool, error)
 }
 
 func NewV2Service(
@@ -50,7 +58,7 @@ func NewV2Service(
 	summaries *repository.SummaryRepo,
 	activity *repository.ActivityRepo,
 	cards *repository.AgentCardRepo,
-	botResources *repository.BotResourceRepo,
+	botResources botResourceStore,
 	tx *repository.TxManager,
 	transition *TransitionService,
 	matterSvc *MatterService,
@@ -116,6 +124,9 @@ func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUI
 		// Bot collaborator — forbidden
 		return nil, apperr.Forbidden(i18n.KeyMatterAccess)
 	}
+	if err := s.requireDispatchableChildLeader(ctx, parent.ID, parent.LeaderOrEmpty(), m.LeaderOrEmpty()); err != nil {
+		return nil, err
+	}
 	if m.StepID != nil && *m.StepID != "" {
 		existing, err := s.matters.GetByParentStep(ctx, parent.ID, *m.StepID, m.SpaceID)
 		if err != nil {
@@ -126,6 +137,24 @@ func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUI
 		}
 	}
 	return nil, nil
+}
+
+func (s *V2Service) requireDispatchableChildLeader(ctx context.Context, parentMatterID, parentLeaderUID, childLeaderUID string) error {
+	childLeaderUID = strings.TrimSpace(childLeaderUID)
+	if childLeaderUID == "" || !strings.HasSuffix(childLeaderUID, "_bot") || childLeaderUID == parentLeaderUID {
+		return nil
+	}
+	if s.botResources == nil {
+		return apperr.InvalidInput("BOT_RESOURCES_NOT_CONFIGURED")
+	}
+	ok, err := s.botResources.IsResource(ctx, parentMatterID, childLeaderUID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return apperr.Forbidden(i18n.KeyMatterAccess)
+	}
+	return nil
 }
 
 // AfterCreate records the parent-side dispatch activity and — only for
@@ -2058,6 +2087,53 @@ func (s *V2Service) SendBack(ctx context.Context, id, spaceID string, callerUIDs
 // ListAgentCards returns the declared roster for the space.
 func (s *V2Service) ListAgentCards(ctx context.Context, spaceID string) ([]*model.MatterAgentCard, error) {
 	return s.cards.ListBySpace(ctx, spaceID)
+}
+
+// ListAgentCardsForMatter returns the dispatch roster available to a specific
+// matter: only bots that were explicitly added as resources on that matter.
+func (s *V2Service) ListAgentCardsForMatter(ctx context.Context, spaceID, matterID string, callerUIDs []string, callerToken string) ([]*model.MatterAgentCard, error) {
+	m, err := s.matters.GetByID(ctx, matterID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	if s.matterSvc != nil {
+		canAccess, err := s.matterSvc.CanAccessMatter(ctx, m, callerUIDs, "", callerToken)
+		if err != nil {
+			return nil, err
+		}
+		if !canAccess {
+			return nil, apperr.Forbidden(i18n.KeyMatterView)
+		}
+	}
+	if s.botResources == nil {
+		return nil, apperr.InvalidInput("BOT_RESOURCES_NOT_CONFIGURED")
+	}
+	botUIDs, err := s.botResources.BotUIDs(ctx, matterID)
+	if err != nil {
+		return nil, err
+	}
+	cards, err := s.cards.ListBySpace(ctx, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	return filterAgentCardsByBotUIDs(cards, botUIDs), nil
+}
+
+func filterAgentCardsByBotUIDs(cards []*model.MatterAgentCard, botUIDs []string) []*model.MatterAgentCard {
+	allowed := make(map[string]bool, len(botUIDs))
+	for _, uid := range botUIDs {
+		uid = strings.TrimSpace(uid)
+		if uid != "" {
+			allowed[uid] = true
+		}
+	}
+	out := make([]*model.MatterAgentCard, 0, len(cards))
+	for _, card := range cards {
+		if card != nil && allowed[card.BotUID] {
+			out = append(out, card)
+		}
+	}
+	return out
 }
 
 // SubmitSummaryDraft lets the RESPONSIBLE BOT submit its own distilled
