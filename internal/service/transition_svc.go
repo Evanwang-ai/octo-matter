@@ -280,35 +280,34 @@ func (s *TransitionService) authorize(ctx context.Context, r *repository.TxRepos
 	switch in.Target {
 	case model.MatterStatusInProgress:
 		switch m.Status {
-		case model.MatterStatusOpen, model.MatterStatusBlocked, model.MatterStatusBacklog:
+		case model.MatterStatusOpen, model.MatterStatusBlocked:
 			if isCreator || isLeader || isAssignee || isParentLeader {
 				return nil
 			}
 		case model.MatterStatusReview:
-			// 打回: human creator/parent-leader judgement. (S-derived flips
-			// come through Producer==system from the feedback path.)
 			if !in.IsBot && (isCreator || isParentLeader || isLeader) {
 				return nil
 			}
 		case model.MatterStatusDone, model.MatterStatusCancelled, model.MatterStatusArchived:
-			// undo (PRD: 完成可撤销) — creator only.
 			if !in.IsBot && isCreator {
 				return nil
 			}
 		}
+		// backlog → in_progress is NOT allowed (must go through open first)
 	case model.MatterStatusOpen:
-		// backlog → open (promote to actionable), or reopen from terminal.
+		// backlog → open (发车): only the matter's own creator can launch.
 		if m.Status == model.MatterStatusBacklog {
-			if isCreator || isLeader || isParentLeader {
+			if isCreator {
 				return nil
 			}
+			return apperr.Forbidden(i18n.KeyTransitionNotAllowed)
 		}
 		// reopen from terminal — creator only (legacy dmworktodo path).
 		if !in.IsBot && isCreator {
 			return nil
 		}
 	case model.MatterStatusBacklog:
-		// open → backlog (demote back to staging) — creator/leader only.
+		// open → backlog (demote back to draft) — creator/leader only.
 		if m.Status == model.MatterStatusOpen || m.Status == model.MatterStatusBlocked {
 			if !in.IsBot && (isCreator || isLeader || isParentLeader) {
 				return nil
@@ -321,14 +320,13 @@ func (s *TransitionService) authorize(ctx context.Context, r *repository.TxRepos
 			}
 		}
 	case model.MatterStatusBlocked:
-		if m.Status == model.MatterStatusInProgress || m.Status == model.MatterStatusReview || m.Status == model.MatterStatusOpen || m.Status == model.MatterStatusBacklog {
+		if m.Status == model.MatterStatusInProgress || m.Status == model.MatterStatusReview || m.Status == model.MatterStatusOpen {
 			if isCreator || isLeader || isAssignee || isParentLeader {
 				return nil
 			}
 		}
+		// backlog → blocked is NOT allowed (draft cannot be blocked)
 	case model.MatterStatusDone:
-		// 完成限权 (doc 04): the matter's own responsible agent can never
-		// accept its own work — even via owner-expanded power.
 		if in.IsBot {
 			botSelfResponsible := (m.LeaderUID != nil && *m.LeaderUID == in.ActorUID)
 			if !botSelfResponsible {
@@ -346,9 +344,17 @@ func (s *TransitionService) authorize(ctx context.Context, r *repository.TxRepos
 			if isParentLeader || isParentCreator {
 				return nil
 			}
-		} else if isCreator {
+		}
+		// Human leader can accept (验收)
+		if !in.IsBot && isLeader {
+			return nil
+		}
+		// Human assignee can accept
+		if !in.IsBot && isAssignee {
+			return nil
+		}
+		if isCreator {
 			if in.IsBot && in.ActorUID == m.CreatorID {
-				// a bot that created its own matter still cannot self-accept
 				return apperr.Forbidden(i18n.KeyNoSelfAcceptance)
 			}
 			return nil
@@ -356,6 +362,10 @@ func (s *TransitionService) authorize(ctx context.Context, r *repository.TxRepos
 		return apperr.Forbidden(i18n.KeyOnlyAcceptanceAuthority)
 	case model.MatterStatusCancelled:
 		if isCreator || isParentLeader {
+			return nil
+		}
+		// Human leader can cancel
+		if !in.IsBot && isLeader {
 			return nil
 		}
 	case model.MatterStatusArchived:
@@ -374,6 +384,29 @@ func (s *TransitionService) route(ctx context.Context, r *repository.TxRepos, m,
 	params := s.doorbellParams(m, from, in)
 
 	switch in.Target {
+	case model.MatterStatusOpen:
+		// 发车 (backlog → open): send assigned doorbell to leader and assignees.
+		if from == model.MatterStatusBacklog {
+			if leader := m.LeaderOrEmpty(); leader != "" {
+				eff.doorbells = append(eff.doorbells, doorbell{
+					target: leader, event: DoorbellAssigned,
+					messageKey: i18n.KeyDoorbellAssigned, params: params,
+				})
+			}
+			assignees, err := r.Assignee.ListByMatter(ctx, m.ID)
+			if err != nil {
+				return eff, err
+			}
+			for _, a := range assignees {
+				if a.UserID != m.LeaderOrEmpty() {
+					eff.doorbells = append(eff.doorbells, doorbell{
+						target: a.UserID, event: DoorbellAssigned,
+						messageKey: i18n.KeyDoorbellAssigned, params: params,
+					})
+				}
+			}
+		}
+
 	case model.MatterStatusReview:
 		if parent == nil {
 			// 父→审核中 ⇒ 门铃敲发起人「该你了」 (the ONLY routine human ring)

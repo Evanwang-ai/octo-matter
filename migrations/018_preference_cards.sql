@@ -1,4 +1,4 @@
--- 018_preference_cards.sql
+-- +migrate Up
 -- AI-era Zettelkasten: atomic behavior rules distilled from Matter feedback.
 -- Each card = one reusable gotcha the agent should not repeat.
 

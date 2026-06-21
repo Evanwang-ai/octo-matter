@@ -764,3 +764,56 @@ func (h *V2Handler) AgentCardList(c *gin.Context) {
 	}
 	ok(c, gin.H{"data": cards})
 }
+
+// ---------------------------------------------------------------------------
+// Bot Resources (Channel model: owner adds their own bot to a matter)
+// ---------------------------------------------------------------------------
+
+func (h *V2Handler) AddBotResource(c *gin.Context) {
+	var req struct {
+		BotUID string `json:"bot_uid" binding:"required,max=64"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	owned := false
+	for _, b := range ownedBots(c) {
+		if b == req.BotUID {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		failKey(c, http.StatusForbidden, "FORBIDDEN", i18n.KeyMatterAccess, nil)
+		return
+	}
+	br, err := h.v2.AddBotResource(c.Request.Context(), c.Param("id"), spaceID(c), req.BotUID, uid(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	created(c, br)
+}
+
+func (h *V2Handler) RemoveBotResource(c *gin.Context) {
+	botUID := c.Param("bot_uid")
+	if botUID == "" {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if err := h.v2.RemoveBotResource(c.Request.Context(), c.Param("id"), spaceID(c), botUID, uid(c)); err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, gin.H{"ok": true})
+}
+
+func (h *V2Handler) ListBotResources(c *gin.Context) {
+	bots, err := h.v2.ListBotResources(c.Request.Context(), c.Param("id"), spaceID(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, gin.H{"data": bots})
+}

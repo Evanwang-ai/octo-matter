@@ -32,6 +32,7 @@ type V2Service struct {
 	summaries      *repository.SummaryRepo
 	activity       *repository.ActivityRepo
 	cards          *repository.AgentCardRepo
+	botResources   *repository.BotResourceRepo
 	tx             *repository.TxManager
 	transition     *TransitionService
 	matterSvc      *MatterService
@@ -49,6 +50,7 @@ func NewV2Service(
 	summaries *repository.SummaryRepo,
 	activity *repository.ActivityRepo,
 	cards *repository.AgentCardRepo,
+	botResources *repository.BotResourceRepo,
 	tx *repository.TxManager,
 	transition *TransitionService,
 	matterSvc *MatterService,
@@ -58,7 +60,8 @@ func NewV2Service(
 		matters: matters, assignees: assignees, participants: participants,
 		projects: projects, projectSources: projectSources,
 		feedbacks: feedbacks, outbox: outbox,
-		summaries: summaries, activity: activity, cards: cards, tx: tx,
+		summaries: summaries, activity: activity, cards: cards,
+		botResources: botResources, tx: tx,
 		transition: transition, matterSvc: matterSvc, llm: llmCaller,
 	}
 }
@@ -70,7 +73,7 @@ func NewV2Service(
 // PrepareCreate validates the v2 fields on a new matter and resolves the
 // dispatch idempotency key. Returns an existing matter when (parent, step_id)
 // was already dispatched (idempotent re-dispatch, doc 02.5).
-func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUIDs []string, callerToken string) (*model.Matter, error) {
+func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUIDs []string, callerToken string, actorUID string, isBot bool) (*model.Matter, error) {
 	if m.Mode != nil && !model.IsValidMode(*m.Mode) {
 		return nil, apperr.InvalidInput(i18n.KeyModeInvalid)
 	}
@@ -92,11 +95,25 @@ func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUI
 	if err != nil {
 		return nil, apperr.InvalidInput(i18n.KeyParentNotFound)
 	}
-	ok, err := s.matterSvc.CanAccessMatter(ctx, parent, callerUIDs, "", callerToken)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
+	// Sub-matter creation guard: only leader + creator + human collaborators.
+	// Bot collaborators cannot dispatch sub-matters (tree-as-permission rule).
+	// Uses actorUID (real caller), not expanded callerUIDs, to prevent bots
+	// from borrowing owner identity.
+	if actorUID == parent.CreatorID {
+		// Initiator (god-mode) — ok
+	} else if actorUID == parent.LeaderOrEmpty() {
+		// Leader (human or bot) — ok
+	} else if !isBot {
+		isAssignee, aErr := s.assignees.IsAssigneeAny(ctx, parent.ID, []string{actorUID})
+		if aErr != nil {
+			return nil, aErr
+		}
+		if !isAssignee {
+			return nil, apperr.Forbidden(i18n.KeyMatterAccess)
+		}
+		// Human collaborator — ok
+	} else {
+		// Bot collaborator — forbidden
 		return nil, apperr.Forbidden(i18n.KeyMatterAccess)
 	}
 	if m.StepID != nil && *m.StepID != "" {
@@ -111,14 +128,19 @@ func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUI
 	return nil, nil
 }
 
-// AfterCreate records the parent-side dispatch activity and rings the
-// assignment doorbells (指派 → 新负责人).
+// AfterCreate records the parent-side dispatch activity and — only for
+// matters created as open — rings the assignment doorbells. Backlog (draft)
+// matters stay silent; doorbells are sent later when the matter is launched
+// (backlog → open).
 func (s *V2Service) AfterCreate(ctx context.Context, m *model.Matter, actorUID string, assigneeIDs []string) {
 	if m.ParentMatterID != nil && *m.ParentMatterID != "" {
 		if err := s.activity.Record(ctx, *m.ParentMatterID, actorUID, "child_created",
 			map[string]any{"child_id": m.ID, "child_seq": m.SeqNo, "title": m.Title, "step_id": m.StepID}); err != nil {
 			log.Printf("[WARN] child_created activity failed parent=%s: %v", *m.ParentMatterID, err)
 		}
+	}
+	if m.Status != model.MatterStatusOpen {
+		return
 	}
 	params := map[string]any{"Title": m.Title, "Seq": m.SeqNo, "Actor": actorUID}
 	rung := map[string]bool{}
@@ -2065,4 +2087,57 @@ func (s *V2Service) SubmitSummaryDraft(ctx context.Context, matterID, spaceID st
 	_ = s.transition.EnqueueStandalone(ctx, m, actorUID, m.CreatorID,
 		"matter.doorbell.summary_draft", i18n.KeyDoorbellSummaryDraft, params)
 	return sum, nil
+}
+
+// ---------------------------------------------------------------------------
+// Bot Resources (Channel model: owner adds their own bot)
+// ---------------------------------------------------------------------------
+
+func (s *V2Service) AddBotResource(ctx context.Context, matterID, spaceID, botUID, ownerUID string) (*repository.MatterBotResource, error) {
+	if s.botResources == nil {
+		return nil, apperr.InvalidInput("BOT_RESOURCES_NOT_CONFIGURED")
+	}
+	m, err := s.matters.GetByID(ctx, matterID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	isCreator := ownerUID == m.CreatorID
+	isAssignee, _ := s.assignees.IsAssigneeAny(ctx, m.ID, []string{ownerUID})
+	isLeaderOwner := m.LeaderUID != nil && ownerUID == *m.LeaderUID
+	if !isCreator && !isAssignee && !isLeaderOwner {
+		return nil, apperr.Forbidden(i18n.KeyMatterAccess)
+	}
+	return s.botResources.Add(ctx, matterID, botUID, ownerUID)
+}
+
+func (s *V2Service) RemoveBotResource(ctx context.Context, matterID, spaceID, botUID, ownerUID string) error {
+	if s.botResources == nil {
+		return apperr.InvalidInput("BOT_RESOURCES_NOT_CONFIGURED")
+	}
+	if _, err := s.matters.GetByID(ctx, matterID, spaceID); err != nil {
+		return err
+	}
+	br, err := s.botResources.ListByMatter(ctx, matterID)
+	if err != nil {
+		return err
+	}
+	for _, r := range br {
+		if r.BotUID == botUID {
+			if r.OwnerUID != ownerUID {
+				return apperr.Forbidden(i18n.KeyMatterAccess)
+			}
+			return s.botResources.Remove(ctx, matterID, botUID)
+		}
+	}
+	return apperr.ErrNotFound
+}
+
+func (s *V2Service) ListBotResources(ctx context.Context, matterID, spaceID string) ([]*repository.MatterBotResource, error) {
+	if s.botResources == nil {
+		return []*repository.MatterBotResource{}, nil
+	}
+	if _, err := s.matters.GetByID(ctx, matterID, spaceID); err != nil {
+		return nil, err
+	}
+	return s.botResources.ListByMatter(ctx, matterID)
 }

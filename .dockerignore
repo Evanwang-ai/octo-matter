@@ -5,6 +5,7 @@
 docs/*
 !docs/SKILL.md
 !docs/embed.go
+!docs/modes/
 
 # VCS metadata
 .git

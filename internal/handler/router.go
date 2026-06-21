@@ -64,6 +64,18 @@ func SetupRouter(
 	r.GET("/skill.md", func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/markdown; charset=utf-8", docs.SkillMD)
 	})
+	r.GET("/modes/:name", func(c *gin.Context) {
+		name := c.Param("name")
+		if !strings.HasSuffix(name, ".md") {
+			name += ".md"
+		}
+		data, err := fs.ReadFile(docs.ModesFS, "modes/"+name)
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusOK, "text/markdown; charset=utf-8", data)
+	})
 	r.GET("/health/ready", func(c *gin.Context) {
 		if ready != nil {
 			if err := ready(); err != nil {
@@ -127,6 +139,9 @@ func SetupRouter(
 			matters.PUT("/:id/summary/:sid", v2H.ResolveSummary)
 			matters.GET("/:id/preference-hints", v2H.PreferenceHints)
 			matters.PUT("/:id/preference-hints/:sid", v2H.CalibratePreferenceHint)
+			matters.POST("/:id/bots", v2H.AddBotResource)
+			matters.DELETE("/:id/bots/:bot_uid", v2H.RemoveBotResource)
+			matters.GET("/:id/bots", v2H.ListBotResources)
 		}
 	}
 

@@ -2804,7 +2804,7 @@ function seqLabel(m){
 
 /* ---------------- 状态词表(exact) ---------------- */
 var ST = {
-  backlog:     { name: "待规划", pill: "backlog",  ring: "backlog" },
+  backlog:     { name: "草稿", pill: "backlog",  ring: "backlog" },
   open:        { name: "待办",   pill: "gray",     ring: "todo" },
   in_progress: { name: "进行中", pill: "progress", ring: "doing" },
   review:      { name: "审核中", pill: "amber",    ring: "review" },
@@ -5964,7 +5964,7 @@ function reviewBannerHTML(m){
 }
 /* ---- 计划图(几何即语义,移植原型 planNodes/renderCollab/drawPlanEdges,数据来自 GET /matters/:id/tree) ---- */
 var PG_RING = { backlog: "backlog", open: "todo", in_progress: "doing", review: "review", done: "done", blocked: "block", cancelled: "cancel", archived: "cancel" };
-var PG_STATE_TEXT = { backlog: "待规划", open: "待办", in_progress: "进行中", review: "待确认", done: "已交回", blocked: "受阻", cancelled: "取消", archived: "归档" };
+var PG_STATE_TEXT = { backlog: "草稿", open: "待办", in_progress: "进行中", review: "待确认", done: "已交回", blocked: "受阻", cancelled: "取消", archived: "归档" };
 function pgAsgHTML(uid){
   if (!uid) return '<div class="pg-asg"><span class="m-noone">没人接</span></div>';
   return '<div class="pg-asg" data-uid="' + esc(uid) + '" title="' + esc(uid) + '">'
@@ -6146,7 +6146,7 @@ function timelineBlockHTML(m){
   var inner;
   if (!entries.length){
     var es = {
-      backlog:     { cls: "",      ic: "◇", title: "待规划", sub: "还在酝酿中,先收集着" },
+      backlog:     { cls: "",      ic: "◇", title: "草稿", sub: "还在编队中,等发车" },
       open:        { cls: "",      ic: "○", title: "待开工", sub: "还没有交付记录" },
       in_progress: { cls: "doing", ic: "⟳", title: "进行中", sub: "等负责人交回可验收结果" },
       review:      { cls: "doing", ic: "◌", title: "待品鉴", sub: "进入验收了,但这里还没有记录" },
@@ -6790,10 +6790,10 @@ function statusOptionHint(k, m){
   if (from === "review" && k === "in_progress") return "打回重做,继续推进";
   if (from === "in_progress" && k === "review") return "交回发起人验收";
   if (from === "review" && k === "done") return "验收通过,进入留档";
-  if (from === "open" && k === "backlog") return "退回待规划,暂不执行";
-  if (from === "backlog" && k === "open") return "排入待办,等负责人接手";
+  if (from === "open" && k === "backlog") return "退回草稿,暂不执行";
+  if (from === "backlog" && k === "open") return "启动,开始执行";
   return ({
-    backlog: "还在酝酿,先收集着",
+    backlog: "编队中,等启动",
     open: "还没开工,等负责人接手",
     in_progress: "正在做,可以继续补充信息",
     review: "交回来了,等发起人验收",
@@ -7598,7 +7598,15 @@ function bindMemberPicker(box, state, opts){
   box.addEventListener("click", function(e){
     if (e.target instanceof Element && e.target.closest("[data-rm]")) return;
     e.stopPropagation();
-    var list = members.list.filter(function(it){ return it && it.uid && (!opts.botsOnly || it.robot); });
+    var ob = (opts.ownedBotsOnly || opts.humansAndOwnBots) ? ownedBotInfo() : null;
+    var list = members.list.filter(function(it){
+      if (!it || !it.uid) return false;
+      if (opts.humansAndOwnBots) return !it.robot || (ob && ob.owned && ob.owned[it.uid]);
+      if (opts.humansOnly) return !it.robot;
+      if (opts.ownedBotsOnly) return it.uid === auth.uid || (it.robot && ob && ob.owned && ob.owned[it.uid]);
+      if (opts.botsOnly) return it.robot;
+      return true;
+    });
     var html = list.length ? list.map(function(it){
       var sel = state.sel.indexOf(it.uid) >= 0;
       return '<div class="fm-item' + (sel ? " sel" : "") + '" data-val="' + esc(it.uid) + '">' + av(it.uid)
@@ -7747,9 +7755,9 @@ function buildNewMatterModal(opts){
     + '<div class="modal-body"><div class="matter-form">'
     + '<div class="matter-field"><label>领队</label>'
     + '<div class="mp-box" id="nmLeader" role="button" tabindex="0"></div></div>'
-    + '<div class="matter-field"><label>协作</label>'
+    + '<div class="matter-field"><label>协作（人）</label>'
     + '<div class="mp-box" id="nmCollab" role="button" tabindex="0"></div>'
-    + '<div class="hint">领队可以调度的 Agent;留空则领队单干</div></div>'
+    + '<div class="hint">添加协作者或你自己的 bot;别人的 bot 需要由本人添加</div></div>'
     + '<hr class="nm-sep">'
     + '<div class="matter-field" id="fTitle"><label>主题<span class="req">*</span></label>'
     + '<input class="matter-input" id="nmTitle" maxlength="500" placeholder="一句话概括这件事">'
@@ -7772,6 +7780,7 @@ function buildNewMatterModal(opts){
     + "</div></div>"
     + '<div class="modal-foot"><div class="matter-error" id="nmErr" style="margin-right:auto"></div>'
     + '<button class="ff-cancel" id="nmCancel" type="button">取消</button>'
+    + '<button class="ff-cancel" id="nmDraft" type="button">保存草稿</button>'
     + '<button class="ff-save" id="nmOk" type="button">发送</button></div>';
   openModal(function(){ closeDlPop(); closeFloatMenu(); });
   $("#mx").onclick = closeModal;
@@ -7804,8 +7813,8 @@ function buildNewMatterModal(opts){
     fileSt = fileSt.concat(files);
     paintNmFiles();
   });
-  var leaderPicker = bindMemberPicker($("#nmLeader"), leaderSt, { ph: "选择领队", single: true });
-  var collabPicker = bindMemberPicker($("#nmCollab"), collabSt, { ph: "添加可调度 Agent" });
+  var leaderPicker = bindMemberPicker($("#nmLeader"), leaderSt, { ph: "选择领队", single: true, ownedBotsOnly: true });
+  var collabPicker = bindMemberPicker($("#nmCollab"), collabSt, { ph: "添加协作者", humansAndOwnBots: true });
   $("#nmProj").addEventListener("change", function(){
     clearInvalid("#fProj");
     syncScope();
@@ -7835,7 +7844,7 @@ function buildNewMatterModal(opts){
   });
   $("#nmTitle").addEventListener("input", function(){ clearInvalid("#fTitle"); });
   setTimeout(function(){ var f = $("#nmLeader"); if (f) f.focus(); }, 50);
-  $("#nmOk").onclick = function(){
+  function submitCreate(asDraft){
     var title = $("#nmTitle").value.trim();
     var briefV = ($("#nmBrief").value || "").trim();
     var goalV = ($("#nmGoal") ? $("#nmGoal").value : "").trim();
@@ -7858,6 +7867,7 @@ function buildNewMatterModal(opts){
       return;
     }
     var body = { title: title };
+    if (asDraft) body.status = "backlog"; else body.status = "open";
     if (briefV) body.description = briefV;
     if (goalV) body.brief_output_spec = goalV;
     if (pj) body.project_id = pj;
@@ -7869,20 +7879,20 @@ function buildNewMatterModal(opts){
     if (collabSt.sel.length) body.assignee_ids = collabSt.sel;
     var md = $("#nmMode").value;
     if (md) body.mode = md;
-    var btn = $("#nmOk");
-    btn.disabled = true; btn.textContent = fileSt.length ? "上传附件…" : "发送中…";
+    var btn = asDraft ? $("#nmDraft") : $("#nmOk");
+    btn.disabled = true; btn.textContent = fileSt.length ? "上传附件…" : (asDraft ? "保存中…" : "发送中…");
     var uploadP = fileSt.length
       ? Promise.all(fileSt.map(function(f){ return uploadMatterAttachment(f, "new"); }))
       : Promise.resolve([]);
     uploadP.then(function(atts){
       if (atts.length) body.input_attachments = atts;
-      btn.textContent = "发送中…";
+      btn.textContent = asDraft ? "保存中…" : "发送中…";
       return api("/matters", { method: "POST", body: body });
     }).then(function(detail){
       var nm = normMatter(detail);
       closeModal();
       cache.projCounts = {};
-      toast("已发送 · " + (nm ? seqLabel(nm) : "") + (body.input_attachments ? " · " + body.input_attachments.length + " 份材料" : ""));
+      toast((asDraft ? "已保存草稿" : "已发送") + " · " + (nm ? seqLabel(nm) : "") + (body.input_attachments ? " · " + body.input_attachments.length + " 份材料" : ""));
       if (nm && nm.id && parseHash().view === "myinbox"){
         myInboxSel = nm.id;
         renderMyInbox(renderToken, myInboxTab);
@@ -7890,10 +7900,12 @@ function buildNewMatterModal(opts){
         location.hash = "#/matter/" + nm.id;
       } else { render(); }
     }).catch(function(e){
-      btn.disabled = false; btn.textContent = "发送";
-      $("#nmErr").textContent = e.message || "发送失败";
+      btn.disabled = false; btn.textContent = asDraft ? "保存草稿" : "发送";
+      $("#nmErr").textContent = e.message || "操作失败";
     });
-  };
+  }
+  $("#nmOk").onclick = function(){ submitCreate(false); };
+  if ($("#nmDraft")) $("#nmDraft").onclick = function(){ submitCreate(true); };
 }
 
 /* ---- 派子任务(从事项详情进入) ---- */

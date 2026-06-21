@@ -101,7 +101,7 @@ func recordActivity(ctx context.Context, store activityStore, matterID, actorID,
 // (GAP #13) and inserts all initial assignees in a single transaction.
 func (s *MatterService) CreateMatterWithAssignees(ctx context.Context, matter *model.Matter, assigneeIDs []string) (*MatterDetail, error) {
 	if matter.Status == "" {
-		matter.Status = model.MatterStatusOpen
+		matter.Status = model.MatterStatusBacklog
 	}
 	var created []*model.MatterAssignee
 	err := s.tx.Do(ctx, func(r *repository.TxRepos) error {
@@ -628,11 +628,9 @@ func (s *MatterService) AddAssignee(ctx context.Context, matterID, spaceID strin
 	if err != nil {
 		return err
 	}
-	isAssignee, aErr := s.isAssigneeAny(ctx, matterID, callerUIDs)
-	if aErr != nil {
-		return aErr
-	}
-	if !s.isCreator(matter, callerUIDs) && !isAssignee {
+	isCreator := s.isCreator(matter, callerUIDs)
+	isLeader := matter.LeaderUID != nil && containsUID(callerUIDs, *matter.LeaderUID)
+	if !isCreator && !isLeader {
 		return apperr.ErrForbidden
 	}
 	if err := s.assigneeRepo.Create(ctx, &model.MatterAssignee{

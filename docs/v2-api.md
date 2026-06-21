@@ -23,19 +23,26 @@ and `/matter/ui/` all call `/matter/api/v1`; direct service access still calls
 
 ## Status machine
 
-`open(待办) → in_progress(进行中) → review(审核中) → done(完成)`
+`backlog(草稿) → open(待办) → in_progress(进行中) → review(审核中) → done(完成)`
 plus `blocked(受阻)`, `cancelled(取消, terminal)`, legacy `archived`.
+
+`backlog` is the draft/assembly state. No doorbells are sent for backlog matters.
+`backlog → open` is the "launch" transition that triggers the assigned doorbell.
+`backlog` can only go to `open` or `cancelled` — direct jumps to `in_progress`,
+`blocked`, etc. are forbidden.
 
 Transition guard (server-enforced, producer matrix from doc 02.5):
 
 | edge | allowed |
 |------|---------|
+| backlog→open (launch) | creator of this matter only |
+| backlog→cancelled | creator or parent leader |
 | open→in_progress | assignee / leader / creator |
 | in_progress→review | assignee / leader / creator |
 | in_progress↔blocked | assignee/leader (reason kind=agent) · system watchdog (kind=system) · creator |
 | review→in_progress | creator/leader, or system-derived from feedback |
-| →done | top matter: creator only; child: parent leader or parent creator. A bot that is the matter's own assignee/leader can never complete it (no self-grading) |
-| →cancelled | creator or parent leader |
+| →done | human leader, human assignee, creator, parent leader/creator. A bot can never accept its own work (no self-grading) |
+| →cancelled | creator, parent leader, or human leader |
 | done→in_progress / done→open | creator (undo) |
 | archived | creator only (legacy) |
 
@@ -74,12 +81,19 @@ block_reason_kind ('agent'|'system'), block_reason_text
 schedule_id, scheduled_at             定时建单幂等键
 ```
 
-`POST /api/v1/matters` accepts: `title, description, assignee_ids, leader_uid,
-parent_matter_id, step_id, step_order, mode, project_id,
-expected_duration_minutes, deadline, remind_at, source_*`.
+`POST /api/v1/matters` accepts: `title, status, description, assignee_ids,
+leader_uid, parent_matter_id, step_id, step_order, mode, project_id,
+expected_duration_minutes, deadline, remind_at, source_*,
+input_attachments`.
+
+`status` is optional: `"backlog"` (default) or `"open"`. When created as
+`backlog`, no doorbell is sent — use `PUT /status {"status":"open"}` to launch.
+When created as `open`, the assigned doorbell fires immediately.
+
 Creating a child with an existing `(parent_matter_id, step_id)` returns the
-existing row (idempotent dispatch). Child creation requires access to the
-parent and appends a `child_created` activity on the parent.
+existing row (idempotent dispatch). Child creation is restricted to the
+parent's **leader, creator, or human assignees** — bot assignees cannot
+create sub-matters (tree-as-permission rule).
 
 `PUT /api/v1/matters/:id` additionally accepts `leader_uid` (reassign →
 `assignment_epoch`+1, activity `reassigned`, doorbell to old+new leader),
@@ -364,3 +378,49 @@ Local verification:
 - 行为修正:门铃消费=调用者本人(主人围观不再消押 agent 的铃);软删事项停其全部活铃;
   已投未消费重敲按指数退避(10m·2^n,封顶 2^5);bot 自指 uid 大小写按 auth 实名矫正;
   bot 带 source_channel_id 创建时默认 channel_type=2。
+
+## 2026-06-21 权限改造(树即权限)
+
+设计文档: `Matter-权限设计-树即权限.md`
+
+### 状态机变更
+
+- `POST /api/v1/matters` 新增 `status` 字段(可选): `"backlog"` (默认) 或 `"open"`。
+  backlog = 草稿/编队态,不发门铃。open = 发车,门铃立刻发出。
+- `backlog → open`(发车)触发 assigned doorbell。只有 matter 的 creator 可以发车。
+- `backlog` 不能直接到 `in_progress/blocked/review/done`——必须先发车到 open。
+- `backlog → cancelled` 保留(取消草稿)。
+- Cron 创建的 matter 仍直接进 open(跳过 backlog)。
+
+### 权限变更
+
+- **子任务创建守卫**: 只有父单的 leader + creator + 人类 assignee 能创建子任务。
+  bot assignee 不能创建子任务(树即权限:协作 bot 只执行)。
+  使用 actorUID(真实调用者),不使用展开后的 callerUIDs,防止 bot 借用 owner 身份。
+- **验收(done)**: 新增允许人类 leader 和人类 assignee。bot 仍不能自评 done。
+- **取消(cancelled)**: 新增允许人类 leader。
+- **AddAssignee**: 收紧为 creator + leader 才能加人(原来 assignee 也能加人)。
+
+### Bot 资源 API(Channel 模型)
+
+先加人(free),人自己加 bot(owner 主权)。与 IM 群体验一致。
+
+```
+POST   /api/v1/matters/:id/bots       添加 bot 到 matter
+DELETE /api/v1/matters/:id/bots/:uid   移除 bot
+GET    /api/v1/matters/:id/bots        列出 matter 的可调度 bot
+```
+
+`POST /bots` body: `{"bot_uid":"<uid>"}`。守卫:
+1. 调用者必须拥有该 bot(`ownedBots` 检查)。
+2. 调用者必须是 matter 的参与者(creator / assignee / leader 的主人)。
+
+`DELETE /bots/:uid` 守卫: 只有 bot 的 owner 能移除。
+
+### UI 变更
+
+- 创建表单领队选择器: 只显示自己的 bot + 自己。
+- 创建表单协作选择器: 只显示人类(标签"协作（人）")。
+- 创建表单新增"保存草稿"按钮(status=backlog),"发送"按钮(status=open)。
+- backlog 在看板/收件箱显示为"草稿"。
+

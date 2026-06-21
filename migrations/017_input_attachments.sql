@@ -1,4 +1,4 @@
--- 017_input_attachments.sql
+-- +migrate Up
 -- Input materials attached at creation time, readable directly from GET /matters/:id.
 -- Separates input (creator uploads) from output (timeline work product).
 

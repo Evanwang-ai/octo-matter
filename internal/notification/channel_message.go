@@ -56,6 +56,71 @@ func (n *OctoNotifier) ListBotGroups(botUID string) ([]BotGroup, error) {
 	return groups, nil
 }
 
+// ActionCard is the payload structure for rich card messages (type 50).
+// Generic: any module can send cards with different templates.
+type ActionCard struct {
+	Template string            `json:"template"`
+	Header   ActionCardHeader  `json:"header"`
+	Fields   []ActionCardField `json:"fields"`
+	Actions  []ActionCardAction `json:"actions,omitempty"`
+}
+type ActionCardHeader struct {
+	Title string `json:"title"`
+	Icon  string `json:"icon,omitempty"`
+}
+type ActionCardField struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+type ActionCardAction struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
+	Style string `json:"style,omitempty"`
+}
+
+// CardSender can send rich card messages to IM channels.
+type CardSender interface {
+	SendCardMessage(fromUID, channelID string, channelType uint8, card ActionCard) error
+}
+
+// SendCardMessage posts a rich action card message (type 50) to a channel.
+func (n *OctoNotifier) SendCardMessage(fromUID, channelID string, channelType uint8, card ActionCard) error {
+	if fromUID == "" || channelID == "" {
+		return nil
+	}
+	payload := map[string]interface{}{
+		"type": 50,
+		"card": card,
+	}
+	body, err := json.Marshal(map[string]interface{}{
+		"channel_id":   channelID,
+		"channel_type": channelType,
+		"from_uid":     fromUID,
+		"payload":      payload,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal card message: %w", err)
+	}
+	req, err := http.NewRequest(http.MethodPost, n.baseURL+"/v1/internal/bot/sendMessage", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("build card message request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if n.token != "" {
+		req.Header.Set("X-Internal-Token", n.token)
+	}
+	resp, err := n.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("card message POST: %w", err)
+	}
+	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("card message returned %d", resp.StatusCode)
+	}
+	return nil
+}
+
 // SendChannelMessage posts via octo-server POST /v1/internal/bot/sendMessage
 // (X-Internal-Token). Synchronous like SendDoorbell: the outbox dispatcher
 // owns retries, so failures must surface.

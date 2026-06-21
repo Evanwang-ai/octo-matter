@@ -69,9 +69,15 @@ octo-cli api PUT /api/v1/matters/<id>/status \
   --data '{"status":"blocked","reason":"缺少 X 的访问授权","assignment_epoch":<epoch>}'
 ```
 
-状态机:`open(待办) → in_progress(进行中) → review(审核中) → done(完成)`,
-旁路 `blocked(受阻)`、`cancelled(取消,终态)`。你能写的边:认领、交回、受阻、
-受阻恢复。`done/cancelled` 不归你。
+状态机:`backlog(草稿) → open(待办) → in_progress(进行中) → review(审核中) → done(完成)`,
+旁路 `blocked(受阻)`、`cancelled(取消,终态)`。
+
+`backlog` 是编队阶段:人还在组装资源(加人、加 bot),还没发车。
+`backlog → open` = 发车,门铃才发出。backlog 不能直接跳到 in_progress。
+
+你能写的边:认领(open→in_progress)、交回(→review)、受阻(→blocked)、恢复。
+`done/cancelled` 不归你(铁律:bot 不能自评 done)。
+你作为领队创建的子任务,你可以发车(backlog→open)。
 
 ## 3. 被打回(圈一笔)之后
 

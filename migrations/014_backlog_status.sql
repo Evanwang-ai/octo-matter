@@ -1,4 +1,4 @@
--- 014_backlog_status.sql
+-- +migrate Up
 -- Add "backlog" to the matter status enum (pre-open staging state).
 
 ALTER TABLE matters

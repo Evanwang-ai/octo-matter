@@ -1,4 +1,4 @@
--- 016_mandatory_project.sql
+-- +migrate Up
 -- Every matter must belong to a project. Create a default "收件箱" project
 -- per space for orphans, then migrate them.
 -- NOTE: The actual migration is run by the Go service on startup via

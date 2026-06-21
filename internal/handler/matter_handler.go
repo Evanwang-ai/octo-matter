@@ -85,6 +85,7 @@ type createMatterSourceMsgRef struct {
 
 type createMatterReq struct {
 	Title             string   `json:"title" binding:"required,max=500"`
+	Status            string   `json:"status" binding:"omitempty,oneof=backlog open"`
 	Description       *string  `json:"description" binding:"omitempty,max=10000"`
 	BriefConstraints  *string  `json:"brief_constraints" binding:"omitempty,max=4000"`
 	BriefOutputSpec   *string  `json:"brief_output_spec" binding:"omitempty,max=4000"`
@@ -147,6 +148,7 @@ func (h *MatterHandler) Create(c *gin.Context) {
 	matter := &model.Matter{
 		SpaceID:           sid,
 		Title:             req.Title,
+		Status:            model.MatterStatus(req.Status),
 		Description:       req.Description,
 		BriefConstraints:  req.BriefConstraints,
 		BriefOutputSpec:   req.BriefOutputSpec,
@@ -231,7 +233,7 @@ func (h *MatterHandler) Create(c *gin.Context) {
 	// v2: mode/project validation, parent access, dispatch idempotency
 	// ((parent_id, step_id) already dispatched → return the existing row).
 	if h.v2 != nil {
-		existing, err := h.v2.PrepareCreate(c.Request.Context(), matter, effectiveCallerUIDs(c), callerToken(c))
+		existing, err := h.v2.PrepareCreate(c.Request.Context(), matter, effectiveCallerUIDs(c), callerToken(c), uid(c), c.GetString("role") == "bot")
 		if err != nil {
 			respondErr(c, err)
 			return
