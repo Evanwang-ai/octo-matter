@@ -107,9 +107,10 @@ ring k+1)/ `critic` 生成-验证(验方有否决权)。
 
 ```bash
 # 派活(幂等键 = parent + step_id:重复执行返回同一单,放心重试)
+# status:"open" 直接启动子任务(你是创建者,有发车权)
 octo-cli api POST /api/v1/matters --data '{
   "title":"<子任务标题>","parent_matter_id":"<父id>",
-  "step_id":"s1","step_order":1,
+  "step_id":"s1","step_order":1,"status":"open",
   "leader_uid":"<谁负责>","assignee_ids":["<谁负责>"],
   "description":"<这一路的输入与边界>"}'
 
