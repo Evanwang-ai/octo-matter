@@ -277,6 +277,12 @@ func (s *TransitionService) authorize(ctx context.Context, r *repository.TxRepos
 		}
 	}
 
+	// Humans can freely move matters on the board. The strict state machine
+	// is for bots; humans are trusted to make judgment calls.
+	if !in.IsBot && isCreator {
+		return nil
+	}
+
 	switch in.Target {
 	case model.MatterStatusInProgress:
 		switch m.Status {
@@ -293,11 +299,11 @@ func (s *TransitionService) authorize(ctx context.Context, r *repository.TxRepos
 				return nil
 			}
 		}
-		// backlog → in_progress is NOT allowed (must go through open first)
+		// backlog → in_progress: bots must go through open first
 	case model.MatterStatusOpen:
-		// backlog → open (发车): only the matter's own creator can launch.
+		// backlog → open (发车): creator or any human participant can launch.
 		if m.Status == model.MatterStatusBacklog {
-			if isCreator {
+			if isCreator || (!in.IsBot && (isLeader || isAssignee || isParentLeader)) {
 				return nil
 			}
 			return apperr.Forbidden(i18n.KeyTransitionNotAllowed)

@@ -5101,6 +5101,10 @@ function ctxFormHTML(){
 function paintProjectDetail(my){
   var st = projState;
   if (!st) return;
+  // Preserve board scroll position across re-renders
+  var savedScrollLeft = 0;
+  var oldVp = $(".board-viewport", $("#centerCol"));
+  if (oldVp) savedScrollLeft = oldVp.scrollLeft;
   var p = st.project;
   var name = p ? p.name : "项目";
   $("#crumb").innerHTML = '<a href="#/projects" class="crumb-link">项目</a><span class="crumb-sep">&gt;</span><span class="crumb-current">' + esc(name) + "</span>";
@@ -5143,7 +5147,7 @@ function paintProjectDetail(my){
           + '<button class="bc-add" type="button" data-proj-addcol="' + c.st + '" title="新建事项">+</button></div>'
           + '<div class="board-cards">' + (cards.map(boardCardHTML).join("") || '<div class="board-empty">没有事项</div>') + "</div></div>";
       }).join("");
-      body = '<div class="board-shell"><div class="board-viewport"><div class="board-wrap">' + cols + "</div></div></div>";
+      body = '<div class="board-shell" style="height:calc(100vh - 180px)"><div class="board-viewport"><div class="board-wrap">' + cols + "</div></div></div>";
     } else {
       var listHtml = rows.map(function(m){
         var r = rowHTML(m, { noExpand: !!m.parent_matter_id });
@@ -5170,6 +5174,11 @@ function paintProjectDetail(my){
     + '<div class="list-sub">' + rows.length + " 个事项 · " + scopeLabel(p) + (p && p.archived ? " · 已归档" : "") + "</div>"
     + body
     + "</div></div>";
+  // Restore board scroll position
+  if (savedScrollLeft) {
+    var newVp = $(".board-viewport", $("#centerCol"));
+    if (newVp) newVp.scrollLeft = savedScrollLeft;
+  }
   var projTrigger = $("#projModeTrigger");
   var projDrop = $("#projModeDrop");
   if (projTrigger) projTrigger.addEventListener("click", function(e){
@@ -5486,6 +5495,40 @@ function paintProjectDetail(my){
         }
       });
     });
+    // Viewport horizontal scroll: grab + momentum + wheel
+    var pvp = $(".board-viewport", $("#centerCol"));
+    if (pvp){
+      var pds = { active: false, startX: 0, scrollLeft: 0, velX: 0, lastX: 0, lastT: 0, rafId: 0 };
+      pvp.addEventListener("mousedown", function(e){
+        if (e.target.closest(".bcard, .bc-add, button, a, [draggable]")) return;
+        pds.active = true; pds.startX = e.clientX; pds.scrollLeft = pvp.scrollLeft;
+        pds.velX = 0; pds.lastX = e.clientX; pds.lastT = Date.now();
+        pvp.classList.add("grabbing"); cancelAnimationFrame(pds.rafId);
+      });
+      document.addEventListener("mousemove", function(e){
+        if (!pds.active) return;
+        pvp.scrollLeft = pds.scrollLeft - (e.clientX - pds.startX);
+        var now = Date.now(), dt = Math.max(1, now - pds.lastT);
+        pds.velX = (e.clientX - pds.lastX) / dt * 16;
+        pds.lastX = e.clientX; pds.lastT = now;
+      });
+      document.addEventListener("mouseup", function(){
+        if (!pds.active) return;
+        pds.active = false; pvp.classList.remove("grabbing");
+        var vel = pds.velX;
+        if (Math.abs(vel) > 0.5){
+          (function coast(){ vel *= 0.94; if (Math.abs(vel) < 0.3) return; pvp.scrollLeft -= vel; pds.rafId = requestAnimationFrame(coast); })();
+        }
+      });
+      pvp.addEventListener("wheel", function(e){
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+        if (e.deltaY === 0) return;
+        var cards = e.target.closest(".board-cards");
+        if (cards && cards.scrollHeight > cards.clientHeight) return;
+        e.preventDefault();
+        pvp.scrollLeft += e.deltaY;
+      }, { passive: false });
+    }
   }
 }
 
