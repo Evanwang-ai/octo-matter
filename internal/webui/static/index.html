@@ -3593,7 +3593,7 @@ function bindInbox(my){
       paintInbox(my);
     }).catch(function(e){ errToast(e); lm.disabled = false; lm.textContent = "加载更多"; });
   });
-  var mlist = $(".mlist");
+  var mlist = $(".mlist", $("#centerCol"));
   if (mlist) mlist.addEventListener("change", function(e){
     if (!e.target.classList.contains("m-check")) return;
     var row = e.target.closest(".mrow");
@@ -3663,7 +3663,7 @@ function bindInbox(my){
       else if (act === "cancel") doCtxStatus(mid, "cancelled", my);
     });
     setTimeout(function(){ document.addEventListener("click", closeCtxMenu, { once: true }); }, 0);
-  });
+  }, true);
 }
 function closeCtxMenu(){ var m = $("#ctxMenu"); if (m) m.remove(); }
 function doCtxStatus(id, status, my){
@@ -5185,6 +5185,12 @@ function ctxFormHTML(){
 function paintProjectDetail(my){
   var st = projState;
   if (!st) return;
+  var viewModeForScroll = st.viewMode || "list";
+  var shouldRestoreScroll = st.tab !== "context" && viewModeForScroll !== "board";
+  // Preserve visible position across full re-renders triggered by list actions.
+  var savedScrollTop = 0;
+  var oldContent = $(".content", $("#centerCol"));
+  if (shouldRestoreScroll && oldContent) savedScrollTop = oldContent.scrollTop;
   // Preserve board scroll position across re-renders
   var savedScrollLeft = 0;
   var oldVp = $(".board-viewport", $("#centerCol"));
@@ -5262,6 +5268,10 @@ function paintProjectDetail(my){
   if (savedScrollLeft) {
     var newVp = $(".board-viewport", $("#centerCol"));
     if (newVp) newVp.scrollLeft = savedScrollLeft;
+  }
+  if (shouldRestoreScroll && savedScrollTop) {
+    var newContent = $(".content", $("#centerCol"));
+    if (newContent) newContent.scrollTop = savedScrollTop;
   }
   var projTrigger = $("#projModeTrigger");
   var projDrop = $("#projModeDrop");
@@ -5682,7 +5692,7 @@ function paintProjectDetail(my){
         }).catch(errToast);
       });
       setTimeout(function(){ document.addEventListener("click", closeCtxMenu, { once: true }); }, 0);
-    });
+    }, true);
   }
 }
 
@@ -6488,7 +6498,7 @@ function openPlanFloat(){
   document.body.appendChild(bd);
   bd.querySelector(".pf-close").onclick = function(){ bd.remove(); };
   bd.addEventListener("click", function(e){ if (e.target === bd) bd.remove(); });
-  requestAnimationFrame(function(){ requestAnimationFrame(drawPlanEdges); });
+  schedulePlanEdges();
 }
 function subsBlockHTML(m){
   var kids = treeChildren();
@@ -6525,11 +6535,16 @@ function subsBlockHTML(m){
     + addBtn + "</div>";
 }
 /* 连线:渲染后量取节点位置画贝塞尔;resize 重画(纯呈现) */
+function pgNodePos(el, gr, sl, stp){
+  var r = el.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  return { l: r.left - gr.left + sl, r: r.right - gr.left + sl, cy: r.top - gr.top + stp + r.height / 2 };
+}
 function drawEdgesFor(g){
   var svg = $(".pg-edges", g);
-  if (!svg) return;
+  if (!svg) return false;
   var gr = g.getBoundingClientRect();
-  if (!gr.width || !gr.height){ svg.innerHTML = ""; return; }
+  if (!gr.width || !gr.height){ svg.innerHTML = ""; return false; }
   var w = Math.max(g.scrollWidth, gr.width), h = Math.max(g.scrollHeight, gr.height);
   svg.setAttribute("viewBox", "0 0 " + w + " " + h);
   svg.setAttribute("width", w);
@@ -6537,33 +6552,40 @@ function drawEdgesFor(g){
   svg.style.width = w + "px";
   svg.style.height = h + "px";
   var sl = g.scrollLeft, stp = g.scrollTop;
-  var pos = function(el){
-    var r = el.getBoundingClientRect();
-    return { l: r.left - gr.left + sl, r: r.right - gr.left + sl, cy: r.top - gr.top + stp + r.height / 2 };
-  };
   var paths = "";
+  var ready = true;
   $$(".pg-node[data-deps]", g).forEach(function(node){
     var deps = (node.getAttribute("data-deps") || "").split(",").filter(Boolean);
-    var np = pos(node);
+    var np = pgNodePos(node, gr, sl, stp);
+    if (!np){ ready = false; return; }
     deps.forEach(function(did){
       var sel = (window.CSS && CSS.escape) ? CSS.escape(did) : did.replace(/"/g, "");
       var dn = $('.pg-node[data-pgid="' + sel + '"]', g);
-      if (!dn) return;
-      var dp = pos(dn);
+      if (!dn){ ready = false; return; }
+      var dp = pgNodePos(dn, gr, sl, stp);
+      if (!dp){ ready = false; return; }
       var dx = Math.max(20, (np.l - dp.r) * 0.45);
       paths += '<path d="M ' + dp.r + " " + dp.cy + " C " + (dp.r + dx) + " " + dp.cy + ", " + (np.l - dx) + " " + np.cy + ", " + np.l + " " + np.cy + '" fill="none" stroke="#9ca2af" stroke-width="1.5"/>';
     });
   });
   svg.innerHTML = paths;
+  return ready;
 }
 function drawPlanEdges(){
   $$(".plan-graph").forEach(function(g){
     drawEdgesFor(g);
     if (!g._pgObs && window.ResizeObserver){
-      g._pgObs = new ResizeObserver(function(){ drawEdgesFor(g); });
+      g._pgObs = new ResizeObserver(function(){ schedulePlanEdges(); });
       g._pgObs.observe(g);
+      var cols = $(".pg-cols", g);
+      if (cols) g._pgObs.observe(cols);
     }
   });
+}
+function schedulePlanEdges(){
+  requestAnimationFrame(function(){ requestAnimationFrame(drawPlanEdges); });
+  [60, 180, 360, 720].forEach(function(ms){ setTimeout(drawPlanEdges, ms); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawPlanEdges).catch(function(){});
 }
 function recentTrailBlockHTML(){
   if (!cur.acts || !cur.acts.ok) return "";
@@ -6690,8 +6712,7 @@ function paintMatter(my){
   bindDetail(my);
   var sc = $("#detailScroll");
   if (sc) sc.scrollTop = 0;
-  requestAnimationFrame(function(){ requestAnimationFrame(drawPlanEdges); });
-  setTimeout(drawPlanEdges, 150);
+  schedulePlanEdges();
 }
 function bindDetail(my){
   bindParentLink();
