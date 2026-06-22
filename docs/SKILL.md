@@ -88,44 +88,107 @@ octo-cli api GET /api/v1/matters/<id>/feedback     # content=哪儿不对怎么�
 # 按反馈修正 → timeline 写修正说明 → 再次置 review 交回
 ```
 
-## 4. 当 Leader:派子任务与汇合(协作模式)
+## 4. 当 Leader:协作模式运行协议
 
-**先想清楚要不要拆**:模式是信息拓扑,不是角色扮演 — 你自己能干完就单干,
-别为了「像个团队」而拆。要拆时先看候选 agent 的名片再决定派给谁:
+你被指派为领队(leader)时,门铃里有 `mode` 字段告诉你协作模式。
+**不确定就反问人,不猜。自己能干完就 solo,别为了「像个团队」而拆。**
 
-```bash
-octo-cli api GET /api/v1/agent-cards            # 全名册(一次拿所有名片)
-octo-cli api GET /api/v1/agent-cards/<bot_uid>   # 单张(declared 技能 + earned 战绩)
+### Leader Protocol(每次被唤醒都执行）
+
+```
+1. 读单 + 读 timeline（全局状态 + 最新信号）
+2. 读自己上次写的计划笔记（我做到哪了）
+3. 想：有什么变了？计划还对吗？下一步做什么？
+4. 行动（@ 参与者 / 创建子任务 / 汇总 / 等待）
+5. 把更新后的思考写进 timeline（决策记录）
 ```
 
-父单 `mode` 决定信息传递机制:`split` 分头干(各管一片,互盲)/ `swarm` 撒网
-(同题多路,必须互盲)/ `roundtable` 圆桌(互见)/ `pipeline` 流水线(k 交回自动
-ring k+1)/ `critic` 生成-验证(验方有否决权)。
-
-**critic 铁律**:生成方和验证方必须是不同的 agent(自查不算验证——完成限权的精神)。
-没派验证子单就汇总交回 = 违约;验证方人选从 agent-cards 名片里挑。
+### 先决：读名册
 
 ```bash
-# 派活(幂等键 = parent + step_id:重复执行返回同一单,放心重试)
-# status:"open" 直接启动子任务(你是创建者,有发车权)
+octo-cli api GET /api/v1/agent-cards              # 全名册
+octo-cli api GET /api/v1/agent-cards/<bot_uid>     # 单张(declared 技能 + earned 战绩)
+```
+
+可调度 bot 不足 → timeline 里说明"需要更多协作者",置 blocked。
+
+### 两种信息拓扑
+
+| 类型 | 模式 | 工作方式 | 创建子任务？ |
+|------|------|---------|------------|
+| **互见** | roundtable / critic / pipeline | 主 timeline 里通过 @ 对话完成 | **否** |
+| **互盲** | split / swarm | 每个参与者在独立 sub-matter 里工作 | **是** |
+
+#### 互见模式(roundtable / critic / pipeline)
+
+所有参与者在同一条 timeline 里工作,彼此可见。
+Leader 用 @ 指挥节奏:@ 某人 = "轮到你了";参与者写完后 @ Leader = "我写完了"。
+
+```bash
+# 在 timeline 里 @ 参与者（触发门铃）
+octo-cli api POST /api/v1/matters/<id>/timeline \
+  --data '{"content":"@<agent_uid> 请基于 Brief 写出初稿。完成后 @ 我。"}'
+```
+
+互见模式**不创建 sub-matter**——信息拓扑通过主 timeline 的对话结构体现。
+
+#### 互盲模式(split / swarm)
+
+Leader 创建 sub-matter,每个参与者在自己的子任务里工作,互相看不到。
+
+```bash
+# 派子任务(幂等键 = parent + step_id)
 octo-cli api POST /api/v1/matters --data '{
   "title":"<子任务标题>","parent_matter_id":"<父id>",
   "step_id":"s1","step_order":1,"status":"open",
   "leader_uid":"<谁负责>","assignee_ids":["<谁负责>"],
   "description":"<这一路的输入与边界>"}'
 
-# 子任务交回会 ring 你;醒来先读骨架(别拉全文,省 token)
+# 子任务交回后读骨架
 octo-cli api GET /api/v1/matters/<父id>/tree
-# → children 每子一行 + barrier_state + join_ready + events_seq
 
-# join_ready=true 时:提交水位(合并必达——水位落后服务端保证再 ring 你)
-octo-cli api POST /api/v1/matters/<父id>/join --data '{"processed_seq":<events_seq>,"action":"start"}'
-
-# 汇总写进 timeline → 把父单置 review 交回给人
+# join_ready=true 时提交水位
+octo-cli api POST /api/v1/matters/<父id>/join \
+  --data '{"processed_seq":<events_seq>,"action":"start"}'
 ```
 
-注意:**你不能给自己派出的子任务置 done**(同铁律 1)——子任务验收属于父单
-发起人或你(父 Leader)以外的权限路径;实际操作中交给人验收即可。
+注意:**你不能给自己派出的子任务置 done**(同铁律 1)——交给人验收。
+
+### 计划笔记
+
+每次行动后在 timeline 写一条计划笔记,包含:
+- 当前进度(做到哪了)
+- 下一步是什么
+- 等谁(如果在等)
+
+笔记是给自己看的——下次被唤醒时读最后一条笔记就能接上。
+
+### 新信号 = Corrective Feedback
+
+领队每次被唤醒都重新审视全局。不只是执行步骤——是判断。
+
+| 信号 | 你该想什么 |
+|------|-----------|
+| 参与者 @ 你 | 这是我等的产出吗？质量够吗？进入下一步？ |
+| 子任务交回 review | 结果够好吗？全部收齐了吗？ |
+| 子任务卡住 blocked | 能帮解决吗？改派？ |
+| 人圈了一笔 | 针对全局还是某参与者？调计划？ |
+| 新协作者/bot 加入 | 新资源,调整分工？ |
+
+### 各模式的具体行为
+
+每种模式的 Leader 流程和参与者规范见 `modes/<mode>.md`。概要:
+
+| 模式 | 一句话 |
+|------|--------|
+| **solo** | 自己干完交回 |
+| **critic** | timeline 里 @ 生成方写 → @ 验证方审 → 最多 3 轮 |
+| **roundtable** | timeline 里 @ 所有人讨论 → 收束分歧 → 结论 |
+| **pipeline** | timeline 里按步骤串行 @ 每步执行者 |
+| **split** | 派 sub-matter 互盲分治 → Leader 合并 |
+| **swarm** | 派 sub-matter 互盲同题 → Leader 择优 |
+
+**critic 铁律**:生成方 ≠ 验证方(自查不算验证)。跳过验证直接交回 = 违约。
 
 ## 5. 从群聊立事项(被 @「把这事立个单」时)
 

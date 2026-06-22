@@ -1612,7 +1612,7 @@
   .po-bar span { display: block; height: 100%; background: var(--done); border-radius: 999px; }
   .plan-graph { position: relative; padding: 6px 2px 10px; overflow-x: auto; cursor: grab; }
   .plan-graph.panning { cursor: grabbing; user-select: none; }
-  .pg-edges { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 0; }
+  .pg-edges { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
   .pg-cols { position: relative; display: flex; align-items: center; gap: 56px; z-index: 1; width: max-content; min-width: 100%; }
   .pg-col { display: flex; flex-flow: column wrap; gap: 10px; max-height: 380px; align-content: flex-start; }
   .pg-node {
@@ -1659,6 +1659,10 @@
   .pg-state.done { color: var(--done); }
   .pg-state.todo { color: var(--text-3); }
   .pg-state.cancel { color: var(--text-4); }
+  .pg-node.is-role { border-style: dashed; border-color: var(--accent-border); background: rgba(99,102,241,.04); }
+  .pg-node.is-role.st-done { border-style: solid; border-color: var(--done); background: rgba(34,197,94,.04); }
+  .pg-node.is-role.st-doing { border-style: solid; }
+  .pg-node.is-role.st-review { border-style: solid; border-color: #ecc987; }
   @media (max-width: 860px) {
     .pg-edges { display: none; }
     .pg-cols { flex-direction: column; align-items: stretch; gap: 0; width: 100%; }
@@ -1668,6 +1672,44 @@
     .pg-node { width: calc(50% - 4px); }
     .pg-node.is-join, .pg-node.is-root { width: 100%; }
   }
+
+  /* ===== 计划图浮窗(全屏展开) ===== */
+  /* ===== 收件箱右键菜单 ===== */
+  .ctx-menu {
+    position: fixed; z-index: 800; min-width: 160px; padding: 4px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.12); font-size: 13px;
+  }
+  .ctx-menu button {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px;
+    border: none; background: transparent; border-radius: 7px; cursor: pointer;
+    color: var(--text); font-size: 13px; text-align: left;
+  }
+  .ctx-menu button:hover { background: var(--hover); }
+  .ctx-menu button.danger { color: var(--block); }
+  .ctx-menu .ctx-sep { height: 1px; background: var(--border); margin: 3px 6px; }
+
+  .plan-float-backdrop {
+    position: fixed; inset: 0; z-index: 900; background: rgba(0,0,0,.45);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .plan-float {
+    width: 90vw; max-width: 1200px; max-height: 82vh; background: var(--panel);
+    border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.18); overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .plan-float-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+  }
+  .plan-float-head .pf-title { font-size: 14px; font-weight: 700; }
+  .plan-float-head .pf-close {
+    width: 28px; height: 28px; border-radius: 7px; border: none; background: transparent;
+    cursor: pointer; font-size: 16px; color: var(--text-3); display: flex; align-items: center; justify-content: center;
+  }
+  .plan-float-head .pf-close:hover { background: var(--hover); }
+  .plan-float-body { flex: 1; overflow: auto; padding: 18px; }
+  .plan-float-body .plan-graph { min-height: 200px; }
 
   /* ============ Agent 名片(modal) ============ */
   .modal.agent-card { max-width: 680px; }
@@ -3589,6 +3631,48 @@ function bindInbox(my){
       existing.remove();
     });
   });
+  if (mlist) mlist.addEventListener("contextmenu", function(e){
+    var row = e.target.closest(".mrow");
+    if (!row) return;
+    e.preventDefault();
+    closeCtxMenu();
+    var mid = row.getAttribute("data-id");
+    var mst = row.getAttribute("data-status") || "";
+    if (!mid) return;
+    var menu = document.createElement("div");
+    menu.className = "ctx-menu";
+    menu.id = "ctxMenu";
+    var items = [];
+    if (mst !== "archived") items.push('<button data-ctx="archive">归档</button>');
+    if (mst === "archived") items.push('<button data-ctx="unarchive">取消归档</button>');
+    if (mst !== "cancelled" && mst !== "done" && mst !== "archived") items.push('<button data-ctx="cancel" class="danger">取消事项</button>');
+    if (!items.length) return;
+    menu.innerHTML = items.join('<div class="ctx-sep"></div>');
+    var x = Math.min(e.clientX, window.innerWidth - 180);
+    var y = Math.min(e.clientY, window.innerHeight - items.length * 40 - 20);
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+    document.body.appendChild(menu);
+    menu.addEventListener("click", function(ce){
+      var btn = ce.target.closest("[data-ctx]");
+      if (!btn) return;
+      var act = btn.getAttribute("data-ctx");
+      closeCtxMenu();
+      if (act === "archive") doCtxStatus(mid, "archived", my);
+      else if (act === "unarchive") doCtxStatus(mid, "done", my);
+      else if (act === "cancel") doCtxStatus(mid, "cancelled", my);
+    });
+    setTimeout(function(){ document.addEventListener("click", closeCtxMenu, { once: true }); }, 0);
+  });
+}
+function closeCtxMenu(){ var m = $("#ctxMenu"); if (m) m.remove(); }
+function doCtxStatus(id, status, my){
+  api("/matters/" + id + "/status", { method: "PUT", body: { status: status } }).then(function(){
+    toast(status === "archived" ? "已归档" : status === "cancelled" ? "已取消" : "已恢复");
+    var r = inboxState.rows.find(function(m){ return m.id === id; });
+    if (r) r.status = status;
+    paintInbox(my);
+  }).catch(errToast);
 }
 function toggleExpand(id, btn){
   if (expandedRows[id]){ delete expandedRows[id]; repaintList(); return; }
@@ -5530,6 +5614,76 @@ function paintProjectDetail(my){
       }, { passive: false });
     }
   }
+  var pmlist = $(".mlist", $("#centerCol"));
+  if (pmlist){
+    pmlist.addEventListener("change", function(e){
+      if (!e.target.classList.contains("m-check")) return;
+      var row = e.target.closest(".mrow");
+      if (row) row.classList.toggle("is-checked", e.target.checked);
+      var checked = $$(".m-check:checked", pmlist);
+      pmlist.classList.toggle("has-checked", checked.length > 0);
+      var existing = $(".batch-bar", pmlist.parentNode);
+      if (!checked.length){ if (existing) existing.remove(); return; }
+      if (!existing){
+        existing = document.createElement("div");
+        existing.className = "batch-bar";
+        pmlist.parentNode.insertBefore(existing, pmlist);
+      }
+      existing.innerHTML = '已选 <span class="bb-count">' + checked.length + '</span> 项'
+        + '<button type="button" data-pbatch="archive">归档</button>'
+        + '<button type="button" data-pbatch="cancel" style="color:var(--block)">取消事项</button>'
+        + '<button type="button" class="bb-cancel" data-pbatch="clear">取消选择</button>';
+      $$("[data-pbatch]", existing).forEach(function(btn){
+        btn.addEventListener("click", function(){
+          var act = btn.getAttribute("data-pbatch");
+          if (act === "clear"){
+            $$(".m-check:checked", pmlist).forEach(function(c){ c.checked = false; var r = c.closest(".mrow"); if (r) r.classList.remove("is-checked"); });
+            pmlist.classList.remove("has-checked"); existing.remove(); return;
+          }
+          var ids = checked.map(function(c){ return c.getAttribute("data-check"); });
+          var target = act === "archive" ? "archived" : "cancelled";
+          var done = 0;
+          Promise.all(ids.map(function(id){
+            return api("/matters/" + id + "/status", { method: "PUT", body: { status: target } }).then(function(){ done++; }).catch(function(){});
+          })).then(function(){
+            toast((target === "archived" ? "已归档 " : "已取消 ") + done + " 项");
+            ids.forEach(function(id){ var r = st.rows.find(function(m){ return m.id === id; }); if (r) r.status = target; });
+            paintProjectDetail(my);
+          });
+        });
+      });
+    });
+    pmlist.addEventListener("contextmenu", function(e){
+      var row = e.target.closest(".mrow");
+      if (!row) return;
+      e.preventDefault();
+      closeCtxMenu();
+      var mid = row.getAttribute("data-id");
+      var mst = row.getAttribute("data-status") || "";
+      if (!mid) return;
+      var menu = document.createElement("div"); menu.className = "ctx-menu"; menu.id = "ctxMenu";
+      var items = [];
+      if (mst !== "archived") items.push('<button data-ctx="archive">归档</button>');
+      if (mst === "archived") items.push('<button data-ctx="unarchive">取消归档</button>');
+      if (mst !== "cancelled" && mst !== "done" && mst !== "archived") items.push('<button data-ctx="cancel" class="danger">取消事项</button>');
+      if (!items.length) return;
+      menu.innerHTML = items.join('<div class="ctx-sep"></div>');
+      menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + "px";
+      menu.style.top = Math.min(e.clientY, window.innerHeight - items.length * 40 - 20) + "px";
+      document.body.appendChild(menu);
+      menu.addEventListener("click", function(ce){
+        var btn = ce.target.closest("[data-ctx]"); if (!btn) return;
+        var act = btn.getAttribute("data-ctx"); closeCtxMenu();
+        var target = act === "archive" ? "archived" : act === "unarchive" ? "done" : "cancelled";
+        api("/matters/" + mid + "/status", { method: "PUT", body: { status: target } }).then(function(){
+          toast(target === "archived" ? "已归档" : target === "cancelled" ? "已取消" : "已恢复");
+          var r = st.rows.find(function(m){ return m.id === mid; }); if (r) r.status = target;
+          paintProjectDetail(my);
+        }).catch(errToast);
+      });
+      setTimeout(function(){ document.addEventListener("click", closeCtxMenu, { once: true }); }, 0);
+    });
+  }
 }
 
 /* ================= AUTOMATION ================= */
@@ -6173,16 +6327,19 @@ function pgChildNodeHTML(k, deps){
 }
 function planGraphHTML(m, kids, tv){
   var leader = m.leader || m.creator_id || "";
-  var pipeline = ((tv && tv.mode) || m.mode) === "pipeline";
+  var curMode = ((tv && tv.mode) || m.mode) || "";
+  var isLinear = curMode === "pipeline" || curMode === "critic";
   var rootId = "__plan_root", joinId = "__plan_join";
   var liveKids = kids.filter(function(k){ return k.status !== "cancelled" && k.status !== "archived"; });
   var doneN = liveKids.filter(function(k){ return k.status === "done"; }).length;
   var allBack = liveKids.length > 0 && doneN === liveKids.length;
+  var rootTitle = { critic: "生成→验证 " + kids.length + " 步", pipeline: "流水线 " + kids.length + " 步", split: "分成 " + kids.length + " 块", swarm: "竞选 " + kids.length + " 路", roundtable: "圆桌 " + kids.length + " 方" }[curMode] || ("拆成 " + kids.length + " 份");
+  var rootState = { critic: "已 @ " + kids.length + " 步", pipeline: "已 @ " + kids.length + " 步", split: "已 @ " + kids.length + " 块", swarm: "已 @ " + kids.length + " 路", roundtable: "已 @ " + kids.length + " 方" }[curMode] || ("已 @ " + kids.length + " 路");
   var root = '<div class="pg-node is-root st-done" data-pgid="' + rootId + '">'
-    + '<div class="pg-top"><span class="pg-dot done"></span><span class="pg-role-tag">带队</span></div>'
-    + '<div class="pg-title">把活拆成 ' + kids.length + " 份</div>"
+    + '<div class="pg-top"><span class="pg-dot done"></span><span class="pg-role-tag">领队</span></div>'
+    + '<div class="pg-title">' + esc(rootTitle) + "</div>"
     + pgAsgHTML(leader)
-    + '<div class="pg-state done">已 @ ' + kids.length + " 路</div></div>";
+    + '<div class="pg-state done">' + esc(rootState) + "</div></div>";
   // join 状态只来自 tree 的 barrier_state/join_ready 与真实状态,不杜撰
   var barrier = (tv && tv.barrier_state) || "";
   var joinReady = !!(tv && tv.join_ready);
@@ -6190,14 +6347,14 @@ function planGraphHTML(m, kids, tv){
   if (m.status === "done" || barrier === "joined"){ jring = "done"; jtext = "已完成"; }
   else if (joinReady || allBack || barrier === "ready" || barrier === "merging"){ jring = "review"; jtext = "子事项已齐"; }
   else { jring = "todo"; jtext = "等待中"; }
-  var joinDeps = pipeline ? [kids.length ? kids[kids.length - 1].id : rootId] : kids.map(function(k){ return k.id; });
+  var joinDeps = isLinear ? [kids.length ? kids[kids.length - 1].id : rootId] : kids.map(function(k){ return k.id; });
   var join = '<div class="pg-node is-join st-' + jring + '" data-pgid="' + joinId + '" data-deps="' + esc(joinDeps.join(",")) + '">'
     + '<div class="pg-top"><span class="pg-dot ' + jring + '"></span><span class="pg-role-tag">汇总</span></div>'
     + '<div class="pg-title">@' + esc(uname(leader)) + " 汇总</div>"
     + pgAsgHTML(leader)
     + '<div class="pg-state ' + jring + '">' + jtext + "</div></div>";
   var cols;
-  if (pipeline){
+  if (isLinear){
     cols = ['<div class="pg-col">' + root + "</div>"]
       .concat(kids.map(function(k, i){
         return '<div class="pg-col">' + pgChildNodeHTML(k, [i ? kids[i - 1].id : rootId]) + "</div>";
@@ -6210,11 +6367,104 @@ function planGraphHTML(m, kids, tv){
   }
   return '<div class="plan-graph"><svg class="pg-edges" aria-hidden="true"></svg><div class="pg-cols">' + cols.join("") + "</div></div>";
 }
+/* ---- 角色拓扑图(互见模式: critic/roundtable/pipeline, 数据来自 mode_config) ---- */
+var ROLE_LABELS = { critic: { generator: "生成方", verifier: "验证方" }, roundtable: {}, pipeline: {} };
+function roleNodesFromConfig(mode, configStr, timeline){
+  if (!configStr) return null;
+  try { var cfg = JSON.parse(configStr); } catch(e){ return null; }
+  var entries = (timeline && timeline.ok) ? listData(timeline.v) : [];
+  function spoken(uid){ return uid && entries.some(function(e){ return e.user_id === uid; }); }
+  var nodes = [];
+  if (mode === "critic"){
+    var g = cfg.generator || "", v = cfg.verifier || "";
+    nodes.push({ id: "gen", role: "生成方", uid: g, spoke: spoken(g) });
+    nodes.push({ id: "ver", role: "验证方", uid: v, spoke: spoken(v) });
+  } else if (mode === "roundtable"){
+    (cfg.participants || []).forEach(function(uid, i){
+      nodes.push({ id: "p" + i, role: "参与者", uid: uid, spoke: spoken(uid) });
+    });
+  } else if (mode === "pipeline"){
+    (cfg.steps || []).forEach(function(step, i){
+      var uid = step.assignee || "";
+      nodes.push({ id: step.id || ("s" + i), role: step.title || ("步骤 " + (i + 1)), uid: uid, spoke: spoken(uid) });
+    });
+  }
+  return nodes.length ? nodes : null;
+}
+function pgRoleNodeHTML(n, deps, mStatus){
+  var ring;
+  if (mStatus === "done" || mStatus === "archived") ring = "done";
+  else if (n.spoke) ring = "review";
+  else ring = "todo";
+  return '<div class="pg-node is-role st-' + ring + '" data-pgid="' + esc(n.id) + '" data-deps="' + esc(deps.join(",")) + '">'
+    + '<div class="pg-top"><span class="pg-dot ' + ring + '"></span><span class="pg-role-tag">' + esc(n.role) + "</span></div>"
+    + '<div class="pg-title">' + esc(n.uid ? uname(n.uid) : "待分配") + "</div>"
+    + pgAsgHTML(n.uid)
+    + '<div class="pg-state ' + ring + '">' + (ring === "done" ? "完成" : ring === "review" ? "已发言" : "待发言") + "</div></div>";
+}
+function roleGraphHTML(m, roles, mode){
+  var leader = m.leader || m.creator_id || "";
+  var isLinear = mode === "pipeline" || mode === "critic";
+  var rootId = "__plan_root", joinId = "__plan_join";
+  var spokeN = roles.filter(function(r){ return r.spoke; }).length;
+  var allSpoke = roles.length > 0 && spokeN === roles.length;
+  var mDone = m.status === "done" || m.status === "archived";
+  var rootRing = "done";
+  var root = '<div class="pg-node is-root is-role st-done" data-pgid="' + rootId + '">'
+    + '<div class="pg-top"><span class="pg-dot done"></span><span class="pg-role-tag">领队</span></div>'
+    + '<div class="pg-title">编排 ' + roles.length + " 个角色</div>"
+    + pgAsgHTML(leader)
+    + '<div class="pg-state done">主持中</div></div>';
+  var jring;
+  if (mDone) jring = "done";
+  else if (allSpoke) jring = "review";
+  else jring = "todo";
+  var jtext = jring === "done" ? "已完成" : jring === "review" ? "可汇总" : "等待中";
+  var joinDeps = isLinear ? [roles.length ? roles[roles.length - 1].id : rootId] : roles.map(function(r){ return r.id; });
+  var join = '<div class="pg-node is-join is-role st-' + jring + '" data-pgid="' + joinId + '" data-deps="' + esc(joinDeps.join(",")) + '">'
+    + '<div class="pg-top"><span class="pg-dot ' + jring + '"></span><span class="pg-role-tag">汇总</span></div>'
+    + '<div class="pg-title">@' + esc(uname(leader)) + " 汇总</div>"
+    + pgAsgHTML(leader)
+    + '<div class="pg-state ' + jring + '">' + jtext + "</div></div>";
+  var cols;
+  if (isLinear){
+    cols = ['<div class="pg-col">' + root + "</div>"]
+      .concat(roles.map(function(r, i){
+        return '<div class="pg-col">' + pgRoleNodeHTML(r, [i ? roles[i - 1].id : rootId], m.status) + "</div>";
+      }))
+      .concat(['<div class="pg-col">' + join + "</div>"]);
+  } else {
+    cols = ['<div class="pg-col">' + root + "</div>",
+      '<div class="pg-col">' + roles.map(function(r){ return pgRoleNodeHTML(r, [rootId], m.status); }).join("") + "</div>",
+      '<div class="pg-col">' + join + "</div>"];
+  }
+  return '<div class="plan-graph"><svg class="pg-edges" aria-hidden="true"></svg><div class="pg-cols">' + cols.join("") + "</div></div>";
+}
+function roleOverviewHTML(m, roles, mode){
+  var spokeN = roles.filter(function(r){ return r.spoke; }).length;
+  var total = roles.length;
+  var pct = total ? Math.round(spokeN / total * 100) : 0;
+  var leader = uname(m.leader || m.creator_id || "");
+  var tone = "", title;
+  if (m.status === "done"){ tone = "done"; title = "已完成"; }
+  else if (m.status === "blocked"){ tone = "block"; title = "受阻" + (m.block_reason_text ? " · " + m.block_reason_text : ""); }
+  else if (spokeN === total && total > 0){ tone = "taste"; title = "所有角色已发言"; }
+  else { title = spokeN + "/" + total + " 角色已发言"; }
+  var modeDesc = { critic: "生成→验证", roundtable: "圆桌讨论", pipeline: "流水线" }[mode] || mode;
+  return '<div class="plan-overview ' + tone + '">'
+    + '<div class="po-left"><span class="po-dot"></span><div>'
+    + '<div class="po-eyebrow">' + esc(modeDesc) + " · 主 timeline · @" + esc(leader) + "</div>"
+    + '<div class="po-title">' + esc(title) + "</div></div></div>"
+    + '<div class="po-meter"><span class="po-num">' + spokeN + "/" + total + '</span><span class="po-bar"><span style="width:' + pct + '%"></span></span></div></div>';
+}
 function planOverviewHTML(m, kids, tv){
   var liveKids = kids.filter(function(k){ return k.status !== "cancelled" && k.status !== "archived"; });
   var total = liveKids.length, doneN = liveKids.filter(function(k){ return k.status === "done"; }).length;
   var pct = total ? Math.round(doneN / total * 100) : 0;
   var leader = uname(m.leader || m.creator_id || "");
+  var curMode = ((tv && tv.mode) || m.mode) || "";
+  var modeDesc = { critic: "生成→验证", roundtable: "圆桌讨论", pipeline: "流水线", split: "分头干", swarm: "竞选" }[curMode] || "";
+  var eyebrow = (modeDesc ? modeDesc + " · " : "") + "@ " + kids.length + " 路 · 汇总 @" + esc(leader);
   var tone = "", title;
   if (m.status === "done"){ tone = "done"; title = "已完成"; }
   else if (m.status === "blocked"){ tone = "block"; title = "受阻" + (m.block_reason_text ? " · " + m.block_reason_text : ""); }
@@ -6222,15 +6472,30 @@ function planOverviewHTML(m, kids, tv){
   else { title = doneN + "/" + total + " 子事项已回"; }
   return '<div class="plan-overview ' + tone + '">'
     + '<div class="po-left"><span class="po-dot"></span><div>'
-    + '<div class="po-eyebrow">@ ' + kids.length + " 路 · 汇总 @" + esc(leader) + "</div>"
+    + '<div class="po-eyebrow">' + eyebrow + "</div>"
     + '<div class="po-title">' + esc(title) + "</div></div></div>"
     + '<div class="po-meter"><span class="po-num">' + doneN + "/" + total + '</span><span class="po-bar"><span style="width:' + pct + '%"></span></span></div></div>';
+}
+function openPlanFloat(){
+  var shell = $(".plan-shell");
+  if (!shell) return;
+  var bd = document.createElement("div");
+  bd.className = "plan-float-backdrop";
+  bd.id = "planFloatBackdrop";
+  var m = cur.m;
+  var title = m.title || "计划图";
+  bd.innerHTML = '<div class="plan-float"><div class="plan-float-head"><span class="pf-title">' + esc(title) + '</span><button class="pf-close" type="button" title="关闭">&times;</button></div><div class="plan-float-body">' + shell.innerHTML + "</div></div>";
+  document.body.appendChild(bd);
+  bd.querySelector(".pf-close").onclick = function(){ bd.remove(); };
+  bd.addEventListener("click", function(e){ if (e.target === bd) bd.remove(); });
+  requestAnimationFrame(function(){ requestAnimationFrame(drawPlanEdges); });
 }
 function subsBlockHTML(m){
   var kids = treeChildren();
   var tv = (cur.tree && cur.tree.ok && cur.tree.v) || null;
   var mode = (tv && tv.mode) || m.mode || "";
   var modeTag = mode ? '<span class="mode-tag" title="mode: ' + esc(mode) + '">' + esc(modeLabel(mode) || mode) + "</span>" : "";
+  var expandBtn = '<button class="sec-action" type="button" id="planExpandBtn" title="展开大图">&#x26F6;</button>';
   var addBtn = '<button class="sub-add" id="subAddBtn" type="button">+ 派一个子任务</button>';
   var inlineAddBtn = '<button class="sub-add inline" id="subAddBtn" type="button">+ 派一个子任务</button>';
   if (kids === null){
@@ -6239,6 +6504,11 @@ function subsBlockHTML(m){
       + '<div class="plan-empty"><span class="pe-k">读取失败</span><span class="pe-v">' + esc(te && te.message ? te.message : "子任务暂不可用") + "</span></div>" + addBtn + "</div>";
   }
   if (!kids.length){
+    var roleNodes = roleNodesFromConfig(mode, tv && tv.mode_config, cur.timeline);
+    if (roleNodes){
+      return '<div class="detail-block" id="subsBlock"><div class="sec"><span class="sec-l">计划 ' + modeTag + '</span><span class="sec-actions">' + expandBtn + "</span></div>"
+        + '<div class="plan-shell">' + roleOverviewHTML(m, roleNodes, mode) + roleGraphHTML(m, roleNodes, mode) + "</div></div>";
+    }
     return '<div class="detail-block" id="subsBlock"><div class="sec"><span class="sec-l">计划 ' + modeTag + "</span></div>"
       + '<div class="plan-empty"><span class="pe-k">单事项</span><span class="pe-v">暂无子任务</span>' + inlineAddBtn + "</div></div>";
   }
@@ -6250,40 +6520,49 @@ function subsBlockHTML(m){
   var doneN = liveKids.filter(function(k){ return k.status === "done"; }).length;
   return '<div class="detail-block" id="subsBlock">'
     + '<div class="sec"' + (tv && tv.barrier_state ? ' title="barrier: ' + esc(tv.barrier_state) + '"' : "") + '>'
-    + '<span class="sec-l">计划 ' + modeTag + '</span><span class="sec-count">' + doneN + "/" + liveKids.length + "</span></div>"
+    + '<span class="sec-l">计划 ' + modeTag + '</span><span class="sec-actions">' + expandBtn + '<span class="sec-count">' + doneN + "/" + liveKids.length + "</span></span></div>"
     + '<div class="plan-shell">' + planOverviewHTML(m, kids, tv) + planGraphHTML(m, kids, tv) + "</div>"
     + addBtn + "</div>";
 }
 /* 连线:渲染后量取节点位置画贝塞尔;resize 重画(纯呈现) */
+function drawEdgesFor(g){
+  var svg = $(".pg-edges", g);
+  if (!svg) return;
+  var gr = g.getBoundingClientRect();
+  if (!gr.width || !gr.height){ svg.innerHTML = ""; return; }
+  var w = Math.max(g.scrollWidth, gr.width), h = Math.max(g.scrollHeight, gr.height);
+  svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+  svg.setAttribute("width", w);
+  svg.setAttribute("height", h);
+  svg.style.width = w + "px";
+  svg.style.height = h + "px";
+  var sl = g.scrollLeft, stp = g.scrollTop;
+  var pos = function(el){
+    var r = el.getBoundingClientRect();
+    return { l: r.left - gr.left + sl, r: r.right - gr.left + sl, cy: r.top - gr.top + stp + r.height / 2 };
+  };
+  var paths = "";
+  $$(".pg-node[data-deps]", g).forEach(function(node){
+    var deps = (node.getAttribute("data-deps") || "").split(",").filter(Boolean);
+    var np = pos(node);
+    deps.forEach(function(did){
+      var sel = (window.CSS && CSS.escape) ? CSS.escape(did) : did.replace(/"/g, "");
+      var dn = $('.pg-node[data-pgid="' + sel + '"]', g);
+      if (!dn) return;
+      var dp = pos(dn);
+      var dx = Math.max(20, (np.l - dp.r) * 0.45);
+      paths += '<path d="M ' + dp.r + " " + dp.cy + " C " + (dp.r + dx) + " " + dp.cy + ", " + (np.l - dx) + " " + np.cy + ", " + np.l + " " + np.cy + '" fill="none" stroke="#9ca2af" stroke-width="1.5"/>';
+    });
+  });
+  svg.innerHTML = paths;
+}
 function drawPlanEdges(){
   $$(".plan-graph").forEach(function(g){
-    var svg = $(".pg-edges", g);
-    if (!svg) return;
-    var gr = g.getBoundingClientRect();
-    if (!gr.width) return;
-    var w = Math.max(g.scrollWidth, gr.width), h = Math.max(g.scrollHeight, gr.height);
-    svg.setAttribute("viewBox", "0 0 " + w + " " + h);
-    svg.setAttribute("width", w);
-    svg.setAttribute("height", h);
-    var sl = g.scrollLeft, stp = g.scrollTop;
-    var pos = function(el){
-      var r = el.getBoundingClientRect();
-      return { l: r.left - gr.left + sl, r: r.right - gr.left + sl, cy: r.top - gr.top + stp + r.height / 2 };
-    };
-    var paths = "";
-    $$(".pg-node[data-deps]", g).forEach(function(node){
-      var deps = (node.getAttribute("data-deps") || "").split(",").filter(Boolean);
-      var np = pos(node);
-      deps.forEach(function(did){
-        var sel = (window.CSS && CSS.escape) ? CSS.escape(did) : did.replace(/"/g, "");
-        var dn = $('.pg-node[data-pgid="' + sel + '"]', g);
-        if (!dn) return;
-        var dp = pos(dn);
-        var dx = Math.max(20, (np.l - dp.r) * 0.45);
-        paths += '<path d="M ' + dp.r + " " + dp.cy + " C " + (dp.r + dx) + " " + dp.cy + ", " + (np.l - dx) + " " + np.cy + ", " + np.l + " " + np.cy + '" fill="none" stroke="#d4d6de" stroke-width="1.5"/>';
-      });
-    });
-    svg.innerHTML = paths;
+    drawEdgesFor(g);
+    if (!g._pgObs && window.ResizeObserver){
+      g._pgObs = new ResizeObserver(function(){ drawEdgesFor(g); });
+      g._pgObs.observe(g);
+    }
   });
 }
 function recentTrailBlockHTML(){
@@ -6411,7 +6690,8 @@ function paintMatter(my){
   bindDetail(my);
   var sc = $("#detailScroll");
   if (sc) sc.scrollTop = 0;
-  requestAnimationFrame(drawPlanEdges);
+  requestAnimationFrame(function(){ requestAnimationFrame(drawPlanEdges); });
+  setTimeout(drawPlanEdges, 150);
 }
 function bindDetail(my){
   bindParentLink();
@@ -6419,6 +6699,8 @@ function bindDetail(my){
   if (sub) sub.addEventListener("click", function(){
     openMatterModal({ parent: cur.m, siblings: treeChildren() || [] });
   });
+  var peb = $("#planExpandBtn");
+  if (peb) peb.addEventListener("click", openPlanFloat);
   $$("[data-unblock-action]", $("#centerCol")).forEach(function(btn){
     btn.addEventListener("click", function(){
       var reset = setDecisionPending(btn);

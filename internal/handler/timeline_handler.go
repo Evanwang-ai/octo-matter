@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -212,6 +213,58 @@ func (h *TimelineHandler) notifyEntryAdded(c *gin.Context, matterID, spaceID, ac
 		}
 		assignees, _ := h.matterSvc.ListAssigneeIDs(context.Background(), matterID)
 		participants, _ := h.matterSvc.ListParticipantIDs(context.Background(), matterID)
+		participants = appendModeConfigUIDs(participants, matter.ModeConfig)
 		h.notifier.NotifyTimelineEntryAdded(matter, actorUID, actorName, assignees, participants)
 	})
+}
+
+func appendModeConfigUIDs(uids []string, modeConfig *string) []string {
+	if modeConfig == nil || *modeConfig == "" {
+		return uids
+	}
+	seen := map[string]bool{}
+	for _, u := range uids {
+		seen[u] = true
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(*modeConfig), &raw); err != nil {
+		return uids
+	}
+	add := func(uid string) {
+		if uid != "" && !seen[uid] {
+			uids = append(uids, uid)
+			seen[uid] = true
+		}
+	}
+	if v, ok := raw["generator"]; ok {
+		var s string
+		if json.Unmarshal(v, &s) == nil {
+			add(s)
+		}
+	}
+	if v, ok := raw["verifier"]; ok {
+		var s string
+		if json.Unmarshal(v, &s) == nil {
+			add(s)
+		}
+	}
+	if v, ok := raw["participants"]; ok {
+		var arr []string
+		if json.Unmarshal(v, &arr) == nil {
+			for _, s := range arr {
+				add(s)
+			}
+		}
+	}
+	if v, ok := raw["steps"]; ok {
+		var steps []struct {
+			Assignee string `json:"assignee"`
+		}
+		if json.Unmarshal(v, &steps) == nil {
+			for _, st := range steps {
+				add(st.Assignee)
+			}
+		}
+	}
+	return uids
 }

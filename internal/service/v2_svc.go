@@ -189,6 +189,7 @@ func (s *V2Service) AfterCreate(ctx context.Context, m *model.Matter, actorUID s
 // MetaUpdate carries the v2 metadata edits.
 type MetaUpdate struct {
 	Mode             *string
+	ModeConfig       *string
 	ProjectID        *string
 	Duration         *uint
 	BriefConstraints *string
@@ -236,6 +237,13 @@ func (s *V2Service) UpdateMeta(ctx context.Context, id, spaceID string, callerUI
 	}
 	if duration != nil {
 		m.ExpectedDuration = duration
+	}
+	if u.ModeConfig != nil {
+		if *u.ModeConfig == "" {
+			m.ModeConfig = nil
+		} else {
+			m.ModeConfig = u.ModeConfig
+		}
 	}
 	if u.BriefConstraints != nil {
 		if *u.BriefConstraints == "" {
@@ -492,6 +500,7 @@ type TreeNode struct {
 type TreeResult struct {
 	Matter       *model.Matter     `json:"matter"`
 	Mode         string            `json:"mode"`
+	ModeConfig   *string           `json:"mode_config,omitempty"`
 	Children     []TreeNode        `json:"children"`
 	BarrierState string            `json:"barrier_state"`
 	JoinReady    bool              `json:"join_ready"`
@@ -590,7 +599,7 @@ func (s *V2Service) Tree(ctx context.Context, matterID, spaceID string, callerUI
 	}
 
 	return &TreeResult{
-		Matter: m, Mode: mode, Children: nodes,
+		Matter: m, Mode: mode, ModeConfig: m.ModeConfig, Children: nodes,
 		BarrierState: barrier, JoinReady: joinReady,
 		EventsSeq: m.EventsSeq, ProcessedSeq: m.ProcessedSeq,
 		Contract: contract,

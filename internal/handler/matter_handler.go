@@ -95,6 +95,7 @@ type createMatterReq struct {
 	StepID            *string                 `json:"step_id" binding:"omitempty,max=64"`
 	StepOrder         *uint                   `json:"step_order"`
 	Mode              *string                 `json:"mode" binding:"omitempty,max=20"`
+	ModeConfig        *string                 `json:"mode_config" binding:"omitempty,max=4000"`
 	ProjectID         *string                 `json:"project_id" binding:"omitempty,uuid"`
 	ExpectedDuration  *uint                   `json:"expected_duration_minutes"`
 	Deadline          *string                 `json:"deadline"`
@@ -158,6 +159,7 @@ func (h *MatterHandler) Create(c *gin.Context) {
 		StepID:            req.StepID,
 		StepOrder:         req.StepOrder,
 		Mode:              req.Mode,
+		ModeConfig:        req.ModeConfig,
 		ProjectID:         req.ProjectID,
 		ExpectedDuration:  req.ExpectedDuration,
 		SourceChannelID:   req.SourceChannelID,
@@ -386,6 +388,7 @@ type updateMatterReq struct {
 	RemindAt         *string                  `json:"remind_at"`
 	LeaderUID        *string                  `json:"leader_uid" binding:"omitempty,max=64"`
 	Mode             *string                  `json:"mode" binding:"omitempty,max=20"`
+	ModeConfig       *string                  `json:"mode_config" binding:"omitempty,max=4000"`
 	ProjectID        *string                  `json:"project_id" binding:"omitempty,max=36"`
 	ExpectedDuration *uint                    `json:"expected_duration_minutes"`
 	SortOrder        *float64                 `json:"sort_order"`
@@ -408,10 +411,10 @@ func (h *MatterHandler) Update(c *gin.Context) {
 		respondErr(c, err)
 		return
 	}
-	if h.v2 != nil && (req.Mode != nil || req.ProjectID != nil || req.ExpectedDuration != nil ||
+	if h.v2 != nil && (req.Mode != nil || req.ModeConfig != nil || req.ProjectID != nil || req.ExpectedDuration != nil ||
 		req.BriefConstraints != nil || req.BriefOutputSpec != nil || req.SortOrder != nil || req.InputAttachments != nil) {
 		matter, err = h.v2.UpdateMeta(c.Request.Context(), id, spaceID(c), relatedUIDs(c), service.MetaUpdate{
-			Mode: req.Mode, ProjectID: req.ProjectID, Duration: req.ExpectedDuration,
+			Mode: req.Mode, ModeConfig: req.ModeConfig, ProjectID: req.ProjectID, Duration: req.ExpectedDuration,
 			BriefConstraints: req.BriefConstraints, BriefOutputSpec: req.BriefOutputSpec,
 			SortOrder: req.SortOrder, InputAttachments: req.InputAttachments,
 		})

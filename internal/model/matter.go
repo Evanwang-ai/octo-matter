@@ -75,6 +75,7 @@ type Matter struct {
 	LeaderUID         *string      `db:"leader_uid" json:"leader_uid,omitempty"`
 	Status            MatterStatus `db:"status" json:"status"`
 	Mode              *string      `db:"mode" json:"mode,omitempty"`
+	ModeConfig        *string      `db:"mode_config" json:"mode_config,omitempty"`
 	StepID            *string      `db:"step_id" json:"step_id,omitempty"`
 	StepOrder         *uint        `db:"step_order" json:"step_order,omitempty"`
 	ProjectID         *string      `db:"project_id" json:"project_id,omitempty"`
