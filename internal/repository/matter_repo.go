@@ -63,7 +63,7 @@ func (r *MatterRepo) Create(ctx context.Context, matter *model.Matter) error {
 		_, err = r.runner.InsertInto("matters").
 			Columns("id", "seq_no", "space_id", "parent_matter_id", "title", "description",
 				"brief_constraints", "brief_output_spec",
-				"creator_id", "leader_uid", "status", "mode", "step_id", "step_order",
+				"creator_id", "leader_uid", "status", "mode", "mode_config", "step_id", "step_order",
 				"project_id", "assignment_epoch", "version", "expected_duration_minutes",
 				"last_activity_at", "last_transition_at", "schedule_id", "scheduled_at",
 				"deadline", "remind_at", "source_channel_id", "source_channel_type",
@@ -264,6 +264,7 @@ func (r *MatterRepo) Update(ctx context.Context, matter *model.Matter) error {
 		Set("deadline", matter.Deadline).
 		Set("remind_at", matter.RemindAt).
 		Set("mode", matter.Mode).
+		Set("mode_config", matter.ModeConfig).
 		Set("project_id", matter.ProjectID).
 		Set("expected_duration_minutes", matter.ExpectedDuration).
 		Set("input_attachments", matter.InputAttachments).
