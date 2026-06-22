@@ -5132,9 +5132,15 @@ function paintProjectDetail(my){
   } else {
     if (st.viewMode === "board"){
       var cols = BOARD_COLS.map(function(c){
-        var cards = rows.filter(function(m){ return m.status === c.st; });
+        var cards = rows.filter(function(m){ return m.status === c.st; }).sort(function(a, b){
+          var sa = a.sort_order != null ? a.sort_order : Infinity;
+          var sb = b.sort_order != null ? b.sort_order : Infinity;
+          if (sa !== sb) return sa - sb;
+          return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+        });
         return '<div class="board-col ' + c.cls + (cards.length ? "" : " is-empty") + '" data-status="' + c.st + '">'
-          + '<div class="board-col-h"><span class="bc-dot"></span>' + esc(stName(c.st)) + '<span class="bc-cnt">' + cards.length + "</span></div>"
+          + '<div class="board-col-h"><span class="bc-dot"></span>' + esc(stName(c.st)) + '<span class="bc-cnt">' + cards.length + '</span>'
+          + '<button class="bc-add" type="button" data-proj-addcol="' + c.st + '" title="新建事项">+</button></div>'
           + '<div class="board-cards">' + (cards.map(boardCardHTML).join("") || '<div class="board-empty">没有事项</div>') + "</div></div>";
       }).join("");
       body = '<div class="board-shell"><div class="board-viewport"><div class="board-wrap">' + cols + "</div></div></div>";
@@ -5158,6 +5164,7 @@ function paintProjectDetail(my){
     + '<div class="list-head"><div class="list-title">' + esc(name) + '</div><div class="list-head-actions">'
     + '<div class="ibx-filter-zone"><button class="ibx-filter-trigger" id="projModeTrigger" type="button">' + filterSVG2 + '<span class="ibx-ft-label">' + esc(curModeLabel) + '</span></button>'
     + '<div class="ibx-drop" id="projModeDrop">' + modeDropItems + '</div></div>'
+    + '<button class="new-btn" id="projNewMatterBtn" type="button">+ 新建</button>'
     + (p ? '<button class="pc-more" id="projMoreBtn" type="button" aria-label="项目操作" title="分享 / 重命名 / 归档">⋯</button>' : "")
     + "</div></div>"
     + '<div class="list-sub">' + rows.length + " 个事项 · " + scopeLabel(p) + (p && p.archived ? " · 已归档" : "") + "</div>"
@@ -5339,6 +5346,147 @@ function paintProjectDetail(my){
       }).catch(function(err){ el.disabled = false; errToast(err); });
     });
   });
+  // Project "新建" button
+  var projNewBtn = $("#projNewMatterBtn");
+  if (projNewBtn) projNewBtn.addEventListener("click", function(){ openMatterModal({ projectId: st.id }); });
+  // Project board "+" buttons
+  $$("[data-proj-addcol]").forEach(function(el){
+    el.addEventListener("click", function(e){ e.stopPropagation(); openMatterModal({ projectId: st.id }); });
+  });
+  // Project board drag-drop (independent from inbox board)
+  if (st.viewMode === "board"){
+    var projDragId = "";
+    function replaceProjectRow(fresh){
+      if (!fresh || !fresh.id) return;
+      for (var i = 0; i < st.rows.length; i++){
+        if (st.rows[i] && st.rows[i].id === fresh.id){
+          st.rows[i] = fresh;
+          return;
+        }
+      }
+    }
+    function repaintProjectBoard(){
+      if (my === renderToken) paintProjectDetail(my);
+    }
+    function saveProjectSort(id, sortOrder){
+      return api("/matters/" + id, { method: "PUT", body: { sort_order: sortOrder } }).then(function(detail){
+        var fresh = normMatter(detail);
+        if (fresh) replaceProjectRow(fresh);
+      });
+    }
+    $$(".bcard", $("#centerCol")).forEach(function(el){
+      el.addEventListener("click", function(){ location.hash = "#/matter/" + el.getAttribute("data-id"); });
+      el.addEventListener("dragstart", function(e){
+        projDragId = el.getAttribute("data-id");
+        e.dataTransfer.setData("text/plain", projDragId);
+        e.dataTransfer.effectAllowed = "move";
+        el.classList.add("dragging");
+      });
+      el.addEventListener("dragend", function(){
+        el.classList.remove("dragging"); projDragId = "";
+        $$(".board-drop-line").forEach(function(l){ l.remove(); });
+        $$(".board-col.drop-over").forEach(function(c){ c.classList.remove("drop-over"); });
+      });
+    });
+    function projCardEdge(cardsEl, y){
+      var cards = $$(".bcard:not(.dragging)", cardsEl);
+      var best = { idx: cards.length, y: Infinity };
+      cards.forEach(function(c, i){
+        var r = c.getBoundingClientRect();
+        var mid = r.top + r.height / 2;
+        if (Math.abs(y - mid) < Math.abs(y - best.y)) best = { idx: y < mid ? i : i + 1, y: mid };
+      });
+      return best.idx;
+    }
+    $$(".board-col", $("#centerCol")).forEach(function(col){
+      var cardsEl = $(".board-cards", col);
+      col.addEventListener("dragover", function(e){
+        e.preventDefault(); e.dataTransfer.dropEffect = "move";
+        col.classList.add("drop-over");
+        $$(".board-drop-line").forEach(function(l){ l.remove(); });
+        if (!cardsEl) return;
+        var idx = projCardEdge(cardsEl, e.clientY);
+        var cards = $$(".bcard:not(.dragging)", cardsEl);
+        var line = document.createElement("div"); line.className = "board-drop-line";
+        if (idx < cards.length) cardsEl.insertBefore(line, cards[idx]); else cardsEl.appendChild(line);
+      });
+      col.addEventListener("dragleave", function(e){
+        if (col.contains(e.relatedTarget)) return;
+        col.classList.remove("drop-over");
+        $$(".board-drop-line", col).forEach(function(l){ l.remove(); });
+      });
+      col.addEventListener("drop", function(e){
+        e.preventDefault(); col.classList.remove("drop-over");
+        $$(".board-drop-line").forEach(function(l){ l.remove(); });
+        var id = e.dataTransfer.getData("text/plain") || projDragId;
+        var targetStatus = col.getAttribute("data-status");
+        if (!id || !targetStatus) return;
+        var idx = projCardEdge(cardsEl, e.clientY);
+        var colCards = rows.filter(function(m){ return m.status === targetStatus && m.id !== id; });
+        colCards.sort(function(a, b){
+          var sa = a.sort_order != null ? a.sort_order : Infinity;
+          var sb = b.sort_order != null ? b.sort_order : Infinity;
+          if (sa !== sb) return sa - sb;
+          return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+        });
+        colCards.forEach(function(c, i){ if (c.sort_order == null) c.sort_order = (i + 1) * 1000; });
+        var before = idx > 0 ? colCards[idx - 1].sort_order : null;
+        var after = idx < colCards.length ? colCards[idx].sort_order : null;
+        var newOrder;
+        if (before == null && after == null) newOrder = 1000;
+        else if (before == null) newOrder = after - 1000;
+        else if (after == null) newOrder = before + 1000;
+        else newOrder = (before + after) / 2;
+        var m = rows.find(function(x){ return x.id === id; });
+        if (!m) return;
+        var statusChanged = m.status !== targetStatus;
+        var prevStatus = m.status;
+        var prevOrder = m.sort_order;
+        var expectedVersion = m.version;
+        m.sort_order = newOrder;
+        var doMove = function(reason){
+          if (statusChanged) m.status = targetStatus;
+          paintProjectDetail(my);
+          if (!statusChanged){
+            saveProjectSort(id, newOrder).then(repaintProjectBoard).catch(repaintProjectBoard);
+            return;
+          }
+          api("/matters/" + id + "/status", { method: "PUT", body: Object.assign({ status: targetStatus, expected_version: expectedVersion }, reason ? { reason: reason } : {}) })
+            .then(function(detail){
+              var fresh = normMatter(detail);
+              if (fresh){
+                fresh.sort_order = newOrder;
+                replaceProjectRow(fresh);
+              }
+              saveProjectSort(id, newOrder).then(repaintProjectBoard).catch(repaintProjectBoard);
+              toast("已挪到「" + stName(targetStatus) + "」");
+            }).catch(function(err){
+              m.status = prevStatus;
+              m.sort_order = prevOrder;
+              if (err.status === 409){
+                toast("被人改过了,已刷新", { err: true, title: err.code || "" });
+                renderProjectDetail(++renderToken, st.id).catch(errToast);
+              } else {
+                repaintProjectBoard();
+                errToast(err);
+              }
+            });
+        };
+        if (statusChanged && targetStatus === "blocked"){
+          askReason().then(function(reason){
+            if (reason === null){
+              m.sort_order = prevOrder;
+              repaintProjectBoard();
+              return;
+            }
+            doMove(reason);
+          });
+        } else {
+          doMove("");
+        }
+      });
+    });
+  }
 }
 
 /* ================= AUTOMATION ================= */
