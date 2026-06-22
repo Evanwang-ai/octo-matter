@@ -3330,6 +3330,38 @@ function paintMyInbox(my){
       loadInboxDetail(my, id);
     });
   });
+  var ilList = $(".inbox-left-list");
+  if (ilList) ilList.addEventListener("contextmenu", function(e){
+    var row = e.target.closest(".mail-row[data-mid]");
+    if (!row) return;
+    e.preventDefault();
+    closeCtxMenu();
+    var mid = row.getAttribute("data-mid");
+    if (!mid) return;
+    var m = myInboxState && myInboxState.rows.find(function(r){ return r.id === mid; });
+    var mst = m ? m.status : "";
+    var menu = document.createElement("div"); menu.className = "ctx-menu"; menu.id = "ctxMenu";
+    var items = [];
+    if (mst !== "archived") items.push('<button data-ctx="archive">归档</button>');
+    if (mst === "archived") items.push('<button data-ctx="unarchive">取消归档</button>');
+    if (mst !== "cancelled" && mst !== "done" && mst !== "archived") items.push('<button data-ctx="cancel" class="danger">取消事项</button>');
+    if (!items.length) return;
+    menu.innerHTML = items.join('<div class="ctx-sep"></div>');
+    menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + "px";
+    menu.style.top = Math.min(e.clientY, window.innerHeight - items.length * 40 - 20) + "px";
+    document.body.appendChild(menu);
+    menu.addEventListener("click", function(ce){
+      var btn = ce.target.closest("[data-ctx]"); if (!btn) return;
+      var act = btn.getAttribute("data-ctx"); closeCtxMenu();
+      var target = act === "archive" ? "archived" : act === "unarchive" ? "done" : "cancelled";
+      api("/matters/" + mid + "/status", { method: "PUT", body: { status: target } }).then(function(){
+        toast(target === "archived" ? "已归档" : target === "cancelled" ? "已取消" : "已恢复");
+        if (m) m.status = target;
+        paintMyInbox(my);
+      }).catch(errToast);
+    });
+    setTimeout(function(){ document.addEventListener("click", closeCtxMenu, { once: true }); }, 0);
+  }, true);
   if (myInboxSel) loadInboxDetail(my, myInboxSel);
   else if (rows.length){
     myInboxSel = rows[0].id;
@@ -3381,6 +3413,7 @@ function loadInboxDetail(my, id){
     paintInspector();
     showInspector();
     bindDetail(my);
+    schedulePlanEdges();
     if (m.parent_matter_id){
       api("/matters/" + m.parent_matter_id).then(function(p){
         if (my !== renderToken || !cur || cur.id !== id) return;
@@ -3396,6 +3429,7 @@ function loadInboxDetail(my, id){
   });
 }
 
+/* --- DEAD CODE: old full-page inbox (all routes now go to myinbox split-pane) ---
 function renderInbox(my, tab){
   if (tab) inboxTab = tab;
   var info = tabInfo(inboxTab);
@@ -3414,7 +3448,6 @@ function renderInbox(my, tab){
     paintInbox(my);
     fetchTabCounts().then(function(){
       if (my !== renderToken) return;
-      // 计数到了就把 tab 上的数字补上(原位更新,不打断输入)
       $$(".inbox-filter").forEach(function(el){
         var t = tabInfo(el.getAttribute("data-tab"));
         var active = inboxTab === t.k;
@@ -3424,6 +3457,7 @@ function renderInbox(my, tab){
     });
   });
 }
+--- end renderInbox */
 function sortRows(rows){
   return rows.slice().sort(function(a, b){
     var t = (isTerminalRow(a) ? 1 : 0) - (isTerminalRow(b) ? 1 : 0);
@@ -3479,52 +3513,10 @@ function rowsWithChildren(rows, q){
   });
   return html;
 }
-function paintInbox(my){
-  if (!inboxState) return;
-  var info = tabInfo(inboxTab);
-  var q = inboxSearch.trim().toLowerCase();
-  boardFilterRows = inboxState.rows;
-  var activeN = boardActiveFilters().length;
-  var filteredRows = inboxState.rows.filter(function(m){
-    if (inboxTab !== "archived" && m.status === "archived") return false;
-    return boardMatchesFilters(m, "");
-  });
-  var rows = sortRows(filteredRows.filter(function(m){ return matchSearch(m, q); }));
-  var tabs = INBOX_TABS.map(function(t){
-    var active = inboxTab === t.k;
-    return '<div class="inbox-filter' + (active ? " active" : "") + '" data-tab="' + t.k + '" role="tab" tabindex="0" aria-selected="' + active + '">'
-      + "<span>" + t.label + '</span><span class="tab-cnt-slot">' + tabCountHTML(t, active, inboxState.rows.length) + "</span></div>";
-  }).join("");
-  var empty = q
-    ? '<div class="empty-state actionable"><div class="es-t">未找到相关事项</div><div class="es-s">当前列表里没有标题或编号匹配“' + esc(inboxSearch.trim()) + '”。</div><button class="es-action" id="listSearchClearEmpty" type="button">清空搜索</button></div>'
-    : (activeN
-      ? '<div class="empty-state actionable"><div class="es-t">没有匹配事项</div><div class="es-s">当前字段筛选没有命中事项,可以换条件或清空筛选。</div><button class="es-action" id="listFilterClearEmpty" type="button">清空筛选</button></div>'
-      : inboxEmpty(inboxTab));
-  var more = inboxState.page.has_more
-    ? '<button class="load-more" id="loadMore" type="button">加载更多</button>' : "";
-  var filterControl = '<div class="board-actions list-filter-actions">'
-    + '<button type="button" class="board-filter-trigger' + (activeN ? " has-filters" : "") + (boardFilterOpen ? " open" : "") + '" id="boardFilterBtn" aria-haspopup="menu" aria-expanded="' + (boardFilterOpen ? "true" : "false") + '" aria-label="筛选事项">' + FILTER_SVG + '<span>筛选</span><span class="bf-count">' + activeN + "</span></button>"
-    + boardFilterPopoverHTML()
-    + "</div>";
-  $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
-    + '<div class="list-head"><div class="list-head-actions">' + matterViewSwitchHTML("list") + filterControl + '<button class="new-btn" id="newMatterBtn" type="button">+ 新建</button></div></div>'
-    + '<div class="inbox-toolbar"><div class="inbox-filterbar" role="tablist">' + tabs + "</div>"
-    + '<input class="list-search" id="listSearch" type="search" placeholder="搜索标题或编号" value="' + esc(inboxSearch) + '" aria-label="搜索事项"></div>'
-    + '<div class="board-active-filters">' + boardChipHTML() + "</div>"
-    + (rows.length ? '<div class="inbox-table-head" aria-hidden="true"><span>状态</span><span>事项</span><span>项目</span><span>编号</span><span>领队</span><span>创建</span></div>' : "")
-    + '<div class="mlist">' + (rows.length ? rowsWithChildren(rows, q) : empty) + "</div>"
-    + more + "</div></div>";
-  bindInbox(my);
-}
-function inboxEmpty(tab){
-  var copy = {
-    all: { t: "还没有事项", s: "点右上「新建」,把第一件事立起来" },
-    mine: { t: "没有你负责的事", s: "" },
-    initiated: { t: "没有你发起的事", s: "点右上「新建」派一件出去" },
-    review: { t: "没有待确认的", s: "交回来的活会在这里排队" }
-  }[tab] || { t: "还没有事项", s: "" };
-  return '<div class="empty-state"><div class="es-t">' + esc(copy.t) + '</div><div class="es-s">' + esc(copy.s) + "</div></div>";
-}
+/* --- DEAD CODE: old full-page inbox list view ---
+function paintInbox(my){ ... }
+function inboxEmpty(tab){ ... }
+--- see git history (commit 145d7ad) for full code --- */
 function bindSrcChips(root){
   $$(".src-chip[data-src]", root).forEach(function(el){
     el.addEventListener("click", function(e){
@@ -3533,147 +3525,11 @@ function bindSrcChips(root){
     });
   });
 }
-function bindInbox(my){
-  $$(".inbox-filter").forEach(function(el){
-    el.addEventListener("click", function(){
-      var t = tabInfo(el.getAttribute("data-tab"));
-      if (location.hash === t.hash){ return; }
-      location.hash = t.hash; // 路由切换,渲染交给 router
-    });
-  });
-  $$(".mrow[data-id]").forEach(function(el){
-    el.addEventListener("click", function(){ location.hash = "#/matter/" + el.getAttribute("data-id"); });
-  });
-  $$("[data-expand]").forEach(function(el){
-    el.addEventListener("click", function(e){
-      e.stopPropagation();
-      toggleExpand(el.getAttribute("data-expand"), el);
-    });
-  });
-  bindSrcChips($("#centerCol"));
-  var nb = $("#newMatterBtn");
-  if (nb) nb.addEventListener("click", function(){ openMatterModal({}); });
-  var ls = $("#listSearch");
-  if (ls){
-    ls.addEventListener("input", function(){
-      inboxSearch = ls.value;
-      var pos = ls.selectionStart;
-      paintInbox(my);
-      var l2 = $("#listSearch");
-      if (l2){ l2.focus(); try { l2.setSelectionRange(pos, pos); } catch (e) {} }
-    });
-    ls.addEventListener("keydown", function(e){
-      if (e.key === "Escape" && ls.value){ e.stopPropagation(); inboxSearch = ""; paintInbox(my); var l2 = $("#listSearch"); if (l2) l2.focus(); }
-    });
-  }
-  var clearEmpty = $("#listSearchClearEmpty");
-  if (clearEmpty) clearEmpty.addEventListener("click", function(){
-    inboxSearch = "";
-    paintInbox(my);
-    var l3 = $("#listSearch");
-    if (l3) l3.focus();
-  });
-  var listFilterClear = $("#listFilterClearEmpty");
-  if (listFilterClear) listFilterClear.addEventListener("click", function(){
-    boardClearAllFilters();
-    boardFilterOpen = false;
-    paintInbox(my);
-  });
-  bindMatterFilterControls(function(){ paintInbox(my); });
-  var lm = $("#loadMore");
-  if (lm) lm.addEventListener("click", function(){
-    lm.disabled = true; lm.textContent = "加载中…";
-    var params = {};
-    Object.keys(inboxState.params).forEach(function(k){ params[k] = inboxState.params[k]; });
-    params.cursor = inboxState.page.next_cursor;
-    api("/matters", { params: params }).then(function(json){
-      if (my !== renderToken) return;
-      inboxState.rows = inboxState.rows.concat(listData(json).map(normMatter));
-      inboxState.page = pageInfo(json);
-      paintInbox(my);
-    }).catch(function(e){ errToast(e); lm.disabled = false; lm.textContent = "加载更多"; });
-  });
-  var mlist = $(".mlist", $("#centerCol"));
-  if (mlist) mlist.addEventListener("change", function(e){
-    if (!e.target.classList.contains("m-check")) return;
-    var row = e.target.closest(".mrow");
-    if (row) row.classList.toggle("is-checked", e.target.checked);
-    var checked = $$(".m-check:checked", mlist);
-    mlist.classList.toggle("has-checked", checked.length > 0);
-    var existing = $(".batch-bar");
-    if (!checked.length){ if (existing) existing.remove(); return; }
-    if (!existing){
-      existing = document.createElement("div");
-      existing.className = "batch-bar";
-      mlist.parentNode.insertBefore(existing, mlist);
-    }
-    existing.innerHTML = '已选 <span class="bb-count">' + checked.length + '</span> 项'
-      + '<button type="button" id="batchArchive">归档</button>'
-      + '<button type="button" class="bb-cancel" id="batchCancel">取消</button>';
-    $("#batchArchive").addEventListener("click", function(){
-      var ids = checked.map(function(c){ return c.getAttribute("data-check"); });
-      var done = 0;
-      Promise.all(ids.map(function(id){
-        return api("/matters/" + id + "/status", { method: "PUT", body: { status: "archived" } })
-          .then(function(){ done++; }).catch(function(){});
-      })).then(function(){
-        toast("已归档 " + done + " 项");
-        inboxState.rows = inboxState.rows.filter(function(m){ return ids.indexOf(m.id) < 0; });
-        paintInbox(my);
-      });
-    });
-    $("#batchCancel").addEventListener("click", function(){
-      $$(".m-check:checked", mlist).forEach(function(c){
-        c.checked = false;
-        var r = c.closest(".mrow"); if (r) r.classList.remove("is-checked");
-      });
-      mlist.classList.remove("has-checked");
-      existing.remove();
-    });
-  });
-  if (mlist) mlist.addEventListener("contextmenu", function(e){
-    var row = e.target.closest(".mrow");
-    if (!row) return;
-    e.preventDefault();
-    closeCtxMenu();
-    var mid = row.getAttribute("data-id");
-    var mst = row.getAttribute("data-status") || "";
-    if (!mid) return;
-    var menu = document.createElement("div");
-    menu.className = "ctx-menu";
-    menu.id = "ctxMenu";
-    var items = [];
-    if (mst !== "archived") items.push('<button data-ctx="archive">归档</button>');
-    if (mst === "archived") items.push('<button data-ctx="unarchive">取消归档</button>');
-    if (mst !== "cancelled" && mst !== "done" && mst !== "archived") items.push('<button data-ctx="cancel" class="danger">取消事项</button>');
-    if (!items.length) return;
-    menu.innerHTML = items.join('<div class="ctx-sep"></div>');
-    var x = Math.min(e.clientX, window.innerWidth - 180);
-    var y = Math.min(e.clientY, window.innerHeight - items.length * 40 - 20);
-    menu.style.left = x + "px";
-    menu.style.top = y + "px";
-    document.body.appendChild(menu);
-    menu.addEventListener("click", function(ce){
-      var btn = ce.target.closest("[data-ctx]");
-      if (!btn) return;
-      var act = btn.getAttribute("data-ctx");
-      closeCtxMenu();
-      if (act === "archive") doCtxStatus(mid, "archived", my);
-      else if (act === "unarchive") doCtxStatus(mid, "done", my);
-      else if (act === "cancel") doCtxStatus(mid, "cancelled", my);
-    });
-    setTimeout(function(){ document.addEventListener("click", closeCtxMenu, { once: true }); }, 0);
-  }, true);
-}
+/* --- DEAD CODE: old full-page inbox event bindings + context menu ---
+function bindInbox(my){ ... }
+function doCtxStatus(id, status, my){ ... }
+--- see git history (commit 145d7ad) for full code --- */
 function closeCtxMenu(){ var m = $("#ctxMenu"); if (m) m.remove(); }
-function doCtxStatus(id, status, my){
-  api("/matters/" + id + "/status", { method: "PUT", body: { status: status } }).then(function(){
-    toast(status === "archived" ? "已归档" : status === "cancelled" ? "已取消" : "已恢复");
-    var r = inboxState.rows.find(function(m){ return m.id === id; });
-    if (r) r.status = status;
-    paintInbox(my);
-  }).catch(errToast);
-}
 function toggleExpand(id, btn){
   if (expandedRows[id]){ delete expandedRows[id]; repaintList(); return; }
   expandedRows[id] = true;
@@ -3696,8 +3552,7 @@ function toggleExpand(id, btn){
 }
 function repaintList(){
   var r = parseHash();
-  if (r.view === "inbox") paintInbox(renderToken);
-  else if (r.view === "project" && projState) paintProjectDetail(renderToken);
+  if (r.view === "project" && projState) paintProjectDetail(renderToken);
 }
 
 /* ================= BOARD ================= */
@@ -3751,24 +3606,9 @@ function saveBoardDisplayState(){
     }));
   } catch (_e) {}
 }
-function renderBoard(my){
-  setNav("board");
-  loadBoardDisplayState();
-  hideInspector();
-  setCrumbText("事项");
-  $("#centerCol").innerHTML = '<div class="content board-content"><div class="content-inner wide inbox-page board-shell">'
-    + '<div class="sk-cols">' + '<div class="skel" style="height:240px"></div>'.repeat(5) + "</div></div></div>";
-  return Promise.all([
-    getProjects().catch(function(){ return []; }),
-    loadMembers().catch(function(){ return []; }),
-    api("/matters", { params: { limit: 100 } })
-  ]).then(function(res){
-    if (my !== renderToken) return;
-    boardAll = listData(res[2]).map(normMatter).filter(function(m){ return !isTerminalRow(m); });
-    boardPage = pageInfo(res[2]);
-    paintBoard(my);
-  });
-}
+/* --- DEAD CODE: old standalone board view (#/board redirects to #/inbox) ---
+function renderBoard(my){ ... }
+--- see git history for full code --- */
 function silentFor(m){
   var ref = m.last_activity_at || m.updated_at;
   if (!ref) return "";
@@ -4004,6 +3844,7 @@ function bindMatterFilterControls(repaint){
     });
   });
 }
+/* --- DEAD CODE: old standalone board view rendering + binding + drag-drop ---
 function paintBoard(my){
   boardFilterRows = boardAll;
   boardRows = boardAll.filter(function(m){
@@ -4254,6 +4095,7 @@ function dropCard(my, id, target){
     go("");
   }
 }
+--- see git history for full code --- */
 
 /* ================= TIMELINE ================= */
 var tlZoom = "day"; // "day" | "week" | "month" | "quarter"
