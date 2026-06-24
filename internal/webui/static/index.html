@@ -6810,7 +6810,7 @@ function bindDetail(my){
     if (!cur || !cur.m){ toast("这单还在加载,稍等一下再发"); return; }
     send.disabled = true; send.textContent = "发送中…";
     // @ 了人,或事项在审核中 ⇒ 这是一条反馈(taste 信号):走 feedback,
-    // 服务端会敲对方门铃、审核中自动退回修改。带附件的部分走 timeline 落档;
+    // 服务端会通知对方、审核中自动退回修改。带附件的部分走 timeline 落档;
     // 两者都有 ⇒ timeline(附件)+feedback(敲铃)各司其职。
     var mentions = parseMentions(v);
     var asFeedback = mentions.length > 0 || (cur.m && cur.m.status === "review");
@@ -6821,7 +6821,7 @@ function bindDetail(my){
       return api("/matters/" + cur.id + "/feedback", { method: "POST", body: body }).then(function(resp){
         var flipped = resp && resp.matter_status === "in_progress" && cur.m.status === "review";
         var who = mentions.length ? mentions[0].name : uname((cur.m && cur.m.leader) || "");
-        toast(flipped ? "已退回修改 — 门铃已敲给 " + who : (who ? "记下了 — 门铃已敲给 " + who : "记下了"), { icon: "" });
+        toast(flipped ? "已退回修改 — 已通知 " + who : (who ? "记下了 — 已通知 " + who : "记下了"), { icon: "" });
         if (after) after();
       });
     };
@@ -7077,6 +7077,7 @@ function paintInspector(){
 }
 function fetchIterations(matterId){
   api("/matters/" + matterId + "/iterations").then(function(r){
+    if (matterId !== (cur && cur.m && cur.m.id)) return; // navigated away
     var el = $("#iterBody");
     if (!el) return;
     var rounds = (r && r.rounds) || [];

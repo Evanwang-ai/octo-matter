@@ -283,7 +283,17 @@ func (s *V2Service) Iterations(ctx context.Context, matterID, spaceID string, ca
 
 		switch to {
 		case "in_progress":
-			if currentRound == nil {
+			if currentRound != nil && currentRound.Outcome == "confirmed" {
+				// Reopened after confirmation — close confirmed round and start a new one
+				rounds = append(rounds, *currentRound)
+				roundNum++
+				t := act.CreatedAt
+				currentRound = &IterationRound{
+					Round:     roundNum,
+					StartedAt: &t,
+					Outcome:   "in_progress",
+				}
+			} else if currentRound == nil {
 				// First time entering in_progress, start round 1
 				roundNum++
 				t := act.CreatedAt

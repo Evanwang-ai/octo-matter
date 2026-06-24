@@ -103,6 +103,7 @@ func (r *ActivityRepo) ListAllByMatter(ctx context.Context, matterID string, lim
 	_, err := r.runner.Select("*").
 		From("matter_activities").
 		Where("matter_id = ?", matterID).
+		Where("action = ?", "status_changed").
 		OrderBy("created_at ASC").
 		OrderBy("id ASC").
 		Limit(uint64(limit)).
