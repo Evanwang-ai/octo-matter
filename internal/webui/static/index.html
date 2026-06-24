@@ -1284,6 +1284,36 @@
   .matter-confirm-done .rv-action.primary { background: var(--amber); border-color: var(--amber); color: #fff; }
   .matter-confirm-done .rv-action.primary:hover { background: #e97900; border-color: #e97900; }
   .matter-confirm-done .rv-action:disabled { opacity: .55; cursor: default; }
+  /* --- completion satisfaction feedback panel --- */
+  .satisfaction-panel {
+    background: var(--fill-1); border-radius: 10px; padding: 14px 16px; margin-top: 10px;
+    animation: satFadeIn .18s ease;
+  }
+  @keyframes satFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .satisfaction-panel .sat-label {
+    font-size: 13px; color: var(--text-2); font-weight: 600; margin-bottom: 8px; line-height: 1.5;
+  }
+  .satisfaction-panel .sat-textarea {
+    display: block; width: 100%; box-sizing: border-box; min-height: 56px; max-height: 120px;
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff;
+    font-size: 13px; line-height: 1.5; color: var(--text); resize: vertical;
+    font-family: inherit; outline: none; transition: border-color .15s;
+  }
+  .satisfaction-panel .sat-textarea:focus { border-color: var(--amber); }
+  .satisfaction-panel .sat-actions {
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px;
+  }
+  .satisfaction-panel .sat-skip {
+    min-height: 30px; padding: 0 12px; border-radius: 7px; background: #fff; font-size: 12.5px;
+    font-weight: 600; cursor: pointer; border: 1px solid var(--border); color: var(--text-3); transition: .15s;
+  }
+  .satisfaction-panel .sat-skip:hover { background: var(--fill-2); color: var(--text-2); }
+  .satisfaction-panel .sat-submit {
+    min-height: 30px; padding: 0 12px; border-radius: 7px; background: var(--amber); font-size: 12.5px;
+    font-weight: 700; cursor: pointer; border: 1px solid var(--amber); color: #fff; transition: .15s;
+  }
+  .satisfaction-panel .sat-submit:hover { background: #e97900; border-color: #e97900; }
+  .satisfaction-panel .sat-skip:disabled, .satisfaction-panel .sat-submit:disabled { opacity: .55; cursor: default; }
   .r-text { font-size: 13.5px; line-height: 1.68; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
   /* markdown 渲染容器:块级排版接管换行,关掉 pre-wrap 以免双重空行 */
   .md { white-space: normal; }
@@ -6673,7 +6703,14 @@ function timelineBlockHTML(m){
       + '<button class="rv-action" type="button" data-review-feedback aria-controls="composerInput">需要修改</button>'
       + '<button class="rv-action primary" type="button" data-review-accept data-pending-label="确认中">确认完成</button>'
       + '<div class="decision-status" role="status" aria-live="polite"></div>'
-      + "</div>";
+      + "</div>"
+      + '<div class="satisfaction-panel" data-sat-panel style="display:none">'
+      + '<div class="sat-label">有什么做得好的想记住吗？（选填）</div>'
+      + '<textarea class="sat-textarea" data-sat-text placeholder="比如：数据分析很全面，格式规范，响应及时"></textarea>'
+      + '<div class="sat-actions">'
+      + '<button class="sat-skip" type="button" data-sat-skip>跳过，直接完成</button>'
+      + '<button class="sat-submit" type="button" data-sat-submit>记下并完成</button>'
+      + '</div></div>';
   }
   var n = t.ok ? listData(t.v).length : 0;
   var hint = n ? '<span class="sec-count" title="选中正文里的一句话,可以批注">' + n + " 条 · 选中文字可批注</span>" : "";
@@ -6740,8 +6777,7 @@ function bindDetail(my){
   send.addEventListener("click", doSendTimeline);
   $$("[data-review-accept]", $("#centerCol")).forEach(function(btn){
     btn.addEventListener("click", function(){
-      var reset = setDecisionPending(btn);
-      doStatusChange("done", { onError: reset });
+      showSatisfactionPanel(btn);
     });
   });
   $$("[data-review-feedback]", $("#centerCol")).forEach(function(btn){
@@ -7152,8 +7188,7 @@ function bindEntryActions(){
   // re-bind review actions after re-render
   $$("[data-review-accept]", $("#repliesBlock")).forEach(function(btn){
     btn.addEventListener("click", function(){
-      var reset = setDecisionPending(btn);
-      doStatusChange("done", { onError: reset });
+      showSatisfactionPanel(btn);
     });
   });
   $$("[data-review-feedback]", $("#repliesBlock")).forEach(function(btn){
@@ -7704,6 +7739,63 @@ function setDecisionPending(btn){
   var note = btn.closest(".blocker-note,.review-note");
   var pending = btn.getAttribute("data-pending-label") || "处理中";
   return setPendingButtonGroup(note ? $$("button", note) : [btn], btn, pending, note ? $(".decision-status", note) : null);
+}
+function showSatisfactionPanel(acceptBtn){
+  // Hide the confirm-done button row
+  var btnRow = acceptBtn.closest(".matter-confirm-done");
+  if (btnRow) btnRow.style.display = "none";
+  // Reveal the satisfaction panel (sibling of the button row)
+  var panel = btnRow ? btnRow.parentElement.querySelector("[data-sat-panel]") : null;
+  if (!panel) {
+    // Fallback: if panel not found, proceed with original behavior
+    var reset = setDecisionPending(acceptBtn);
+    doStatusChange("done", { onError: reset });
+    return;
+  }
+  panel.style.display = "";
+  var textarea = panel.querySelector("[data-sat-text]");
+  var skipBtn = panel.querySelector("[data-sat-skip]");
+  var submitBtn = panel.querySelector("[data-sat-submit]");
+  if (textarea) textarea.focus();
+
+  function finishDone(){
+    skipBtn.disabled = true;
+    submitBtn.disabled = true;
+    doStatusChange("done", {
+      onError: function(){
+        // On error, restore the panel so user can try again
+        skipBtn.disabled = false;
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+  skipBtn.addEventListener("click", function(){
+    finishDone();
+  });
+
+  submitBtn.addEventListener("click", function(){
+    var text = textarea ? textarea.value.trim() : "";
+    if (!text){
+      // Nothing typed -- same as skip
+      finishDone();
+      return;
+    }
+    skipBtn.disabled = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "记录中...";
+    var matterId = cur.id;
+    var feedbackContent = "满意反馈: " + text;
+    api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: feedbackContent } })
+      .then(function(){ return api("/matters/" + matterId + "/feedback", { method: "POST", body: { content: feedbackContent } }); })
+      .then(function(){ finishDone(); })
+      .catch(function(e){
+        errToast(e);
+        skipBtn.disabled = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = "记下并完成";
+      });
+  });
 }
 function doStatusChange(target, opts){
   opts = opts || {};
