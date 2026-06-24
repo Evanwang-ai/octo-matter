@@ -2306,8 +2306,6 @@
       position: fixed; top: 46px; right: 0; bottom: 0; z-index: 39;
       width: 86vw; max-width: 360px; box-shadow: -8px 0 28px rgba(31,35,41,.18);
     }
-    .brief-grid { grid-template-columns: 1fr; }
-    .brief-side { border-left: 0; border-top: 1px solid rgba(28,28,35,.075); }
     .plan-empty { align-items: flex-start; flex-direction: column; gap: 4px; }
     .plan-empty .pe-v { text-align: left; }
     .proj-grid, .auto-list { grid-template-columns: 1fr; }
@@ -3342,13 +3340,12 @@ function loadInboxDetail(my, id){
     settle(api("/matters/" + id + "/timeline", { params: { limit: 100 } })),
     settle(api("/matters/" + id + "/activities", { params: { limit: 100 } })),
     getProjects().catch(function(){ return []; }),
-    loadMembers().catch(function(){ return []; }),
-    settle(api("/matters/" + id + "/feedback"))
+    loadMembers().catch(function(){ return []; })
   ]).then(function(res){
     if (my !== renderToken || myInboxSel !== id) return;
     var m = normMatter(res[0]);
     if (!m || !m.id){ right.innerHTML = '<div class="inbox-right-empty">事项已不存在</div>'; return; }
-    cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], fb: res[6], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null };
+    cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null };
     right.innerHTML = '<div class="content" id="detailScroll" style="overflow-y:auto;height:100%"><div class="content-inner">'
       + '<h1 class="issue-title">' + esc(m.title) + "</h1>"
       + '<div class="issue-sub">' + pillHTML(m.status)
@@ -6076,8 +6073,7 @@ function renderMatter(my, id){
     settle(api("/matters/" + id + "/timeline", { params: { limit: 100 } })),
     settle(api("/matters/" + id + "/activities", { params: { limit: 100 } })),
     getProjects().catch(function(){ return []; }),
-    loadMembers().catch(function(){ return []; }),
-    settle(api("/matters/" + id + "/feedback"))
+    loadMembers().catch(function(){ return []; })
   ]).then(function(res){
     if (my !== renderToken) return;
     var m = normMatter(res[0]);
@@ -6087,7 +6083,7 @@ function renderMatter(my, id){
       hideInspector();
       return;
     }
-    cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], fb: res[6], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null };
+    cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null };
     paintMatter(my);
     if (m.parent_matter_id){
       api("/matters/" + m.parent_matter_id).then(function(p){
@@ -6564,7 +6560,7 @@ function timelineBlockHTML(m){
     }).join("") + "</div>";
   }
   var reviewActions = "";
-  if (m.status === "review" && isMe(m.creator_id) && entries.length){
+  if (m.status === "review" && isMe(m.creator_id)){
     reviewActions = '<div class="inline-review-actions">'
       + '<button class="rv-action" type="button" data-review-feedback aria-controls="composerInput">需要修改</button>'
       + '<button class="rv-action primary" type="button" data-review-accept data-pending-label="确认中">确认完成</button>'
@@ -6808,6 +6804,7 @@ function bindDetail(my){
     if (!v && !hasAtts){ toast("写点什么再发"); ta.focus(); return; }
     // 详情还没加载完就抢发,审核中的反馈会被误判成普通动态 —— 等一拍
     if (!cur || !cur.m){ toast("这单还在加载,稍等一下再发"); return; }
+    var matterId = cur.id;
     send.disabled = true; send.textContent = "发送中…";
     // @ 了人,或事项在审核中 ⇒ 这是一条反馈(taste 信号):走 feedback,
     // 服务端会通知对方、审核中自动退回修改。带附件的部分走 timeline 落档;
@@ -6831,7 +6828,7 @@ function bindDetail(my){
       }).then(function(){
         ta.value = ""; autoGrow();
         return api("/matters/" + cur.id + "/timeline", { params: { limit: 100 } }).then(function(json){
-          if (my !== renderToken || !cur) return;
+          if (!cur || cur.id !== matterId) return;
           cur.timeline = { ok: true, v: json };
           var blockEl = $("#repliesBlock");
           if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
@@ -6849,7 +6846,7 @@ function bindDetail(my){
     }).then(function(){
       ta.value = ""; autoGrow();
       return api("/matters/" + cur.id + "/timeline", { params: { limit: 100 } }).then(function(json){
-        if (my !== renderToken || !cur) return;
+        if (!cur || cur.id !== matterId) return;
         cur.timeline = { ok: true, v: json };
         var blockEl = $("#repliesBlock");
         if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
@@ -7089,7 +7086,7 @@ function fetchIterations(matterId){
     el.innerHTML = rounds.map(function(rd, idx){
       var isCurrent = idx === rounds.length - 1;
       var dateStr = rd.submitted_at ? fmtShortDate(rd.submitted_at) : (rd.started_at ? fmtShortDate(rd.started_at) : "");
-      var outcomeLabel = { sent_back: "退回修改", confirmed: "确认完成", pending_review: "待确认", in_progress: "进行中" };
+      var outcomeLabel = { sent_back: "退回修改", confirmed: "确认完成", pending_review: "待确认", in_progress: "进行中", needs_help: "需要协助" };
       var html = '<div class="iter-round' + (isCurrent ? " current" : "") + '">';
       html += '<div class="iter-head">第 ' + rd.round + ' 轮' + (dateStr ? ' · ' + esc(dateStr) : '');
       html += '<span class="iter-outcome ' + esc(rd.outcome) + '">' + esc(outcomeLabel[rd.outcome] || rd.outcome) + '</span>';
@@ -7109,6 +7106,7 @@ function fetchIterations(matterId){
       return html;
     }).join("");
   }).catch(function(){
+    if (matterId !== (cur && cur.m && cur.m.id)) return;
     var el = $("#iterBody");
     if (el) el.textContent = "加载失败";
   });

@@ -111,7 +111,7 @@ func applyMatterLifecycleToEdge(edge *MatterEdge, matter *model.Matter) {
 		edge.Detail = appendEdgeDetail(edge.Detail, "负责人已认领事项")
 	case model.MatterStatusReview:
 		edge.StateLabel = "已交回"
-		edge.Detail = appendEdgeDetail(edge.Detail, "负责人已交回待品鉴")
+		edge.Detail = appendEdgeDetail(edge.Detail, "负责人已交回待确认")
 	case model.MatterStatusDone:
 		edge.StateLabel = "已完成"
 		edge.Detail = appendEdgeDetail(edge.Detail, "事项已验收完成")
@@ -181,7 +181,7 @@ func edgeCopy(row model.OutboxRow, kind string) (string, string) {
 	case DoorbellAssigned:
 		return "已叫 " + target + " 接手", "派活袖子已伸出去"
 	case DoorbellHandedBack:
-		return "已提醒 " + target + " 品鉴", "结果已交回,等发起人确认"
+		return "已提醒 " + target + " 确认", "结果已交回,等发起人确认"
 	case DoorbellChildHandedBack:
 		return "子任务已回,已叫 " + target + " 汇总", "撒网/拆分任务的汇合提醒"
 	case DoorbellNextSegment:
@@ -201,7 +201,7 @@ func edgeCopy(row model.OutboxRow, kind string) (string, string) {
 	case DoorbellReflect:
 		return "已叫 " + target + " 沉淀 Preference", "验收后把圈点转成可复用偏好"
 	case DoorbellRevive:
-		return "超时未回应,已重提 " + target, "看门狗发现长时间没有动静"
+		return "超时未回应,已重提 " + target, "自动检查发现长时间没有动静"
 	case DoorbellWatchdogBlock:
 		return "仍未回应,已告诉 " + target, "系统已把事项标为受阻"
 	case DoorbellSchedule:

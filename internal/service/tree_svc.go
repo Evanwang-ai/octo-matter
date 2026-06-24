@@ -223,7 +223,7 @@ type IterationRound struct {
 	FeedbackText string     `json:"feedback_text,omitempty"`
 	FeedbackBy   string     `json:"feedback_by,omitempty"`
 	FeedbackAt   *time.Time `json:"feedback_at,omitempty"`
-	Outcome      string     `json:"outcome"` // "sent_back" | "confirmed" | "pending_review" | "in_progress"
+	Outcome      string     `json:"outcome"` // "sent_back" | "confirmed" | "pending_review" | "in_progress" | "needs_help"
 }
 
 // IterationsResult is the response for GET /matters/:id/iterations.
@@ -231,6 +231,7 @@ type IterationsResult struct {
 	MatterID       string           `json:"matter_id"`
 	TotalRounds    int              `json:"total_rounds"`
 	CurrentOutcome string           `json:"current_outcome"`
+	Truncated      bool             `json:"truncated,omitempty"`
 	Rounds         []IterationRound `json:"rounds"`
 }
 
@@ -293,6 +294,9 @@ func (s *V2Service) Iterations(ctx context.Context, matterID, spaceID string, ca
 					StartedAt: &t,
 					Outcome:   "in_progress",
 				}
+			} else if currentRound != nil && currentRound.Outcome == "needs_help" {
+				// Unblocked — stay in the same round, reset outcome
+				currentRound.Outcome = "in_progress"
 			} else if currentRound == nil {
 				// First time entering in_progress, start round 1
 				roundNum++
@@ -353,6 +357,11 @@ func (s *V2Service) Iterations(ctx context.Context, matterID, spaceID string, ca
 				currentRound.FeedbackBy = act.ActorID
 				currentRound.FeedbackAt = &t
 			}
+
+		case "blocked":
+			if currentRound != nil {
+				currentRound.Outcome = "needs_help"
+			}
 		}
 	}
 
@@ -374,6 +383,7 @@ func (s *V2Service) Iterations(ctx context.Context, matterID, spaceID string, ca
 		MatterID:       matterID,
 		TotalRounds:    len(rounds),
 		CurrentOutcome: currentOutcome,
+		Truncated:      len(activities) >= 200,
 		Rounds:         rounds,
 	}, nil
 }

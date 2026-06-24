@@ -53,7 +53,7 @@ func TestApplyMatterLifecycleToAssignedEdge(t *testing.T) {
 
 	edge = buildMatterEdge(model.OutboxRow{Event: DoorbellAssigned, State: model.OutboxDelivered, TargetUID: leader})
 	applyMatterLifecycleToEdge(&edge, &model.Matter{LeaderUID: &leader, Status: model.MatterStatusReview})
-	if edge.StateLabel != "已交回" || !strings.Contains(edge.Detail, "负责人已交回待品鉴") {
+	if edge.StateLabel != "已交回" || !strings.Contains(edge.Detail, "负责人已交回待确认") {
 		t.Fatalf("review lifecycle not reflected: %#v", edge)
 	}
 

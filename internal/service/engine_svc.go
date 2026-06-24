@@ -42,7 +42,7 @@ func DefaultEngineConfig() EngineConfig {
 const engineActorUID = "octo-engine"
 
 // Engine runs the outbox dispatcher and the two-tier watchdog
-// (doc 02.5 送达保障 + doc 09 看门狗 — deterministic, zero LLM).
+// (doc 02.5 送达保障 + doc 09 巡检 — deterministic, zero LLM).
 type Engine struct {
 	outbox        *repository.OutboxRepo
 	projectOutbox *repository.ProjectOutboxRepo
@@ -229,7 +229,7 @@ func (e *Engine) escalateDead(ctx context.Context, row *model.OutboxRow) {
 	if m.CreatorID == row.TargetUID {
 		return // the dead ring already pointed at the creator; nothing above them
 	}
-	params := map[string]any{"Title": m.Title, "Seq": m.SeqNo, "Reason": "门铃送达失败"}
+	params := map[string]any{"Title": m.Title, "Seq": m.SeqNo, "Reason": "通知送达失败"}
 	if err := e.transition.EnqueueStandalone(ctx, m, "", m.CreatorID, DoorbellWatchdogBlock, i18n.KeyDoorbellWatchdogBlocked, params); err != nil {
 		log.Printf("[engine] dead-letter escalation failed matter=%s: %v", m.ID, err)
 	}
@@ -331,7 +331,7 @@ func (e *Engine) watchdogOnce(ctx context.Context) {
 			Target:   model.MatterStatusBlocked,
 			ActorUID: "system",
 			Producer: ProducerSystem,
-			Reason:   "已经很久没动静(看门狗)",
+			Reason:   "已经很久没动静(巡检)",
 		})
 		if terr != nil {
 			log.Printf("[engine] watchdog block transition failed matter=%s: %v", m.ID, terr)
