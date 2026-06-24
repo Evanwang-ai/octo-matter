@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"strings"
 
@@ -96,12 +97,9 @@ func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUI
 	if m.Mode != nil && !model.IsValidMode(*m.Mode) {
 		return nil, apperr.InvalidInput(i18n.KeyModeInvalid)
 	}
-	if m.Mode != nil {
-		md := *m.Mode
-		if md == "critic" || md == "roundtable" || md == "swarm" {
-			if err := validateMultiAgentMode(m, assigneeIDs); err != nil {
-				return nil, err
-			}
+	if m.Mode != nil && *m.Mode != "" && *m.Mode != model.ModeSolo {
+		if err := validateModeConfig(m); err != nil {
+			return nil, err
 		}
 	}
 	if m.ProjectID != nil && *m.ProjectID != "" {
@@ -158,23 +156,75 @@ func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUI
 	return nil, nil
 }
 
-// validateMultiAgentMode ensures that modes requiring multiple participants
-// (critic, roundtable, swarm) have at least 2 distinct UIDs across leader + assignees.
-func validateMultiAgentMode(m *model.Matter, assigneeIDs []string) error {
-	seen := map[string]bool{}
-	leader := m.LeaderOrEmpty()
-	if leader != "" {
-		seen[leader] = true
+// validateModeConfig checks that mode_config has the right shape for the
+// chosen mode. Leader is the moderator/orchestrator — NOT automatically a
+// participant. If mode_config is absent, validation is skipped (leader will
+// fill it on first tick).
+func validateModeConfig(m *model.Matter) error {
+	if m.ModeConfig == nil || *m.ModeConfig == "" {
+		return nil
 	}
-	for _, uid := range assigneeIDs {
-		if uid != "" {
-			seen[uid] = true
+	mode := *m.Mode
+	raw := []byte(*m.ModeConfig)
+
+	switch mode {
+	case model.ModeRoundtable:
+		var cfg struct {
+			Participants []string `json:"participants"`
+		}
+		if json.Unmarshal(raw, &cfg) != nil {
+			return apperr.InvalidInput(i18n.KeyModeInvalid)
+		}
+		if len(uniqueNonEmpty(cfg.Participants)) < 2 {
+			return apperr.InvalidInput(i18n.KeyModeNeedsMultiAgent)
+		}
+	case model.ModeCritic:
+		var cfg struct {
+			Generator string `json:"generator"`
+			Verifier  string `json:"verifier"`
+		}
+		if json.Unmarshal(raw, &cfg) != nil {
+			return apperr.InvalidInput(i18n.KeyModeInvalid)
+		}
+		if cfg.Generator == "" || cfg.Verifier == "" || cfg.Generator == cfg.Verifier {
+			return apperr.InvalidInput(i18n.KeyModeNeedsMultiAgent)
+		}
+	case model.ModePipeline:
+		var cfg struct {
+			Steps []struct {
+				Assignee string `json:"assignee"`
+			} `json:"steps"`
+		}
+		if json.Unmarshal(raw, &cfg) != nil {
+			return apperr.InvalidInput(i18n.KeyModeInvalid)
+		}
+		if len(cfg.Steps) < 2 {
+			return apperr.InvalidInput(i18n.KeyModeNeedsMultiAgent)
+		}
+	case model.ModeSwarm:
+		var cfg struct {
+			Participants []string `json:"participants"`
+		}
+		if json.Unmarshal(raw, &cfg) != nil {
+			return apperr.InvalidInput(i18n.KeyModeInvalid)
+		}
+		if len(uniqueNonEmpty(cfg.Participants)) < 2 {
+			return apperr.InvalidInput(i18n.KeyModeNeedsMultiAgent)
 		}
 	}
-	if len(seen) < 2 {
-		return apperr.InvalidInput(i18n.KeyModeNeedsMultiAgent)
-	}
 	return nil
+}
+
+func uniqueNonEmpty(ss []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(ss))
+	for _, s := range ss {
+		if s != "" && !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func (s *V2Service) requireDispatchableChildLeader(ctx context.Context, parentMatterID, parentLeaderUID, childLeaderUID string) error {
@@ -268,23 +318,15 @@ func (s *V2Service) UpdateMeta(ctx context.Context, id, spaceID string, callerUI
 			return nil, apperr.InvalidInput(i18n.KeyModeInvalid)
 		}
 		md := *mode
-		if md == "critic" || md == "roundtable" || md == "swarm" {
-			assigneeRows, aErr := s.assignees.ListByMatter(ctx, id)
-			if aErr != nil {
-				return nil, aErr
-			}
-			assigneeUIDs := make([]string, len(assigneeRows))
-			for i, a := range assigneeRows {
-				assigneeUIDs[i] = a.UserID
-			}
-			if err := validateMultiAgentMode(m, assigneeUIDs); err != nil {
-				return nil, err
-			}
-		}
 		if md == "" {
 			m.Mode = nil
 		} else {
 			m.Mode = mode
+		}
+		if md != "" && md != model.ModeSolo {
+			if err := validateModeConfig(m); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if projectID != nil {
