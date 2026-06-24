@@ -235,7 +235,7 @@ func (h *MatterHandler) Create(c *gin.Context) {
 	// v2: mode/project validation, parent access, dispatch idempotency
 	// ((parent_id, step_id) already dispatched → return the existing row).
 	if h.v2 != nil {
-		existing, err := h.v2.PrepareCreate(c.Request.Context(), matter, effectiveCallerUIDs(c), callerToken(c), uid(c), c.GetString("role") == "bot")
+		existing, err := h.v2.PrepareCreate(c.Request.Context(), matter, effectiveCallerUIDs(c), callerToken(c), uid(c), c.GetString("role") == "bot", req.AssigneeIDs)
 		if err != nil {
 			respondErr(c, err)
 			return

@@ -221,6 +221,9 @@ other = "Parent matter not found"
 [err.matter.mode_invalid]
 other = "Invalid collaboration mode"
 
+[err.matter.mode_needs_multi_agent]
+other = "This mode requires at least 2 agents (leader + assignees)"
+
 [err.matter.executor_not_own_bot]
 other = "The executor must be a bot you own"
 

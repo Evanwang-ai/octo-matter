@@ -92,9 +92,17 @@ func NewV2Service(
 // PrepareCreate validates the v2 fields on a new matter and resolves the
 // dispatch idempotency key. Returns an existing matter when (parent, step_id)
 // was already dispatched (idempotent re-dispatch, doc 02.5).
-func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUIDs []string, callerToken string, actorUID string, isBot bool) (*model.Matter, error) {
+func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUIDs []string, callerToken string, actorUID string, isBot bool, assigneeIDs []string) (*model.Matter, error) {
 	if m.Mode != nil && !model.IsValidMode(*m.Mode) {
 		return nil, apperr.InvalidInput(i18n.KeyModeInvalid)
+	}
+	if m.Mode != nil {
+		md := *m.Mode
+		if md == "critic" || md == "roundtable" || md == "swarm" {
+			if err := validateMultiAgentMode(m, assigneeIDs); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if m.ProjectID != nil && *m.ProjectID != "" {
 		if _, err := s.projects.GetByID(ctx, *m.ProjectID, m.SpaceID); err != nil {
@@ -148,6 +156,25 @@ func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUI
 		}
 	}
 	return nil, nil
+}
+
+// validateMultiAgentMode ensures that modes requiring multiple agents (critic,
+// roundtable, swarm) have at least 2 distinct bot UIDs across leader + assignees.
+func validateMultiAgentMode(m *model.Matter, assigneeIDs []string) error {
+	seen := map[string]bool{}
+	leader := m.LeaderOrEmpty()
+	if leader != "" && strings.HasSuffix(leader, "_bot") {
+		seen[leader] = true
+	}
+	for _, uid := range assigneeIDs {
+		if uid != "" && strings.HasSuffix(uid, "_bot") {
+			seen[uid] = true
+		}
+	}
+	if len(seen) < 2 {
+		return apperr.InvalidInput(i18n.KeyModeNeedsMultiAgent)
+	}
+	return nil
 }
 
 func (s *V2Service) requireDispatchableChildLeader(ctx context.Context, parentMatterID, parentLeaderUID, childLeaderUID string) error {
@@ -240,7 +267,21 @@ func (s *V2Service) UpdateMeta(ctx context.Context, id, spaceID string, callerUI
 		if !model.IsValidMode(*mode) {
 			return nil, apperr.InvalidInput(i18n.KeyModeInvalid)
 		}
-		if *mode == "" {
+		md := *mode
+		if md == "critic" || md == "roundtable" || md == "swarm" {
+			assigneeRows, aErr := s.assignees.ListByMatter(ctx, id)
+			if aErr != nil {
+				return nil, aErr
+			}
+			assigneeUIDs := make([]string, len(assigneeRows))
+			for i, a := range assigneeRows {
+				assigneeUIDs[i] = a.UserID
+			}
+			if err := validateMultiAgentMode(m, assigneeUIDs); err != nil {
+				return nil, err
+			}
+		}
+		if md == "" {
 			m.Mode = nil
 		} else {
 			m.Mode = mode

@@ -6265,11 +6265,9 @@ function planGraphHTML(m, kids, tv){
   return '<div class="plan-graph"><svg class="pg-edges" aria-hidden="true"></svg><div class="pg-cols">' + cols.join("") + "</div></div>";
 }
 /* ---- 角色拓扑图(互见模式: critic/roundtable/pipeline, 数据来自 mode_config) ---- */
-var ROLE_LABELS = { critic: { generator: "生成方", verifier: "验证方" }, roundtable: {}, pipeline: {} };
 function roleNodesFromConfig(mode, configStr, timeline){
-  if (!configStr && !mode) return null;
-  var cfg = {};
-  if (configStr) { try { cfg = JSON.parse(configStr); } catch(e){ cfg = {}; } }
+  if (!configStr) return null;
+  try { var cfg = JSON.parse(configStr); } catch(e){ return null; }
   var entries = (timeline && timeline.ok) ? listData(timeline.v) : [];
   function spoken(uid){ return uid && entries.some(function(e){ return e.user_id === uid; }); }
   var nodes = [];
@@ -6406,6 +6404,10 @@ function subsBlockHTML(m){
     if (roleNodes){
       return '<div class="detail-block" id="subsBlock"><div class="sec"><span class="sec-l">计划 ' + modeTag + '</span><span class="sec-actions">' + expandBtn + "</span></div>"
         + '<div class="plan-shell">' + roleOverviewHTML(m, roleNodes, mode) + roleGraphHTML(m, roleNodes, mode) + "</div></div>";
+    }
+    if (mode && !roleNodes){
+      return '<div class="detail-block" id="subsBlock"><div class="sec"><span class="sec-l">计划 ' + modeTag + "</span></div>"
+        + '<div class="plan-empty"><span class="pe-k">等待领队配置</span><span class="pe-v">领队接单后会自动分配角色</span>' + inlineAddBtn + "</div></div>";
     }
     return '<div class="detail-block" id="subsBlock"><div class="sec"><span class="sec-l">计划 ' + modeTag + "</span></div>"
       + '<div class="plan-empty"><span class="pe-k">单事项</span><span class="pe-v">暂无子任务</span>' + inlineAddBtn + "</div></div>";
@@ -7027,14 +7029,115 @@ function preferencePanelHTML(){
     + '<div class="panel-h" data-fold><span class="chev">▾</span><span class="ph-title">Preference</span><span class="ph-count">(' + ((row ? 1 : 0) + hints.length) + ")</span></div>"
     + '<div class="panel-body">' + body + "</div></section>";
 }
+/* ---- simple inline markdown renderer (no external deps) ---- */
+function renderSimpleMarkdown(src){
+  var lines = src.split("\n");
+  var html = [];
+  var inCode = false, codeBuf = [];
+  for (var i = 0; i < lines.length; i++){
+    var ln = lines[i];
+    if (/^```/.test(ln)){
+      if (inCode){ html.push('<pre><code>' + esc(codeBuf.join("\n")) + '</code></pre>'); codeBuf = []; }
+      inCode = !inCode;
+      continue;
+    }
+    if (inCode){ codeBuf.push(ln); continue; }
+    if (/^#{1,3}\s/.test(ln)){
+      var lvl = ln.match(/^(#+)/)[1].length;
+      html.push('<h' + lvl + '>' + mdInline(ln.replace(/^#+\s*/, '')) + '</h' + lvl + '>');
+    } else if (/^[-*]\s/.test(ln)){
+      var items = [ln.replace(/^[-*]\s*/, '')];
+      while (i + 1 < lines.length && /^[-*]\s/.test(lines[i + 1])){ i++; items.push(lines[i].replace(/^[-*]\s*/, '')); }
+      html.push('<ul>' + items.map(function(t){ return '<li>' + mdInline(t) + '</li>'; }).join('') + '</ul>');
+    } else if (ln.trim() === ''){
+      html.push('');
+    } else {
+      html.push('<p>' + mdInline(ln) + '</p>');
+    }
+  }
+  if (inCode && codeBuf.length){ html.push('<pre><code>' + esc(codeBuf.join("\n")) + '</code></pre>'); }
+  return html.join("\n");
+}
+function isSafeHref(href){
+  if (!href) return false;
+  var lower = href.trim().toLowerCase();
+  return lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("/") || lower.startsWith("./");
+}
+function mdInline(s){
+  s = esc(s);
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(_, text, href){
+    return isSafeHref(href)
+      ? '<a href="' + href + '" target="_blank" rel="noopener">' + text + '</a>'
+      : text;
+  });
+  return s;
+}
+/* ---- attachment preview modal ---- */
+function openAttachPreview(url, filename){
+  var ext = (filename.match(/\.([^.]+)$/) || [])[1] || "";
+  ext = ext.toLowerCase();
+  var overlay = document.createElement("div");
+  overlay.className = "att-preview-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center";
+  var box = document.createElement("div");
+  box.style.cssText = "background:var(--bg,#fff);border-radius:10px;width:80vw;height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.25)";
+  var hdr = document.createElement("div");
+  hdr.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border,#e0e0e0);flex-shrink:0";
+  hdr.innerHTML = '<span style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(filename) + '</span>'
+    + '<button type="button" style="border:none;background:none;font-size:20px;cursor:pointer;padding:0 4px;line-height:1" id="attPrevClose">&times;</button>';
+  box.appendChild(hdr);
+  var body = document.createElement("div");
+  body.style.cssText = "flex:1;overflow:auto;padding:0;position:relative";
+  if (ext === "pdf"){
+    body.innerHTML = '<iframe src="' + esc(url) + '" style="width:100%;height:100%;border:none"></iframe>';
+  } else if (ext === "html" || ext === "htm"){
+    body.innerHTML = '<iframe sandbox="allow-same-origin" src="' + esc(url) + '" style="width:100%;height:100%;border:none"></iframe>';
+  } else if (ext === "md" || ext === "markdown"){
+    body.style.padding = "20px 24px";
+    body.innerHTML = '<div style="color:var(--fg,#333);font-size:14px;line-height:1.7">加载中...</div>';
+    fetch(url).then(function(r){ return r.text(); }).then(function(text){
+      body.innerHTML = '<div class="md-preview" style="color:var(--fg,#333);font-size:14px;line-height:1.7">' + renderSimpleMarkdown(text) + '</div>';
+    }).catch(function(){
+      body.innerHTML = '<div style="padding:20px;color:#c06030">加载失败</div>';
+    });
+  } else {
+    body.style.padding = "40px 24px";
+    body.style.textAlign = "center";
+    body.innerHTML = '<div style="color:var(--fg2,#666);margin-bottom:16px">此格式暂不支持预览</div>'
+      + '<button type="button" class="ff-save" data-att-dl="' + esc(url) + '" data-att-dlname="' + esc(filename) + '">下载文件</button>';
+    body.querySelector("[data-att-dl]").addEventListener("click", function(){
+      triggerDownload(url, filename);
+    });
+  }
+  box.appendChild(body);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  var close = function(){ if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  overlay.addEventListener("click", function(e){ if (e.target === overlay) close(); });
+  box.querySelector("#attPrevClose").onclick = close;
+}
+function triggerDownload(url, filename){
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+}
 function attachRowHTML(m){
   var atts = m.input_attachments || [];
   if (!atts.length) return "";
   var list = atts.map(function(a){
     var name = a.file_name || a.file_url.split("/").pop() || "文件";
     var url = a.file_url;
-    return '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="att-link" title="' + esc(name) + '">'
-      + '<span class="att-name">' + esc(name.length > 32 ? name.slice(0, 30) + "…" : name) + '</span></a>';
+    var displayName = name.length > 32 ? name.slice(0, 30) + "..." : name;
+    return '<div class="att-row" style="display:flex;align-items:center;justify-content:space-between;padding:4px 0">'
+      + '<span class="att-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0" title="' + esc(name) + '">' + esc(displayName) + '</span>'
+      + '<span style="flex-shrink:0;margin-left:8px">'
+      + '<button type="button" class="att-act" data-att-preview="' + esc(url) + '" data-att-name="' + esc(name) + '" style="border:none;background:none;cursor:pointer;color:var(--accent,#2563eb);font-size:12px;padding:2px 6px">查看</button>'
+      + '<button type="button" class="att-act" data-att-dl="' + esc(url) + '" data-att-dlname="' + esc(name) + '" style="border:none;background:none;cursor:pointer;color:var(--accent,#2563eb);font-size:12px;padding:2px 6px">下载</button>'
+      + '</span></div>';
   }).join("");
   return '<div class="props-divider"></div>'
     + '<div class="prow" style="display:block"><span class="pk" style="display:block;margin-bottom:6px">附件 (' + atts.length + ')</span>'
@@ -7259,6 +7362,16 @@ function bindInspector(){
     api("/matters/" + cur.id + "/send-back", { method: "POST", body: {} }).then(function(){
       toast("发回去了 — " + srcLabel(cur.m.source_name || "来源会话") + "里马上能看到", { icon: "" });
     }).catch(errToast).then(function(){ srcSend.disabled = false; });
+  });
+  $$("[data-att-preview]", $("#props")).forEach(function(btn){
+    btn.addEventListener("click", function(){
+      openAttachPreview(btn.getAttribute("data-att-preview"), btn.getAttribute("data-att-name"));
+    });
+  });
+  $$("[data-att-dl]", $("#props")).forEach(function(btn){
+    btn.addEventListener("click", function(){
+      triggerDownload(btn.getAttribute("data-att-dl"), btn.getAttribute("data-att-dlname"));
+    });
   });
 }
 function setPendingButtonGroup(buttons, primary, pending, statusEl){
@@ -8176,7 +8289,7 @@ function buildNewMatterModal(opts){
     + '<div class="modal-body"><div class="matter-form">'
     + '<div class="matter-field"><label>领队</label>'
     + '<div class="mp-box" id="nmLeader" role="button" tabindex="0"></div></div>'
-    + '<div class="matter-field"><label>协作（人）</label>'
+    + '<div class="matter-field"><label>协作者</label>'
     + '<div class="mp-box" id="nmCollab" role="button" tabindex="0"></div>'
     + '<div class="hint">添加协作者或你自己的 bot;别人的 bot 需要由本人添加</div></div>'
     + '<hr class="nm-sep">'
@@ -8196,7 +8309,8 @@ function buildNewMatterModal(opts){
     + '<div id="nmScope"></div></div>'
     + '<div class="matter-field" id="fDl"><label>截止日期</label>'
     + '<div class="dl-box" id="nmDl" role="button" tabindex="0"></div></div>'
-    + '<div class="matter-field"><label>协作模式</label><select class="matter-select" id="nmMode">' + modeOpts + "</select></div>"
+    + '<div class="matter-field"><label>协作模式</label><select class="matter-select" id="nmMode">' + modeOpts + '</select>'
+    + '<div id="nmModeWarn" class="f-warn" style="display:none;color:#c06030;font-size:12px;margin-top:4px"></div></div>'
     + "</details>"
     + "</div></div>"
     + '<div class="modal-foot"><div class="matter-error" id="nmErr" style="margin-right:auto"></div>'
@@ -8236,6 +8350,27 @@ function buildNewMatterModal(opts){
   });
   var leaderPicker = bindMemberPicker($("#nmLeader"), leaderSt, { ph: "选择领队", single: true, ownedBotsOnly: true });
   var collabPicker = bindMemberPicker($("#nmCollab"), collabSt, { ph: "添加协作者", humansAndOwnBots: true });
+  var MULTI_AGENT_MODES = { critic: true, roundtable: true, swarm: true };
+  var syncModeWarn = function(){
+    var w = $("#nmModeWarn");
+    if (!w) return;
+    var md = ($("#nmMode") || {}).value || "";
+    if (!MULTI_AGENT_MODES[md]){ w.style.display = "none"; return; }
+    var bots = new Set();
+    if (leaderSt.sel.length && isBot(leaderSt.sel[0])) bots.add(leaderSt.sel[0]);
+    collabSt.sel.forEach(function(uid){ if (isBot(uid)) bots.add(uid); });
+    if (bots.size < 2){
+      w.textContent = "此模式至少需要 2 个 Agent 协作";
+      w.style.display = "block";
+    } else {
+      w.style.display = "none";
+    }
+  };
+  $("#nmMode").addEventListener("change", syncModeWarn);
+  var origLeaderPaint = leaderPicker.paint;
+  leaderPicker.paint = function(){ origLeaderPaint(); syncModeWarn(); };
+  var origCollabPaint = collabPicker.paint;
+  collabPicker.paint = function(){ origCollabPaint(); syncModeWarn(); };
   $("#nmProj").addEventListener("change", function(){
     clearInvalid("#fProj");
     syncScope();
@@ -8280,6 +8415,18 @@ function buildNewMatterModal(opts){
     };
     var anyBad = false;
     anyBad = mark("#fTitle", !title) || anyBad;
+    var modeVal = ($("#nmMode") || {}).value || "";
+    if (MULTI_AGENT_MODES[modeVal]){
+      var bcSet = new Set();
+      if (leaderSt.sel.length && isBot(leaderSt.sel[0])) bcSet.add(leaderSt.sel[0]);
+      collabSt.sel.forEach(function(uid){ if (isBot(uid)) bcSet.add(uid); });
+      if (bcSet.size < 2){
+        anyBad = true;
+        var mw = $("#nmModeWarn");
+        if (mw){ mw.textContent = "此模式至少需要 2 个 Agent 协作"; mw.style.display = "block"; }
+        $("#nmErr").textContent = "此模式至少需要 2 个 Agent 协作";
+      }
+    }
     if (anyBad){
       if (firstBad){
         var inp = $("input,textarea,select,[tabindex]", firstBad);

@@ -129,6 +129,22 @@ octo-cli api GET /api/v1/agent-cards/<bot_uid>     # 单张(declared 技能 + ea
 
 可调度 bot 不足 → timeline 里说明"需要更多协作者",置 blocked。
 
+### 填写 mode_config（模式配置为空时）
+
+如果门铃里有 mode（如 critic）但读单后 mode_config 为空：
+1. 读名册 GET /api/v1/agent-cards
+2. 根据模式选择角色分配
+3. 用 PUT /api/v1/matters/<id> 更新 mode_config
+
+critic 示例:
+```bash
+octo-cli api PUT /api/v1/matters/<id> --data '{
+  "mode_config":"{\"generator\":\"<bot_a_uid>\",\"verifier\":\"<bot_b_uid>\",\"max_rounds\":3}"
+}'
+```
+
+如果可调度 bot 不足以满足模式要求（critic 需要 2 个），在 timeline 写明并置 blocked。
+
 ### 两种信息拓扑
 
 | 类型 | 模式 | 工作方式 | 创建子任务？ |

@@ -105,6 +105,7 @@ const (
 	KeyTransitionNotAllowed    = "err.matter.transition_not_allowed"
 	KeyParentNotFound          = "err.matter.parent_not_found"
 	KeyModeInvalid             = "err.matter.mode_invalid"
+	KeyModeNeedsMultiAgent     = "err.matter.mode_needs_multi_agent"
 	KeyExecutorNotOwnBot       = "err.matter.executor_not_own_bot"
 	KeyCronInvalid             = "err.matter.cron_invalid"
 	KeyFeedbackUsersOnly       = "err.matter.feedback_users_only"

@@ -219,6 +219,9 @@ other = "父事项不存在"
 [err.matter.mode_invalid]
 other = "协作模式不合法"
 
+[err.matter.mode_needs_multi_agent]
+other = "此模式至少需要 2 个 Agent 协作"
+
 [err.matter.executor_not_own_bot]
 other = "执行方只能选你自己创建的 bot"
 
