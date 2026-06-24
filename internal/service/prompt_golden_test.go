@@ -180,13 +180,16 @@ func TestSummaryPreferencePrompt_Anchors(t *testing.T) {
 		"Pattern: keep only rules that would still help on a similar future task",
 		"Scope: choose the narrowest safe scope",
 		"Calibration: keep only rules that can be judged hit/miss later",
-		"- <imperative reusable rule>",
+		"- <self-explanatory imperative rule satisfying all four quality principles>",
 		"  evidence: M-<seq>",
 		"  scope: matter|project|bot|space|global",
 		"  avoid:",
+		"  task_type:",
+		"  underlying:",
 		"Do not add headings, IDs, or explanations outside this structure",
 		"Use global only when the evidence explicitly supports cross-project reuse",
 		"NO_PREFERENCE: 没有可复用偏好信号",
+		"self-explanatory > complete > unambiguous > concise",
 	} {
 		if !strings.Contains(summarySystemPrompt, want) {
 			t.Fatalf("summarySystemPrompt missing anchor %q", want)

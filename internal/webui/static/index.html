@@ -4552,38 +4552,89 @@ function renderCards(my){
   });
 }
 
+function cardFirstLine(content){
+  var lines = String(content || "").split(/\n/).map(function(l){ return l.replace(/^\s*[-•*]\s*/, "").trim(); }).filter(Boolean);
+  var first = lines[0] || "";
+  return first.length > 80 ? first.slice(0, 80) + "…" : first;
+}
+function cardSourceInfo(c){
+  var parts = [];
+  if (c.matter_id){
+    // Try to look up seq_no from cached matters
+    var matterLabel = "M-?";
+    if (cur && cur.m && cur.m.id === c.matter_id) matterLabel = seqLabel(cur.m) + " " + (cur.m.title || "");
+    else if (cache.inbox){
+      var found = cache.inbox.find(function(m){ return m.id === c.matter_id; });
+      if (found) matterLabel = seqLabel(found) + " " + (found.title || "");
+    }
+    parts.push("来自 " + matterLabel.trim());
+  }
+  if (c.updated_at){
+    var days = Math.floor((Date.now() - new Date(c.updated_at).getTime()) / 864e5);
+    if (days === 0) parts.push("今天更新");
+    else if (days === 1) parts.push("昨天更新");
+    else if (days > 1) parts.push("最近 " + days + " 天前");
+  }
+  return parts.join(" · ");
+}
+function cardScopeGroup(c){
+  var s = c.scope || "matter";
+  if (s === "global" || s === "space") return 0; // 普适标准
+  if (s === "project") return 1;
+  if (s === "bot") return 2;
+  return 3; // matter-specific
+}
+function cardScopeGroupLabel(group){
+  return ["普适标准", "项目级", "Bot 级", "事项级"][group] || "其他";
+}
 function paintCards(my){
   var cards = cardsCache || [];
-  var html = cards.length ? cards.map(function(c){
-    var statusCls = CARD_STATUS_CLS[c.status] || "gray";
-    var matterId = c.matter_id;
-    var srcLink = matterId ? '<a href="#/matter/' + esc(matterId) + '" class="pref-src" onclick="event.stopPropagation()">来源事项</a>' : '';
-    var actions = '';
-    if (c.status === "draft"){
-      actions = '<button class="pref-act" data-auth="' + esc(c.id) + '" onclick="event.stopPropagation()" title="确认这条偏好">确认</button>'
-        + '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" onclick="event.stopPropagation()" title="弃用">弃用</button>';
-    } else if (c.status === "authorized" || c.status === "hit"){
-      actions = '<button class="pref-act pref-act-warn" data-suspend="' + esc(c.id) + '" onclick="event.stopPropagation()" title="暂停使用">停用</button>';
+  if (!cards.length){
+    $(".content-inner").innerHTML = '<div class="list-head"><div class="list-head-actions"></div></div>'
+      + '<div class="inbox-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索偏好（全文检索）" style="max-width:400px" aria-label="搜索偏好"></div></div>'
+      + '<div class="pref-list"><div class="empty-state"><div class="es-t">还没有 Preference</div><div class="es-s">完成 Matter 后,从验收反馈中自动提炼行为规则</div></div></div>';
+    paintCardsBindSearch(my);
+    return;
+  }
+  // Group cards by scope
+  var grouped = {};
+  cards.forEach(function(c){
+    var g = cardScopeGroup(c);
+    if (!grouped[g]) grouped[g] = [];
+    grouped[g].push(c);
+  });
+  // Sub-group project cards by project_id
+  var html = '';
+  [0, 1, 2, 3].forEach(function(g){
+    var group = grouped[g];
+    if (!group || !group.length) return;
+    html += '<div class="pref-group">'
+      + '<div class="pref-group-label" style="font-size:11px;font-weight:700;color:var(--text-4);letter-spacing:.3px;padding:10px 0 6px;border-bottom:1px solid var(--hairline-soft);margin-bottom:2px">'
+      + esc(cardScopeGroupLabel(g)) + ' <span style="font-weight:500;color:var(--text-5)">' + group.length + '</span></div>';
+    if (g === 1){
+      // Sub-group by project
+      var byProj = {};
+      group.forEach(function(c){
+        var pk = c.project_id || "_none";
+        if (!byProj[pk]) byProj[pk] = [];
+        byProj[pk].push(c);
+      });
+      Object.keys(byProj).forEach(function(pk){
+        var pName = pk !== "_none" ? (projName(pk) || "未命名项目") : "";
+        if (pName) html += '<div style="font-size:10.5px;color:var(--text-4);padding:6px 0 2px;font-weight:600">' + esc(pName) + '</div>';
+        byProj[pk].forEach(function(c){ html += paintCardRow(c); });
+      });
+    } else {
+      group.forEach(function(c){ html += paintCardRow(c); });
     }
-    return '<div class="pref-row" data-card-id="' + esc(c.id) + '" role="button" tabindex="0">'
-      + '<div class="pref-main">'
-      + '<div class="pref-rule">' + esc(c.content) + '</div>'
-      + (c.evidence ? '<div class="pref-evidence">' + esc(c.evidence) + '</div>' : '')
-      + (c.avoid ? '<div class="pref-avoid">' + esc(c.avoid) + '</div>' : '')
-      + '</div>'
-      + '<div class="pref-meta">'
-      + '<span class="pill ' + statusCls + '"><span class="dot"></span>' + esc(CARD_STATUS_LABEL[c.status] || c.status) + '</span>'
-      + '<span class="pref-scope">' + esc(CARD_SCOPE_LABEL[c.scope] || c.scope) + '</span>'
-      + srcLink
-      + '</div>'
-      + '<div class="pref-actions">' + actions + '</div>'
-      + '</div>';
-  }).join('') : '<div class="empty-state"><div class="es-t">还没有 Preference</div><div class="es-s">完成 Matter 后,从验收反馈中自动提炼行为规则</div></div>';
+    html += '</div>';
+  });
 
   $(".content-inner").innerHTML = '<div class="list-head"><div class="list-head-actions"></div></div>'
     + '<div class="inbox-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索偏好（全文检索）" style="max-width:400px" aria-label="搜索偏好"></div></div>'
     + '<div class="pref-list">' + html + '</div>';
 
+  // Bind click handlers for expand/collapse + actions
   var list = $(".pref-list");
   if (list) list.addEventListener("click", function(e){
     var authBtn = e.target.closest("[data-auth]");
@@ -4610,12 +4661,63 @@ function paintCards(my){
       }).catch(function(er){ errToast(er); });
       return;
     }
-    var card = e.target.closest(".pref-row[data-card-id]");
-    if (card){
-      var c = cardsCache.find(function(x){ return x.id === card.getAttribute("data-card-id"); });
-      if (c) openEditCardModal(my, c);
+    var editBtn = e.target.closest("[data-edit-card]");
+    if (editBtn){
+      e.stopPropagation();
+      var ec = cardsCache.find(function(x){ return x.id === editBtn.getAttribute("data-edit-card"); });
+      if (ec) openEditCardModal(my, ec);
+      return;
+    }
+    // Toggle expand
+    var row = e.target.closest(".pref-row[data-card-id]");
+    if (row){
+      var detail = row.querySelector(".pref-expand");
+      if (detail){
+        var isOpen = detail.style.display !== "none";
+        detail.style.display = isOpen ? "none" : "block";
+        return;
+      }
+      // Build expand content on first click
+      var c = cardsCache.find(function(x){ return x.id === row.getAttribute("data-card-id"); });
+      if (c){
+        var expandHTML = '<div class="pref-expand" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--hairline-soft)">'
+          + '<div style="font-size:13px;color:var(--text);white-space:pre-wrap;line-height:1.6;margin-bottom:8px">' + esc(c.content) + '</div>'
+          + (c.evidence ? '<div style="font-size:12px;color:var(--text-3);background:var(--fill-1);border-left:3px solid var(--accent-border);border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:6px;line-height:1.5">' + esc(c.evidence) + '</div>' : '')
+          + (c.avoid ? '<div style="font-size:12px;color:var(--amber);background:rgba(255,190,0,.06);border-left:3px solid var(--amber);border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:6px;line-height:1.5">不适用: ' + esc(c.avoid) + '</div>' : '')
+          + '<div style="margin-top:6px"><button class="pref-act pref-edit-btn" data-edit-card="' + esc(c.id) + '" onclick="event.stopPropagation()" style="font-size:12px">编辑</button></div>'
+          + '</div>';
+        row.querySelector(".pref-main").insertAdjacentHTML("beforeend", expandHTML);
+      }
     }
   });
+  paintCardsBindSearch(my);
+}
+function paintCardRow(c){
+  var statusCls = CARD_STATUS_CLS[c.status] || "gray";
+  var firstLine = cardFirstLine(c.content);
+  var srcInfo = cardSourceInfo(c);
+  var matterId = c.matter_id;
+  var srcLink = matterId ? '<a href="#/matter/' + esc(matterId) + '" class="pref-src" onclick="event.stopPropagation()">来源</a>' : '';
+  var actions = '';
+  if (c.status === "draft"){
+    actions = '<button class="pref-act" data-auth="' + esc(c.id) + '" onclick="event.stopPropagation()" title="确认">确认</button>'
+      + '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" onclick="event.stopPropagation()" title="弃用">弃用</button>';
+  } else if (c.status === "authorized" || c.status === "hit"){
+    actions = '<button class="pref-act pref-act-warn" data-suspend="' + esc(c.id) + '" onclick="event.stopPropagation()" title="停用">停用</button>';
+  }
+  return '<div class="pref-row" data-card-id="' + esc(c.id) + '" role="button" tabindex="0">'
+    + '<div class="pref-main">'
+    + '<div class="pref-rule">' + esc(firstLine) + '</div>'
+    + '<div class="pref-source-info" style="font-size:11.5px;color:var(--text-4);margin-top:2px">' + esc(srcInfo) + '</div>'
+    + '</div>'
+    + '<div class="pref-meta">'
+    + '<span class="pill ' + statusCls + '"><span class="dot"></span>' + esc(CARD_STATUS_LABEL[c.status] || c.status) + '</span>'
+    + srcLink
+    + '</div>'
+    + '<div class="pref-actions">' + actions + '</div>'
+    + '</div>';
+}
+function paintCardsBindSearch(my){
   var cs = $("#cardSearch");
   if (cs){
     var searchTimer = 0;
@@ -7785,6 +7887,7 @@ function openSummaryFlow(matterId){
     var row = got.ok ? summaryRow(got.v) : null;
     if (row && row.status === "draft"){ summaryEditStep(matterId, row); return; }
     if (row && row.status === "authorized"){ summaryWrittenView(matterId, row); return; }
+    if (row && row.status === "discarded"){ summaryDiscardedView(matterId, row); return; }
     api("/matters/" + matterId + "/summary", { method: "POST" }).then(function(json){
       if (!$("#modalScrim").classList.contains("open")) return;
       var fresh = summaryRow(json);
@@ -7821,6 +7924,35 @@ function summaryWrittenView(matterId, row){
   $("#prefMiss").onclick = function(){ calibrateSummary(matterId, row, "miss", $("#prefMiss")); };
   $("#smClose").onclick = closeModal;
 }
+function summaryDiscardedView(matterId, row){
+  var mo = $("#modal");
+  var who = summaryLeaderName(matterId);
+  mo.innerHTML = prefHeadHTML((who ? who + " · " : "") + "已跳过")
+    + '<div class="modal-body">'
+    + '<div class="pref-discarded-msg" style="text-align:center;padding:24px 0">'
+    + '<div style="font-size:14px;color:var(--text-3);margin-bottom:16px">已跳过的偏好候选</div>'
+    + (row.content ? '<div style="font-size:12px;color:var(--text-4);margin-bottom:16px;white-space:pre-wrap;text-align:left;background:var(--fill-1);border-radius:8px;padding:10px 12px">' + esc(row.content) + '</div>' : '')
+    + '</div></div>'
+    + '<div class="modal-foot">'
+    + '<button class="ff-cancel" id="smClose" type="button">关闭</button>'
+    + '<button class="ff-save" id="smRegen" type="button">重新蒸馏</button></div>';
+  var x = $(".modal-x", mo);
+  if (x) x.onclick = closeModal;
+  $("#smClose").onclick = closeModal;
+  $("#smRegen").onclick = function(){
+    var btn = $("#smRegen");
+    btn.disabled = true; btn.textContent = "蒸馏中…";
+    api("/matters/" + matterId + "/summary", { method: "POST" }).then(function(json){
+      if (!$("#modalScrim").classList.contains("open")) return;
+      var fresh = summaryRow(json);
+      if (!fresh){ btn.disabled = false; btn.textContent = "重新蒸馏"; errToast({ message: "服务端没有返回草稿" }); return; }
+      summaryEditStep(matterId, fresh);
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = "重新蒸馏";
+      errToast(e);
+    });
+  };
+}
 function summaryEditStep(matterId, row){
   var mo = $("#modal");
   mo.className = "modal";
@@ -7841,23 +7973,38 @@ function summaryEditStep(matterId, row){
       }).join("") + "</div>"
       + (ob.known ? "" : '<div class="smart-quiet" style="margin:-6px 0 12px">只能写给你自己的 bot — 服务端会校验归属</div>')
     : '<div class="ac-empty" style="margin-bottom:12px">你名下还没有可写入的 bot — 先去建一个</div>';
+  // Source matter link
+  var matterLink = m
+    ? '<a href="#/matter/' + esc(matterId) + '" class="pref-src-link" onclick="closeModal()" style="display:inline-block;font-size:12.5px;color:var(--accent);text-decoration:none;margin-bottom:10px">'
+      + esc(seqLabel(m) + " " + (m.title || "")) + '</a>'
+    : '';
+  // Evidence block: try to show actual text from evidence IDs, else fall back to counts
+  var evidenceEntries = Array.isArray(row.evidence_entry_ids) ? row.evidence_entry_ids : [];
+  var evidenceFeedbacks = Array.isArray(row.evidence_feedback_ids) ? row.evidence_feedback_ids : [];
+  var evidenceHTML = '';
+  if (evidenceEntries.length || evidenceFeedbacks.length){
+    evidenceHTML = '<div class="pref-evidence-block" id="smEvidenceBlock" style="background:var(--fill-1);border-left:3px solid var(--accent-border);border-radius:0 8px 8px 0;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--text-3);line-height:1.55">'
+      + '<div style="font-size:10.5px;font-weight:650;color:var(--text-4);margin-bottom:6px">证据来源 · ' + esc(prefEvidenceLabel(row)) + '</div>'
+      + '<div id="smEvidenceContent" style="white-space:pre-wrap">' + esc(prefEvidenceLabel(row)) + '</div></div>';
+  } else {
+    evidenceHTML = '<div class="pref-evidence-block" style="background:var(--fill-1);border-left:3px solid var(--border-soft);border-radius:0 8px 8px 0;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--text-4);line-height:1.55">'
+      + '来源未记录</div>';
+  }
   mo.innerHTML = prefHeadHTML((who ? who + " · " : "") + draftCount(row.content) + " 条")
     + '<div class="modal-body">'
-    + prefFileCardHTML(matterId, row, selBot ? uname(selBot) : (who || ""))
-    + '<div class="pref-meta">'
-    + '<div class="pm"><div class="k">证据</div><div class="v">' + esc(prefEvidenceLabel(row)) + "</div></div>"
-    + '<div class="pm"><div class="k">信心</div><div class="v">' + prefConfidence(row) + "/100</div></div>"
-    + "</div>"
-    + '<div class="pref-label">写给</div>' + botRows
-    + '<div class="pref-label">适用范围</div>' + prefScopeSelectHTML(m, row)
-    + '<div class="pref-label">Preference<span class="pref-count">' + draftCount(row.content) + " 条</span></div>"
-    + '<textarea class="smart-draft" id="smDraft">' + esc(row.content || "") + "</textarea>"
+    + matterLink
+    + '<div class="pref-label">行为规则<span class="pref-count">' + draftCount(row.content) + " 条</span></div>"
+    + '<textarea class="smart-draft" id="smDraft" style="min-height:120px;margin-bottom:12px">' + esc(row.content || "") + "</textarea>"
+    + evidenceHTML
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
+    + '<div><div class="pref-label">写给</div>' + botRows + '</div>'
+    + '<div><div class="pref-label">适用范围</div>' + prefScopeSelectHTML(m, row) + '</div>'
+    + '</div>'
     + '<div class="matter-error" id="smErr2"></div>'
-    + '<div class="smart-quiet">授权后会保存 scope、证据和信心分；后续可用命中/失准继续校准。</div>'
     + "</div>"
     + '<div class="modal-foot"><div class="pref-confirm foot-left" id="prefConfirm"></div>'
-    + '<button class="ff-cancel" id="smDiscard" type="button">跳过</button>'
-    + '<button class="ff-save" id="smAuth" type="button"' + (bots.length ? "" : " disabled") + ">授权 Preference</button></div>";
+    + '<button class="ff-cancel" id="smDiscard" type="button" style="gap:4px">✗ 跳过</button>'
+    + '<button class="ff-save" id="smAuth" type="button" style="gap:4px"' + (bots.length ? "" : " disabled") + ">✓ 授权</button></div>";
   var x = $(".modal-x", mo);
   if (x) x.onclick = closeModal;
   var syncConfirm = function(){
@@ -7905,10 +8052,45 @@ function summaryEditStep(matterId, row){
         render(); // 刷掉经过/推进记录,偏好沉淀入档
       }
     }).catch(function(e){
-      btn.disabled = false; btn.textContent = "授权 Preference";
+      btn.disabled = false; btn.textContent = "✓ 授权";
       $("#smErr2").textContent = e.message || "授权失败";
     });
   };
+  // Load actual evidence text from timeline entries / feedbacks
+  if (evidenceEntries.length || evidenceFeedbacks.length){
+    var evidBlock = $("#smEvidenceContent");
+    if (evidBlock){
+      var parts = [];
+      var loadDone = function(){
+        if (evidBlock && parts.length) evidBlock.innerHTML = parts.map(function(p){
+          return '<div style="margin-bottom:6px;padding-left:8px;border-left:2px solid var(--border-soft)">' + esc(p) + '</div>';
+        }).join('');
+      };
+      var pending = 0;
+      if (evidenceEntries.length){
+        pending++;
+        api("/matters/" + matterId + "/timeline", { params: { limit: 50 } }).then(function(json){
+          var all = (json && json.data) || [];
+          evidenceEntries.forEach(function(eid){
+            var entry = all.find(function(e){ return e.id === eid; });
+            if (entry && entry.content) parts.push(entry.content);
+          });
+          if (!--pending) loadDone();
+        }).catch(function(){ if (!--pending) loadDone(); });
+      }
+      if (evidenceFeedbacks.length){
+        pending++;
+        api("/matters/" + matterId + "/feedback", { params: { limit: 50 } }).then(function(json){
+          var all = (json && json.data) || [];
+          evidenceFeedbacks.forEach(function(fid){
+            var fb = all.find(function(f){ return f.id === fid; });
+            if (fb && fb.content) parts.push(fb.content);
+          });
+          if (!--pending) loadDone();
+        }).catch(function(){ if (!--pending) loadDone(); });
+      }
+    }
+  }
 }
 
 /* ================= 成员选择器(chip + 下拉) ================= */

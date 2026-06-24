@@ -18,11 +18,15 @@ type PreferenceCard struct {
 	Scope     string    `db:"scope" json:"scope"`
 	Content   string    `db:"content" json:"content"`
 	Evidence  *string   `db:"evidence" json:"evidence,omitempty"`
-	Avoid     *string   `db:"avoid" json:"avoid,omitempty"`
-	Keywords  CardJSON  `db:"keywords" json:"keywords"`
-	Links     CardJSON  `db:"links" json:"links"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+	Avoid       *string   `db:"avoid" json:"avoid,omitempty"`
+	TaskType    *string   `db:"task_type" json:"task_type,omitempty"`
+	Underlying  *string   `db:"underlying" json:"underlying,omitempty"`
+	Keywords    CardJSON  `db:"keywords" json:"keywords"`
+	Links       CardJSON  `db:"links" json:"links"`
+	SourceCards CardJSON  `db:"source_cards" json:"source_cards"`
+	Layer       uint8     `db:"layer" json:"layer"`
+	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type CardJSON json.RawMessage
