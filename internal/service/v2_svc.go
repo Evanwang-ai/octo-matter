@@ -158,16 +158,16 @@ func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUI
 	return nil, nil
 }
 
-// validateMultiAgentMode ensures that modes requiring multiple agents (critic,
-// roundtable, swarm) have at least 2 distinct bot UIDs across leader + assignees.
+// validateMultiAgentMode ensures that modes requiring multiple participants
+// (critic, roundtable, swarm) have at least 2 distinct UIDs across leader + assignees.
 func validateMultiAgentMode(m *model.Matter, assigneeIDs []string) error {
 	seen := map[string]bool{}
 	leader := m.LeaderOrEmpty()
-	if leader != "" && strings.HasSuffix(leader, "_bot") {
+	if leader != "" {
 		seen[leader] = true
 	}
 	for _, uid := range assigneeIDs {
-		if uid != "" && strings.HasSuffix(uid, "_bot") {
+		if uid != "" {
 			seen[uid] = true
 		}
 	}

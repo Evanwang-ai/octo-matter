@@ -8353,17 +8353,16 @@ function buildNewMatterModal(opts){
   var leaderPicker = bindMemberPicker($("#nmLeader"), leaderSt, { ph: "选择领队", single: true, ownedBotsOnly: true });
   var collabPicker = bindMemberPicker($("#nmCollab"), collabSt, { ph: "添加协作者", humansAndOwnBots: true });
   var MULTI_AGENT_MODES = { critic: true, roundtable: true, swarm: true };
-  function uidIsBot(uid){ return uid && (uid.endsWith("_bot") || isBot(uid)); }
   var syncModeWarn = function(){
     var w = $("#nmModeWarn");
     if (!w) return;
     var md = ($("#nmMode") || {}).value || "";
     if (!MULTI_AGENT_MODES[md]){ w.style.display = "none"; return; }
-    var bots = new Set();
-    if (leaderSt.sel.length && uidIsBot(leaderSt.sel[0])) bots.add(leaderSt.sel[0]);
-    collabSt.sel.forEach(function(uid){ if (uidIsBot(uid)) bots.add(uid); });
-    if (bots.size < 2){
-      w.textContent = "此模式至少需要 2 个不同的 Agent 协作（当前 " + bots.size + " 个）";
+    var participants = new Set();
+    if (leaderSt.sel.length) participants.add(leaderSt.sel[0]);
+    collabSt.sel.forEach(function(uid){ if (uid) participants.add(uid); });
+    if (participants.size < 2){
+      w.textContent = "此模式至少需要 2 个不同的参与者（领队 + 协作者）";
       w.style.display = "block";
     } else {
       w.style.display = "none";
@@ -8421,13 +8420,12 @@ function buildNewMatterModal(opts){
     var modeVal = ($("#nmMode") || {}).value || "";
     if (MULTI_AGENT_MODES[modeVal]){
       var bcSet = new Set();
-      if (leaderSt.sel.length && uidIsBot(leaderSt.sel[0])) bcSet.add(leaderSt.sel[0]);
-      collabSt.sel.forEach(function(uid){ if (uidIsBot(uid)) bcSet.add(uid); });
+      if (leaderSt.sel.length) bcSet.add(leaderSt.sel[0]);
+      collabSt.sel.forEach(function(uid){ if (uid) bcSet.add(uid); });
       if (bcSet.size < 2){
         anyBad = true;
         var mw = $("#nmModeWarn");
-        if (mw){ mw.textContent = "此模式至少需要 2 个 Agent 协作"; mw.style.display = "block"; }
-        $("#nmErr").textContent = "此模式至少需要 2 个 Agent 协作";
+        if (mw){ mw.textContent = "此模式至少需要 2 个不同的 Agent 协作"; mw.style.display = "block"; }
       }
     }
     if (anyBad){
