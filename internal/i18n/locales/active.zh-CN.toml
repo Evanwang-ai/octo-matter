@@ -168,16 +168,16 @@ other = "上游 LLM 错误"
 
 # --- 通知 ---
 [notify.matter_created]
-other = "📋 新任务「{{.Title}}」— {{.Actor}} 分配给了你"
+other = "新任务「{{.Title}}」— {{.Actor}} 分配给了你"
 
 [notify.status_changed]
-other = "📋 任务「{{.Title}}」— {{.Actor}} {{.Action}}"
+other = "任务「{{.Title}}」— {{.Actor}} {{.Action}}"
 
 [notify.assignee_added]
-other = "📋 任务「{{.Title}}」— {{.Actor}} 将你添加为负责人"
+other = "任务「{{.Title}}」— {{.Actor}} 将你添加为负责人"
 
 [notify.timeline_entry_added]
-other = "📋 任务「{{.Title}}」— {{.Actor}} 添加了进展"
+other = "任务「{{.Title}}」— {{.Actor}} 添加了进展"
 
 [notify.action.done]
 other = "完成了"
@@ -236,46 +236,46 @@ other = "只有发起人能沉淀这次偏好"
 
 # --- 门铃 ---
 [notify.doorbell.assigned]
-other = "📌「{{.Title}}」(M-{{.Seq}}) 交给你了"
+other = "「{{.Title}}」(M-{{.Seq}}) 交给你了"
 
 [notify.doorbell.handed_back]
-other = "👉「{{.Title}}」(M-{{.Seq}}) 交回来了 — 该你了,待你品鉴"
+other = "「{{.Title}}」(M-{{.Seq}}) 交回来了 — 轮到你了"
 
 [notify.doorbell.child_handed_back]
-other = "📥 子任务「{{.Title}}」交回来了"
+other = "子任务「{{.Title}}」交回来了"
 
 [notify.doorbell.next_segment]
-other = "⏭ 上一段完成,「{{.Title}}」轮到你了"
+other = "上一段完成,「{{.Title}}」轮到你了"
 
 [notify.doorbell.verify]
-other = "🔍「{{.Title}}」待你验证"
+other = "「{{.Title}}」待你验证"
 
 [notify.doorbell.sent_back]
-other = "↩「{{.Title}}」被打回,拿回去改改"
+other = "「{{.Title}}」被退回修改"
 
 [notify.doorbell.feedback]
-other = "✏️「{{.Title}}」有新的圈点反馈"
+other = "「{{.Title}}」有新的圈点反馈"
 
 [notify.doorbell.blocked]
-other = "⚠️「{{.Title}}」卡住了:{{.Reason}}"
+other = "「{{.Title}}」需要协助:{{.Reason}}"
 
 [notify.doorbell.cancelled]
-other = "⊘「{{.Title}}」已取消"
+other = "「{{.Title}}」已取消"
 
 [notify.doorbell.reassigned]
-other = "🔄「{{.Title}}」已改派"
+other = "「{{.Title}}」已改派"
 
 [notify.doorbell.done]
-other = "✅「{{.Title}}」已完成"
+other = "「{{.Title}}」已完成"
 
 [notify.doorbell.reflect]
-other = "🧠「{{.Title}}」验收通过 — 该沉淀偏好了:回看这单的圈点与打回,按工作手册的偏好沉淀流程,把可复用的口味写进你的 preference 档,并在事项里留一句你记下了什么"
+other = "「{{.Title}}」确认完成 — 该沉淀偏好了:回看这单的圈点与反馈,按工作手册的偏好沉淀流程,把可复用的口味写进你的 preference 档,并在事项里留一句你记下了什么"
 
 [notify.doorbell.context_added]
-other = "📎 项目「{{.Title}}」新增共享上下文「{{.Source}}」(project_id={{.ProjectID}}) — 看看是否影响你手头的活,没影响就不用动"
+other = "项目「{{.Title}}」新增共享上下文「{{.Source}}」(project_id={{.ProjectID}}) — 看看是否影响你手头的活,没影响就不用动"
 
 [notify.doorbell.project_dead]
-other = "⚠️ 项目「{{.Title}}」共享上下文门铃送达失败,已转给你兜底"
+other = "项目「{{.Title}}」共享上下文通知送达失败,已转给你兜底"
 
 [err.matter.sendback_no_source]
 other = "这单没有来源会话 — 不知道该发回哪里"
@@ -287,19 +287,19 @@ other = "这单的负责人不是 bot — 没有可代言的身份发回群里"
 other = "只有这单的负责 bot 能提交偏好草案"
 
 [notify.doorbell.summary_draft]
-other = "🧠「{{.Title}}」的负责 agent 想把这单的偏好记进档案 — 草案等你过目(批准后才会转正)"
+other = "「{{.Title}}」的负责 agent 想把这单的偏好记进档案 — 草案等你过目(批准后才会转正)"
 
 [notify.doorbell.summary_approved]
-other = "✅「{{.Title}}」的偏好草案获准 — 把对应条目从 candidate 转 confirmed"
+other = "「{{.Title}}」的偏好草案获准 — 把对应条目从 candidate 转 confirmed"
 
 [notify.doorbell.summary_rejected]
-other = "🚫「{{.Title}}」的偏好草案被否 — 删掉对应 candidate,别再按它行事"
+other = "「{{.Title}}」的偏好草案被否 — 删掉对应 candidate,别再按它行事"
 
 [notify.doorbell.revive]
-other = "🔔「{{.Title}}」还等着处理(提醒)"
+other = "「{{.Title}}」还等着处理(提醒)"
 
 [notify.doorbell.watchdog_blocked]
-other = "⚠️「{{.Title}}」已经很久没动静,已标记受阻"
+other = "「{{.Title}}」已经很久没动静,已标记需要协助"
 
 [notify.doorbell.schedule]
-other = "⏰ 定时事项「{{.Title}}」已建好,轮到你了"
+other = "定时事项「{{.Title}}」已建好,轮到你了"

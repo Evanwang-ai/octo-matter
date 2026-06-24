@@ -21,7 +21,7 @@ preference_card_repo.go:   matter_summaries 偏好卡片 CRUD (蒸馏/授权/停
 matter_channel_repo.go:    matter_channels 多对多 (来源群/关联群)
 timeline_repo.go:          matter_timeline 读写 (按 seq 排序, 支持 content_type 过滤)
 timeline_attachment_repo.go: timeline 附件持久化
-activity_repo.go:          matter_activities 活动流写入
+activity_repo.go:          matter_activities 活动流写入 + ListAllByMatter (全量按时间正序, 供迭代 API)
 activity_repo_test.go:     活动流测试
 outputs_integration_test.go: 产出物集成测试
 v2_repos.go:               v2 repo 集合体: FeedbackRepo, ProjectRepo, ProjectSourceRepo, SummaryRepo, OutboxRepo, ProjectOutboxRepo, ScheduleRepo, BotTaskRepo

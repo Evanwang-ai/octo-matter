@@ -1117,39 +1117,17 @@
     padding: 0; overflow: hidden;
     box-shadow: var(--shadow-card);
   }
-  .brief-grid { display: grid; grid-template-columns: minmax(0, 1fr) 240px; min-height: 120px; }
   .brief-main { padding: 16px 18px 18px; min-width: 0; }
-  .brief-side { border-left: 1px solid rgba(28,28,35,.075); background: var(--surface-panel); padding: 15px 15px 16px; min-width: 0; }
   .wo-label {
     font-size: 11px; line-height: 14px; font-weight: 750; color: rgba(28,28,35,.46);
     letter-spacing: 0; margin-bottom: 8px;
   }
   .brief .free-text { font-size: 14px; line-height: 1.75; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 10px; }
   .brief .free-text.none { color: var(--text-4); font-size: 13px; }
-  .brief-source-line {
-    display: flex; align-items: flex-start; gap: 7px; min-width: 0; margin: 0 0 10px;
-    color: var(--text-3); font-size: 12px; line-height: 18px;
-  }
-  .brief-source-line .src-ic { width: 6px; height: 6px; border-radius: 999px; background: rgba(28,28,35,.22); flex: 0 0 6px; margin-top: 6px; }
-  .brief-source-line .src-main { min-width: 0; overflow-wrap: anywhere; }
-  .brief-source-line b { color: rgba(28,28,35,.62); font-weight: 650; }
   .brief-meta { display: grid; gap: 6px; font-size: 12px; color: var(--text-3); margin-top: 12px; }
   .brief-meta .bm { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding-top: 6px; border-top: 1px solid rgba(28,28,35,.07); }
   .brief-meta .bm b { color: var(--text-2); font-weight: 600; }
   .brief-meta .bm.overdue b { color: var(--tag-block); }
-  .brief-attach { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(28,28,35,.07); }
-  .brief-attach .wo-label { margin-bottom: 6px; }
-  .brief-att-list { max-height: 180px; overflow-y: auto; }
-  .brief-att-list::-webkit-scrollbar { width: 4px; }
-  .brief-att-list::-webkit-scrollbar-thumb { background: rgba(28,28,35,.14); border-radius: 99px; }
-  .brief-att-item {
-    display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px;
-    background: var(--fill-1); margin-bottom: 4px; font-size: 11.5px; color: var(--text-2);
-    text-decoration: none; transition: background .12s; min-width: 0; cursor: pointer;
-  }
-  .brief-att-item:hover { background: var(--fill-3); color: var(--text); }
-  .brief-att-item .ba-icon { flex: 0 0 14px; font-size: 13px; }
-  .brief-att-item .ba-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 550; }
   .blocker-note, .review-note {
     display: flex; align-items: flex-start; gap: 11px;
     border-radius: 8px; background: #fff; padding: 12px 13px;
@@ -1185,6 +1163,18 @@
   .review-note .rv-action.primary { background: var(--amber); border-color: var(--amber); color: #fff; }
   .review-note .rv-action.primary:hover { background: #e97900; border-color: #e97900; }
   .blocker-note .bn-action:disabled, .review-note .rv-action:disabled { opacity: .55; cursor: default; }
+  .inline-review-actions {
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 0 4px;
+    border-top: 1px solid rgba(28,28,35,.08); margin-top: 8px;
+  }
+  .inline-review-actions .rv-action {
+    min-height: 30px; padding: 0 12px; border-radius: 7px; background: #fff; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; transition: .15s; border: 1px solid var(--amber-border); color: var(--tag-review);
+  }
+  .inline-review-actions .rv-action:hover { background: var(--amber-bg); border-color: var(--amber); }
+  .inline-review-actions .rv-action.primary { background: var(--amber); border-color: var(--amber); color: #fff; }
+  .inline-review-actions .rv-action.primary:hover { background: #e97900; border-color: #e97900; }
+  .inline-review-actions .rv-action:disabled { opacity: .55; cursor: default; }
   .decision-status { display: none; font-size: 11.5px; line-height: 15px; font-weight: 650; color: var(--text-3); }
   .decision-status:not(:empty) { display: block; }
   .blocker-note .decision-status { color: rgba(173,31,23,.72); }
@@ -1394,22 +1384,6 @@
   }
   .proj-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,119,250,.12); }
   .assignee-wrap { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
-  .trail { display: flex; flex-direction: column; }
-  .trail-empty { font-size: 12px; color: var(--text-3); line-height: 1.6; padding: 2px 0 6px; }
-  .trail-entry { position: relative; display: flex; gap: 9px; padding: 8px 0 10px; align-items: flex-start; }
-  .trail-entry:not(:last-child)::after {
-    content: ""; position: absolute; left: 10px; top: 30px; bottom: -2px; width: 1px; background: rgba(28,28,35,.08);
-  }
-  .trail-av {
-    width: 20px; height: 20px; border-radius: 50%; flex: 0 0 20px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 9.5px; font-weight: 600; color: #fff; margin-top: 1px; position: relative; z-index: 1; text-transform: uppercase;
-  }
-  .trail-main { flex: 1; min-width: 0; }
-  .trail-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-  .trail-top .tt { font-family: var(--mono); font-size: 10px; color: var(--text-4); white-space: nowrap; }
-  .trail-line { font-size: 12px; line-height: 1.55; color: var(--text-2); overflow-wrap: anywhere; }
-  .trail-line .tn { font-weight: 650; color: var(--text); }
   .htag {
     display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; letter-spacing: .2px;
     padding: 1px 7px; border-radius: 6px; line-height: 1.5; white-space: nowrap;
@@ -1569,16 +1543,6 @@
   }
   .src-send:hover { background: var(--done-bg); }
   .banner-note { margin-top: 8px; font-size: 11px; color: var(--text-4); line-height: 1.5; }
-  .prog-rows { display: grid; }
-  .prog-row { display: flex; align-items: center; gap: 8px; min-height: 29px; font-size: 12.5px; color: var(--text); border-top: 1px solid rgba(28,28,35,.055); }
-  .prog-row:first-child { border-top: 0; }
-  .prog-row .pr-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--done); flex: 0 0 7px; }
-  .prog-row .pr-dot.doing { background: var(--accent); }
-  .prog-row .pr-dot.amber { background: var(--amber); }
-  .prog-row .pr-main { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .prog-row .pr-side { font-size: 11px; color: var(--text-4); flex: 0 0 auto; }
-  .trail-more { margin: 2px 0 4px; font-size: 12px; color: var(--accent); cursor: pointer; font-weight: 600; }
-  .trail-more:hover { text-decoration: underline; }
   .main-trail {
     border-top: 1px solid rgba(28,28,35,.08);
     border-bottom: 1px solid rgba(28,28,35,.08);
@@ -2007,24 +1971,6 @@
   .pmr-action-status { display: none; align-self: center; color: var(--text-3); font-size: 11.5px; font-weight: 650; }
   .pmr-action-status:not(:empty) { display: inline; }
 
-  /* ============ Octo 编排 edge ============ */
-  .edge-rows { display: grid; }
-  .edge-row {
-    display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 7px;
-    align-items: start; padding: 8px 0; border-top: 1px solid rgba(28,28,35,.06);
-  }
-  .edge-row:first-child { border-top: 0; }
-  .edge-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; background: #a8acb3; }
-  .edge-dot.pending { background: #d88312; }
-  .edge-dot.delivered { background: #2563eb; }
-  .edge-dot.consumed { background: #17a65a; }
-  .edge-dot.dead { background: #d92d20; }
-  .edge-main { min-width: 0; }
-  .edge-title { font-size: 12.5px; line-height: 1.4; font-weight: 650; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .edge-sub { margin-top: 2px; font-size: 11px; line-height: 1.45; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .edge-state { font-size: 10.5px; font-weight: 700; color: var(--text-3); background: rgba(255,255,255,.7); border: 1px solid rgba(28,28,35,.08); border-radius: 999px; padding: 2px 6px; white-space: nowrap; }
-  .edge-state.dead { color: #a12418; background: #fff0ee; border-color: #ffd6d0; }
-  .edge-empty { font-size: 12.5px; color: var(--text-4); line-height: 1.6; padding: 3px 0; }
 
   /* ============ 键盘帮助 ============ */
   .keys-help { display: grid; gap: 2px; padding: 4px 0 8px; }
@@ -2388,6 +2334,22 @@
     .annot-box.docked { left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; }
     .issue-title { font-size: 20px; }
   }
+  /* -- Iterations panel -- */
+  .iter-round { position: relative; padding: 6px 0 10px 18px; font-size: 12px; line-height: 1.55; }
+  .iter-round + .iter-round { border-top: 1px solid rgba(28,28,35,.06); }
+  .iter-round::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: rgba(28,28,35,.10); border-radius: 1px; }
+  .iter-round.current::before { background: var(--accent); }
+  .iter-head { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--text-1); margin-bottom: 2px; }
+  .iter-head .iter-now { font-size: 10px; font-weight: 700; color: var(--accent); margin-left: 4px; }
+  .iter-line { color: var(--text-3); }
+  .iter-line .iter-arrow { color: var(--text-4); margin-right: 2px; }
+  .iter-fb { color: var(--text-2); font-style: italic; }
+  .iter-outcome { font-size: 11px; font-weight: 650; margin-left: 4px; }
+  .iter-outcome.sent_back { color: var(--amber-text, #b06d00); }
+  .iter-outcome.confirmed { color: var(--done); }
+  .iter-outcome.pending_review { color: var(--accent); }
+  .iter-outcome.in_progress { color: var(--text-3); }
+  .iter-empty { font-size: 12px; color: var(--text-3); padding: 4px 0; }
   @media (prefers-reduced-motion: reduce) {
     * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
   }
@@ -2428,7 +2390,7 @@
   </div>
 
   <div class="toast" id="toast"></div>
-  <div class="im-fab" id="annotFab" role="button" tabindex="0" title="指着选中的这句,说哪儿不对怎么改">✏️ 批注</div>
+  <div class="im-fab" id="annotFab" role="button" tabindex="0" title="指着选中的这句,说哪儿不对怎么改">批注</div>
   <div class="annot-box" id="annotBox" role="dialog" aria-label="批注说一句">
     <div class="im-quote" id="annotQuote"></div>
     <textarea class="annot-text" id="annotInput" rows="2" placeholder="哪儿不对,怎么改" maxlength="500"></textarea>
@@ -2721,7 +2683,7 @@ function toast(msg, opts){
 var ERR_HUMAN = {
   VERSION_CONFLICT: "这单刚被改过 — 刷新看看最新状态再操作",
   EPOCH_STALE: "这活已经改派了,不用再做了",
-  CHILDREN_NOT_TERMINAL: "还有子任务没收口 — 先把它们验收掉",
+  CHILDREN_NOT_TERMINAL: "还有子任务没收口 — 先把它们确认完成",
   FORBIDDEN: "这一步不归你做(权限不够)",
   MATTER_NOT_FOUND: "这单找不到了,可能已被删除",
   LLM_NOT_CONFIGURED: "智能提炼还没接入(缺模型钥匙),其他功能不受影响",
@@ -2847,12 +2809,12 @@ function seqLabel(m){
 /* ---------------- 状态词表(exact) ---------------- */
 var ST = {
   backlog:     { name: "草稿", pill: "backlog",  ring: "backlog" },
-  open:        { name: "待办",   pill: "gray",     ring: "todo" },
+  open:        { name: "待开始", pill: "gray",     ring: "todo" },
   in_progress: { name: "进行中", pill: "progress", ring: "doing" },
-  review:      { name: "审核中", pill: "amber",    ring: "review" },
-  done:        { name: "完成",   pill: "done",     ring: "done" },
-  blocked:     { name: "受阻",   pill: "block",    ring: "block" },
-  cancelled:   { name: "取消",   pill: "cancel",   ring: "cancel" },
+  review:      { name: "待确认", pill: "amber",    ring: "review" },
+  done:        { name: "已完成", pill: "done",     ring: "done" },
+  blocked:     { name: "需要协助", pill: "block",    ring: "block" },
+  cancelled:   { name: "已取消", pill: "cancel",   ring: "cancel" },
   archived:    { name: "已归档", pill: "cancel",   ring: "cancel" }
 };
 var ST_ORDER = ["backlog", "open", "in_progress", "review", "done", "blocked", "cancelled"];
@@ -3386,7 +3348,7 @@ function loadInboxDetail(my, id){
     if (my !== renderToken || myInboxSel !== id) return;
     var m = normMatter(res[0]);
     if (!m || !m.id){ right.innerHTML = '<div class="inbox-right-empty">事项已不存在</div>'; return; }
-    cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], fb: res[6], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null, trailOpen: false };
+    cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], fb: res[6], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null };
     right.innerHTML = '<div class="content" id="detailScroll" style="overflow-y:auto;height:100%"><div class="content-inner">'
       + '<h1 class="issue-title">' + esc(m.title) + "</h1>"
       + '<div class="issue-sub">' + pillHTML(m.status)
@@ -3624,7 +3586,7 @@ function boardCardHTML(m){
   var who = m.leader || m.assignees[0] || "";
   var others = m.assignees.filter(function(u){ return u !== who; }).length;
   var block = m.status === "blocked"
-    ? '<div class="bc-block-line" title="' + esc(m.block_reason_text || "") + '">● ' + esc(silentFor(m) || "卡住了") + "</div>" : "";
+    ? '<div class="bc-block-line" title="' + esc(m.block_reason_text || "") + '">● ' + esc(silentFor(m) || "需要协助") + "</div>" : "";
   var date = boardShowDate ? '<span class="bc-date" title="创建于 ' + esc(fmtFull(m.created_at)) + '">' + CAL_SVG + esc(fmtShortDate(m.created_at)) + "</span>" : "";
   var assignee = boardShowAssignee ? '<span class="bc-person-value">'
     + (who ? '<span data-uid="' + esc(who) + '" style="display:inline-flex;align-items:center;gap:4px;min-width:0">' + av(who) + '<span class="nm">' + esc(uname(who)) + "</span>" + aiTagHTML(who) + "</span>" : '<span class="m-noone">没人接</span>')
@@ -6125,7 +6087,7 @@ function renderMatter(my, id){
       hideInspector();
       return;
     }
-    cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], fb: res[6], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null, trailOpen: false };
+    cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], fb: res[6], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null };
     paintMatter(my);
     if (m.parent_matter_id){
       api("/matters/" + m.parent_matter_id).then(function(p){
@@ -6207,11 +6169,6 @@ function briefHTML(m){
   var desc = String(m.description || "");
   var goal = firstLine(desc).trim();
   var rest = desc.slice(firstLine(desc).length).replace(/^\n+/, "");
-  var srcLine = '<div class="brief-source-line"><span class="src-ic"></span><span class="src-main">'
-    + (m.source_name ? "来自 <b>" + esc(srcLabel(m.source_name)) + "</b> · " : "")
-    + '<span data-uid="' + esc(m.creator_id) + '" style="cursor:pointer"><b>' + esc(uname(m.creator_id)) + "</b></span>"
-    + " - " + esc(fmtShortDate(m.created_at))
-    + "</span></div>";
   var over = m.deadline && new Date(m.deadline).getTime() < Date.now() && m.status !== "done" && !isTerminalRow(m);
   var metas = (m.deadline || m.expected_duration_minutes)
     ? '<div class="brief-meta">'
@@ -6219,23 +6176,13 @@ function briefHTML(m){
       + (m.expected_duration_minutes ? '<span class="bm"><span>预计</span><b>' + esc(m.expected_duration_minutes) + " 分钟</b></span>" : "")
       + "</div>"
     : "";
-  return '<div class="detail-block"><div class="brief"><div class="brief-grid"><div class="brief-main"><div class="wo-label">Brief</div>'
+  return '<div class="detail-block"><div class="brief"><div class="brief-main"><div class="wo-label">Brief</div>'
     + (goal ? '<div class="goal-line">' + esc(goal) + "</div>" : '<div class="free-text none">没写描述 — 只有标题这一句</div>')
     + (rest ? '<div class="brief-rest">' + mdHTML(rest) + "</div>" : "")
     + (m.brief_output_spec ? '<div class="constraint-label">追踪目标</div>' + (bulletsHTML(m.brief_output_spec) || '<div class="brief-rest" style="margin-top:0">' + esc(m.brief_output_spec) + "</div>") : "")
     + (m.brief_constraints ? '<div class="constraint-label">约束</div>' + (bulletsHTML(m.brief_constraints) || '<div class="brief-rest" style="margin-top:0">' + esc(m.brief_constraints) + "</div>") : "")
-    + '</div><div class="brief-side"><div class="wo-label">来源</div>' + srcLine + metas
-    + briefAttachHTML(m)
-    + "</div></div></div></div>";
-}
-function briefAttachHTML(m){
-  var atts = m.input_attachments || [];
-  if (!atts.length) return "";
-  return '<div class="brief-attach"><div class="wo-label">输入材料 (' + atts.length + ')</div>'
-    + '<div class="brief-att-list">' + atts.map(function(a){
-      return '<a class="brief-att-item" href="' + esc(a.file_url) + '" target="_blank" rel="noopener" title="' + esc(a.file_name || "附件") + '">'
-        + '<span class="ba-icon">📎</span><span class="ba-name">' + esc(a.file_name || "附件") + '</span></a>';
-    }).join("") + '</div></div>';
+    + (metas ? metas : "")
+    + "</div></div></div>";
 }
 function blockerBannerHTML(m){
   if (!m || m.status !== "blocked") return "";
@@ -6251,19 +6198,15 @@ function blockerBannerHTML(m){
 function reviewBannerHTML(m){
   if (!m || m.status !== "review") return "";
   var mine = isMe(m.creator_id);
-  var text = mine ? "这单交回来了,现在需要你验收。" : ("等 " + uname(m.creator_id) + " 验收。");
-  var actions = mine
-    ? '<div class="rv-side"><div class="rv-actions"><button class="rv-action" type="button" data-review-feedback aria-controls="composerInput">打回重做</button>'
-      + '<button class="rv-action primary" type="button" data-review-accept data-pending-label="验收中">验收通过</button></div>'
-      + '<div class="decision-status" role="status" aria-live="polite"></div></div>'
-    : "";
+  var submitter = m.leader ? uname(m.leader) : "";
+  var text = mine ? ("待确认" + (submitter ? " · " + submitter + "提交了结果" : "")) : ("等 " + uname(m.creator_id) + " 确认");
   return '<div class="detail-block" id="reviewBanner"><div class="review-note">'
-    + '<div class="rv-ic">?</div><div class="rv-main"><div class="rv-k">' + (mine ? "待你验收" : "等待验收") + "</div>"
-    + '<div class="rv-text">' + esc(text) + "</div></div>" + actions + "</div></div>";
+    + '<div class="rv-ic">?</div><div class="rv-main"><div class="rv-k">' + (mine ? "轮到你了" : "等待确认") + "</div>"
+    + '<div class="rv-text">' + esc(text) + "</div></div></div></div>";
 }
 /* ---- 计划图(几何即语义,移植原型 planNodes/renderCollab/drawPlanEdges,数据来自 GET /matters/:id/tree) ---- */
 var PG_RING = { backlog: "backlog", open: "todo", in_progress: "doing", review: "review", done: "done", blocked: "block", cancelled: "cancel", archived: "cancel" };
-var PG_STATE_TEXT = { backlog: "草稿", open: "待办", in_progress: "进行中", review: "待确认", done: "已交回", blocked: "受阻", cancelled: "取消", archived: "归档" };
+var PG_STATE_TEXT = { backlog: "草稿", open: "待开始", in_progress: "进行中", review: "待确认", done: "已完成", blocked: "需要协助", cancelled: "已取消", archived: "已归档" };
 function pgAsgHTML(uid){
   if (!uid) return '<div class="pg-asg"><span class="m-noone">没人接</span></div>';
   return '<div class="pg-asg" data-uid="' + esc(uid) + '" title="' + esc(uid) + '">'
@@ -6401,7 +6344,7 @@ function roleOverviewHTML(m, roles, mode){
   var leader = uname(m.leader || m.creator_id || "");
   var tone = "", title;
   if (m.status === "done"){ tone = "done"; title = "已完成"; }
-  else if (m.status === "blocked"){ tone = "block"; title = "受阻" + (m.block_reason_text ? " · " + m.block_reason_text : ""); }
+  else if (m.status === "blocked"){ tone = "block"; title = "需要协助" + (m.block_reason_text ? " · " + m.block_reason_text : ""); }
   else if (spokeN === total && total > 0){ tone = "taste"; title = "所有角色已发言"; }
   else { title = spokeN + "/" + total + " 角色已发言"; }
   var modeDesc = { critic: "生成→验证", roundtable: "圆桌讨论", pipeline: "流水线" }[mode] || mode;
@@ -6421,7 +6364,7 @@ function planOverviewHTML(m, kids, tv){
   var eyebrow = (modeDesc ? modeDesc + " · " : "") + "@ " + kids.length + " 路 · 汇总 @" + esc(leader);
   var tone = "", title;
   if (m.status === "done"){ tone = "done"; title = "已完成"; }
-  else if (m.status === "blocked"){ tone = "block"; title = "受阻" + (m.block_reason_text ? " · " + m.block_reason_text : ""); }
+  else if (m.status === "blocked"){ tone = "block"; title = "需要协助" + (m.block_reason_text ? " · " + m.block_reason_text : ""); }
   else if ((tv && tv.join_ready) || (total && doneN === total)){ tone = "taste"; title = "子事项已齐"; }
   else { title = doneN + "/" + total + " 子事项已回"; }
   return '<div class="plan-overview ' + tone + '">'
@@ -6582,12 +6525,12 @@ function timelineBlockHTML(m){
   var inner;
   if (!entries.length){
     var es = {
-      backlog:     { cls: "",      ic: "◇", title: "草稿", sub: "还在编队中,等发车" },
-      open:        { cls: "",      ic: "○", title: "待开工", sub: "还没有交付记录" },
-      in_progress: { cls: "doing", ic: "⟳", title: "进行中", sub: "等负责人交回可验收结果" },
-      review:      { cls: "doing", ic: "◌", title: "待品鉴", sub: "进入验收了,但这里还没有记录" },
+      backlog:     { cls: "",      ic: "◇", title: "草稿", sub: "等待开始" },
+      open:        { cls: "",      ic: "○", title: "待开始", sub: "还没有交付记录" },
+      in_progress: { cls: "doing", ic: "⟳", title: "进行中", sub: "等待提交结果" },
+      review:      { cls: "doing", ic: "◌", title: "待确认", sub: "等待确认" },
       done:        { cls: "done",  ic: "✓", title: "已完成", sub: "没有附加产出" },
-      blocked:     { cls: "block", ic: "⚠", title: "卡住了", sub: m.block_reason_text || "等待解除阻塞" },
+      blocked:     { cls: "block", ic: "⚠", title: "需要协助", sub: m.block_reason_text || "等待协助" },
       cancelled:   { cls: "",      ic: "⊘", title: "已取消", sub: "仅留档" },
       archived:    { cls: "",      ic: "⊘", title: "已归档", sub: "只读留档" }
     }[m.status] || { cls: "", ic: "○", title: "还没有动态", sub: "" };
@@ -6602,13 +6545,13 @@ function timelineBlockHTML(m){
           var label = a.file_name || a.description || "附件";
           var meta = [fmtSize(a.file_size), uname(e.user_id), fmtTime(e.created_at)].filter(Boolean).join(" · ");
           return '<a class="file-out" href="' + esc(a.file_url || "#") + '" target="_blank" rel="noopener noreferrer" style="text-decoration:none">'
-            + '<span class="fo-ic">📄</span><span class="fo-main"><span class="fo-name" style="display:block">' + esc(label) + "</span>"
+            + '<span class="fo-ic"></span><span class="fo-main"><span class="fo-name" style="display:block">' + esc(label) + "</span>"
             + '<span class="fo-meta" style="display:block">' + esc(meta) + "</span></span></a>";
         }).join("");
       } else {
         var atts = attList.map(function(a){
           var label = a.file_name || a.description || "附件";
-          return '<a class="file-chip" href="' + esc(a.file_url || "#") + '" target="_blank" rel="noopener noreferrer"><span class="fic">📎</span><span class="fnm">' + esc(label) + "</span></a>";
+          return '<a class="file-chip" href="' + esc(a.file_url || "#") + '" target="_blank" rel="noopener noreferrer"><span class="fic"></span><span class="fnm">' + esc(label) + "</span></a>";
         }).join("");
         body = (e.content ? '<div class="r-text">' + mdHTML(e.content) + "</div>" : "")
           + (atts ? '<div class="attach-row">' + atts + "</div>" : "");
@@ -6620,11 +6563,19 @@ function timelineBlockHTML(m){
         + '<div class="report-body" data-entry-id="' + esc(e.id) + '">' + body + "</div></div>";
     }).join("") + "</div>";
   }
+  var reviewActions = "";
+  if (m.status === "review" && isMe(m.creator_id) && entries.length){
+    reviewActions = '<div class="inline-review-actions">'
+      + '<button class="rv-action" type="button" data-review-feedback aria-controls="composerInput">需要修改</button>'
+      + '<button class="rv-action primary" type="button" data-review-accept data-pending-label="确认中">确认完成</button>'
+      + '<div class="decision-status" role="status" aria-live="polite"></div>'
+      + "</div>";
+  }
   var n = t.ok ? listData(t.v).length : 0;
   var hint = n ? '<span class="sec-count" title="选中正文里的一句话,可以批注">' + n + " 条 · 选中文字可批注</span>" : "";
   var attachAction = authReady() && !isTerminalRow(m) ? '<button class="sec-action" type="button" data-output-attach>加附件</button>' : "";
   var right = (hint || attachAction) ? '<span class="sec-actions">' + hint + attachAction + "</span>" : "";
-  return '<div class="detail-block" id="repliesBlock"><div class="sec"><span class="sec-l">产出</span>' + right + "</div>" + inner + "</div>";
+  return '<div class="detail-block" id="repliesBlock"><div class="sec"><span class="sec-l">产出</span>' + right + "</div>" + inner + reviewActions + "</div>";
 }
 function paintMatter(my){
   var m = cur.m;
@@ -6702,8 +6653,8 @@ function bindDetail(my){
       } else {
         ta.focus();
       }
-      ta.placeholder = "写清楚要改什么,发送后会打回重做";
-      toast(seeded ? "已把打回内容放到输入框" : "继续补充打回内容", { icon: "✏️" });
+      ta.placeholder = "写清楚要改什么,发送后会退回修改";
+      toast(seeded ? "已把修改内容放到输入框" : "继续补充修改内容", { icon: "" });
     });
   });
   $$("[data-output-focus]", $("#repliesBlock")).forEach(function(btn){
@@ -6717,7 +6668,7 @@ function bindDetail(my){
         try { ta.setSelectionRange(pos, pos); } catch (e) {}
       }
       else ta.focus();
-      ta.placeholder = "补一条可验收记录";
+      ta.placeholder = "补一条产出记录";
     });
   });
   $$("[data-output-attach]", $("#repliesBlock")).forEach(function(btn){
@@ -6813,7 +6764,7 @@ function bindDetail(my){
       ta.parentNode.insertBefore(row, ta);
     }
     row.innerHTML = pendingAtts.map(function(a, i){
-      return '<span class="file-chip" style="cursor:default"><span class="fic">📎</span><span class="fnm">' + esc(a.file_name)
+      return '<span class="file-chip" style="cursor:default"><span class="fic"></span><span class="fnm">' + esc(a.file_name)
         + '</span><button type="button" data-rmatt="' + i + '" style="border:none;background:none;cursor:pointer;padding:0 2px">✕</button></span>';
     }).join("");
     row.querySelectorAll("[data-rmatt]").forEach(function(b){
@@ -6833,9 +6784,9 @@ function bindDetail(my){
       var files = Array.prototype.slice.call(fi.files || []);
       fi.value = "";
       if (!files.length) return;
-      toast("上传中…", { icon: "📎" });
+      toast("上传中…", { icon: "" });
       Promise.all(files.map(uploadOne)).then(function(){
-        toast("传好了,随下一条发送一起带上", { icon: "📎" });
+        toast("传好了,随下一条发送一起带上", { icon: "" });
       }).catch(function(e){ errToast(e); });
     });
   }
@@ -6859,7 +6810,7 @@ function bindDetail(my){
     if (!cur || !cur.m){ toast("这单还在加载,稍等一下再发"); return; }
     send.disabled = true; send.textContent = "发送中…";
     // @ 了人,或事项在审核中 ⇒ 这是一条反馈(taste 信号):走 feedback,
-    // 服务端会敲对方门铃、审核中自动打回。带附件的部分走 timeline 落档;
+    // 服务端会敲对方门铃、审核中自动退回修改。带附件的部分走 timeline 落档;
     // 两者都有 ⇒ timeline(附件)+feedback(敲铃)各司其职。
     var mentions = parseMentions(v);
     var asFeedback = mentions.length > 0 || (cur.m && cur.m.status === "review");
@@ -6870,7 +6821,7 @@ function bindDetail(my){
       return api("/matters/" + cur.id + "/feedback", { method: "POST", body: body }).then(function(resp){
         var flipped = resp && resp.matter_status === "in_progress" && cur.m.status === "review";
         var who = mentions.length ? mentions[0].name : uname((cur.m && cur.m.leader) || "");
-        toast(flipped ? "已替你打回去重做 — 门铃已敲给 " + who : (who ? "记下了 — 门铃已敲给 " + who : "记下了"), { icon: "✏️" });
+        toast(flipped ? "已退回修改 — 门铃已敲给 " + who : (who ? "记下了 — 门铃已敲给 " + who : "记下了"), { icon: "" });
         if (after) after();
       });
     };
@@ -6915,30 +6866,30 @@ function bindDetail(my){
 /* ---- 控制权 / inspector ---- */
 function controlLine(m){
   var doer = m.leader ? uname(m.leader) : (m.assignees.length ? m.assignees.map(uname).join("、") : "");
-  if (m.status === "in_progress") return { cls: "", label: "处理中", main: doer ? ("已 @ " + doer + " · 正在做") : "正在做 — 还没人认领" };
+  if (m.status === "in_progress") return { cls: "", label: "进行中", main: doer ? ("已 @ " + doer + " · 进行中") : "进行中" };
   if (m.status === "review"){
-    if (isMe(m.creator_id)) return { cls: "taste", label: "该你了", main: "该你了 — 待你品鉴" };
-    // 虾立的单虾不能自我验收(守卫硬规则)——等的是人,别把虾名挂横幅上
-    if (isBot(m.creator_id)) return { cls: "taste", label: "待品鉴", main: "活交回来了 — 等人来品鉴" };
-    return { cls: "taste", label: "待品鉴", main: "等 " + uname(m.creator_id) + " 品鉴" };
+    var submitter = m.leader ? uname(m.leader) : "";
+    if (isMe(m.creator_id)) return { cls: "taste", label: "轮到你了", main: "待确认" + (submitter ? " · " + submitter + "提交了结果" : "") };
+    if (isBot(m.creator_id)) return { cls: "taste", label: "等待确认", main: "等待确认" };
+    return { cls: "taste", label: "等待确认", main: "等 " + uname(m.creator_id) + " 确认" };
   }
-  if (m.status === "blocked") return { cls: "block", label: "受阻", main: "卡住了:" + (m.block_reason_text || "没说原因") };
+  if (m.status === "blocked") return { cls: "block", label: "需要协助", main: "需要协助:" + (m.block_reason_text || "没说原因") };
   if (m.status === "done") return { cls: "done", label: "已完成", main: "已完成" };
-  if (m.status === "cancelled") return { cls: "cancel", label: "已取消", main: "已取消 · 仅留档" };
+  if (m.status === "cancelled") return { cls: "cancel", label: "已取消", main: "已取消" };
   if (m.status === "archived") return { cls: "cancel", label: "已归档", main: "已归档" };
-  return { cls: "", label: "待办", main: doer ? ("还没开工 · 在 " + doer + " 手里") : "还没开工,也还没人接" };
+  return { cls: "", label: "待开始", main: doer ? ("等待开始 · 在 " + doer + " 手里") : "等待开始" };
 }
 function statusEdgeHuman(d){
   d = d || {};
   var from = d.from, to = d.to;
   if (to === "in_progress" && from === "open") return "交出去了,开干";
   if (to === "review") return "交回来了";
-  if (to === "in_progress" && from === "review") return "打回重做";
+  if (to === "in_progress" && from === "review") return "退回修改";
   if (to === "in_progress" && from === "blocked") return "解开了,继续";
   if (to === "in_progress" && from === "done") return "拉回重做";
-  if (to === "open" && from === "done") return "拉回待办";
+  if (to === "open" && from === "done") return "拉回待开始";
   if (to === "done") return "完成,收下了";
-  if (to === "blocked") return "卡住了" + (d.reason ? ":" + d.reason : "");
+  if (to === "blocked") return "需要协助" + (d.reason ? ":" + d.reason : "");
   if (to === "cancelled") return "取消了";
   if (to === "archived") return "归档了";
   return "改到「" + stName(to) + "」";
@@ -6968,25 +6919,24 @@ function actHuman(a){
       return "更新了";
   }
 }
-/* 经过条目的人话动词标签(交出去/往下派/交回来了/打回重做/批注/完成/卡住了/取消/开始汇总/已改派/偏好沉淀) */
 function actTagWord(a){
   var d = a.detail || {};
   switch (a.action){
-    case "created": return "交出去";
-    case "child_created": return "往下派";
+    case "created": return "创建";
+    case "child_created": return "派发子任务";
     case "feedback_added": return "批注";
     case "join_started": return "开始汇总";
     case "reassigned": return "已改派";
-    case "agent_task_completed": return "交回来了";
-    case "agent_task_failed": return "卡住了";
+    case "agent_task_completed": return "已提交";
+    case "agent_task_failed": return "需要协助";
     case "agent_progress": return "有进展";
     case "status_changed":
-      if (d.to === "review") return "交回来了";
-      if (d.to === "in_progress" && d.from === "review") return "打回重做";
-      if (d.to === "done") return "完成";
-      if (d.to === "blocked") return "卡住了";
-      if (d.to === "cancelled") return "取消";
-      if (d.to === "in_progress") return "交出去";
+      if (d.to === "review") return "已提交";
+      if (d.to === "in_progress" && d.from === "review") return "退回修改";
+      if (d.to === "done") return "已完成";
+      if (d.to === "blocked") return "需要协助";
+      if (d.to === "cancelled") return "已取消";
+      if (d.to === "in_progress") return "开始";
       return "更新";
   }
   if (String(a.action).indexOf("summary") >= 0) return "偏好沉淀";
@@ -7006,94 +6956,6 @@ function actTagCls(a){
   if (a.action === "created" || a.action === "child_created" || a.action === "join_started"
     || a.action === "assignee_added" || a.action === "reassigned") return "h2a";
   return "sys";
-}
-function trailEntryHTML(t){
-  var raw = t.action + (t.detail ? " " + JSON.stringify(t.detail) : "");
-  return '<div class="trail-entry" title="' + esc(raw) + '">'
-    + '<div class="trail-av" style="background:' + avColor(t.actor_id) + '">' + esc(avInitial(uname(t.actor_id))) + "</div>"
-    + '<div class="trail-main">'
-    + '<div class="trail-top"><span class="htag ' + actTagCls(t) + '">' + esc(actTagWord(t)) + '</span><span class="tt" title="' + esc(fmtFull(t.created_at)) + '">' + esc(fmtTime(t.created_at)) + "</span></div>"
-    + '<div class="trail-line"><span class="tn" data-uid="' + esc(t.actor_id) + '">' + esc(uname(t.actor_id)) + "</span> " + esc(actHuman(t)) + "</div>"
-    + "</div></div>";
-}
-function trailHTML(){
-  var a = cur.acts;
-  if (!a.ok) return '<div class="trail-empty">经过读取失败:' + esc(a.e && a.e.message || "") + "</div>";
-  var acts = listData(a.v).slice().sort(function(x, y){
-    return new Date(x.created_at || 0).getTime() - new Date(y.created_at || 0).getTime();
-  });
-  if (!acts.length) return '<div class="trail-empty">暂无记录</div>';
-  var capped = !cur.trailOpen && acts.length > 7;
-  var shown = capped ? acts.slice(acts.length - 7) : acts;
-  return (capped ? '<div class="trail-more" id="trailMore" role="button" tabindex="0">展开全部 ' + acts.length + " 条</div>" : "")
-    + shown.map(trailEntryHTML).join("");
-}
-function edgePanelHTML(){
-  var ok = cur.edges && cur.edges.ok;
-  var rows = ok ? listData(cur.edges.v) : [];
-  var source = ok && cur.edges.v ? cur.edges.v.source : null;
-  var sourceLine = source && (source.name || source.channel_id)
-    ? '<div class="edge-empty" style="padding-bottom:8px">来源: ' + esc(srcLabel(source.name || source.channel_id)) + "</div>"
-    : "";
-  var body;
-  if (cur.edges && cur.edges.loading){
-    body = '<div class="edge-empty">Octo 编排读取中...</div>';
-  } else if (!ok){
-    body = '<div class="edge-empty">Octo 编排读取失败,稍后再试</div>';
-  } else if (!rows.length){
-    body = sourceLine + '<div class="edge-empty">还没有向外伸出的协作袖子</div>';
-  } else {
-    body = sourceLine + '<div class="edge-rows">' + rows.slice(0, 6).map(edgeRowHTML).join("") + "</div>";
-  }
-  return '<section class="panel">'
-    + '<div class="panel-h" data-fold><span class="chev">▾</span><span class="ph-title">Octo 编排</span><span class="ph-count">(' + rows.length + ")</span></div>"
-    + '<div class="panel-body">' + body + "</div></section>";
-}
-function edgeRowHTML(e){
-  var target = e.target_uid ? uname(e.target_uid) : "";
-  var label = e.label || "";
-  if (e.target_uid && target) label = label.replace(e.target_uid, target);
-  var state = e.state || "";
-  var stateLabel = e.state_label || state || "状态未知";
-  var detail = e.detail || "";
-  if (e.retry_count) detail += (detail ? " · " : "") + "重试 " + e.retry_count + " 次";
-  if (!detail && e.updated_at) detail = fmtShortDate(e.updated_at);
-  return '<div class="edge-row" title="' + esc((e.event || "") + " · " + (e.state || "")) + '">'
-    + '<span class="edge-dot ' + esc(state) + '"></span>'
-    + '<div class="edge-main"><div class="edge-title">' + esc(label || "Octo 已发出一条编排") + "</div>"
-    + (detail ? '<div class="edge-sub">' + esc(detail) + "</div>" : "") + "</div>"
-    + '<span class="edge-state ' + esc(state) + '">' + esc(stateLabel) + "</span></div>";
-}
-/* 推进记录:只从真实数据(tree 子单/活动/圈点/偏好授权)推导,不造时间 */
-function progressRowsHTML(){
-  var rows = [];
-  var kids = treeChildren() || [];
-  var liveKids = kids.filter(function(k){ return k.status !== "cancelled" && k.status !== "archived"; });
-  if (liveKids.length){
-    var doneN = liveKids.filter(function(k){ return k.status === "done"; }).length;
-    var allBack = doneN === liveKids.length;
-    rows.push('<div class="prog-row"><span class="pr-dot' + (allBack ? "" : " doing") + '"></span>'
-      + '<span class="pr-main">' + doneN + "/" + liveKids.length + " 子事项" + (allBack ? "已回齐" : "已回") + "</span></div>");
-  }
-  var acts = cur.acts.ok ? listData(cur.acts.v) : [];
-  var handbacks = acts.filter(function(t){
-    return t.action === "status_changed" && t.detail && t.detail.to === "review";
-  }).sort(function(x, y){ return new Date(x.created_at || 0) - new Date(y.created_at || 0); });
-  if (handbacks.length){
-    var hb = handbacks[handbacks.length - 1];
-    rows.push('<div class="prog-row"><span class="pr-dot"></span>'
-      + '<span class="pr-main"><span data-uid="' + esc(hb.actor_id) + '" style="cursor:pointer">' + esc(uname(hb.actor_id)) + "</span> 已交回</span>"
-      + '<span class="pr-side">' + esc(fmtShortDate(hb.created_at)) + "</span></div>");
-  }
-  var fbN = (cur.fb && cur.fb.ok) ? listData(cur.fb.v).length : 0;
-  if (fbN){
-    rows.push('<div class="prog-row"><span class="pr-dot amber"></span><span class="pr-main">圈点反馈 ×' + fbN + "</span></div>");
-  }
-  if (cur.summary && cur.summary.status === "authorized"){
-    rows.push('<div class="prog-row"><span class="pr-dot"></span><span class="pr-main">Preference 已授权</span>'
-      + (cur.summary.scope ? '<span class="pr-side">' + esc(cur.summary.scope) + "</span>" : "") + "</div>");
-  }
-  return rows;
 }
 function preferencePanelHTML(){
   var m = cur.m;
@@ -7181,15 +7043,13 @@ function paintInspector(){
   }).map(function(p){
     return '<option value="' + esc(p.id) + '"' + (m.project_id === p.id ? " selected" : "") + ">" + esc(p.name) + "</option>";
   }).join("");
-  var assigneesHTML = m.assignees.length
-    ? '<div class="prow"><span class="pk">协作</span><span class="pv"><span class="assignee-wrap">' + m.assignees.map(avChip).join("") + "</span></span></div>"
-    : "";
+  var assigneesHTML = '<div class="prow"><span class="pk">协作者</span><span class="pv">'
+    + (m.assignees.length ? '<span class="assignee-wrap">' + m.assignees.map(avChip).join("") + "</span>" : '<span class="pv-none">暂无</span>')
+    + "</span></div>";
   var srcRow = m.source_name
     ? '<div class="prow"><span class="pk">来源</span><span class="pv">' + esc(srcLabel(m.source_name))
-      + '<button class="src-send" id="srcSendBtn" type="button">发回</button></span></div>'
+      + '<button class="src-send" id="srcSendBtn" type="button">发回来源群</button></span></div>'
     : "";
-  var progRows = progressRowsHTML();
-  var actsArr = cur.acts.ok ? listData(cur.acts.v) : [];
   $("#props").innerHTML =
     '<section class="panel">'
     + '<div class="panel-h" data-fold><span class="chev">▾</span><span class="ph-title">状态</span></div>'
@@ -7201,6 +7061,7 @@ function paintInspector(){
     + '<span class="mail-row-st">' + statusIconSVG(m.status) + '</span><span class="st-name">' + s.name + '</span><span class="st-chev">▾</span></div>'
     + '<div class="status-menu" id="statusMenu" role="menu">' + opts + "</div></div>"
     + '<div class="props-divider"></div>'
+    + '<div class="prow"><span class="pk">编号</span><span class="pv">M-' + (m.seq_no || m.seq_no === 0 ? m.seq_no : "–") + "</span></div>"
     + '<div class="prow"><span class="pk">发起人</span><span class="pv">' + avChip(m.creator_id) + "</span></div>"
     + '<div class="prow"><span class="pk">领队</span><span class="pv">' + (m.leader ? avChip(m.leader) : '<span class="pv-none">没定</span>') + "</span></div>"
     + assigneesHTML
@@ -7209,34 +7070,63 @@ function paintInspector(){
     + '<select class="proj-select" id="projSel">' + projOpts + "</select></div>"
     + srcRow
     + "</div></section>"
-    + (progRows.length
-      ? '<section class="panel">'
-        + '<div class="panel-h" data-fold><span class="chev">▾</span><span class="ph-title">推进记录</span><span class="ph-count">(' + progRows.length + ")</span></div>"
-        + '<div class="panel-body"><div class="prog-rows">' + progRows.join("") + "</div></div></section>"
-      : "")
     + preferencePanelHTML()
-    + edgePanelHTML()
-    + '<section class="panel">'
-    + '<div class="panel-h" data-fold><span class="chev">▾</span><span class="ph-title">经过</span><span class="ph-count">(' + actsArr.length + ")</span></div>"
-    + '<div class="panel-body"><div class="trail">' + trailHTML() + "</div></div>"
-    + "</section>";
+    + '<section class="panel"><div class="panel-h" data-fold><span class="chev">▾</span><span class="ph-title">迭代</span></div><div class="panel-body"><div id="iterBody" class="iter-empty">加载中...</div></div></section>';
   bindInspector();
+  fetchIterations(m.id);
+}
+function fetchIterations(matterId){
+  api("/matters/" + matterId + "/iterations").then(function(r){
+    var el = $("#iterBody");
+    if (!el) return;
+    var rounds = (r && r.rounds) || [];
+    if (!rounds.length){
+      el.textContent = "没有迭代记录";
+      return;
+    }
+    el.className = "";
+    el.innerHTML = rounds.map(function(rd, idx){
+      var isCurrent = idx === rounds.length - 1;
+      var dateStr = rd.submitted_at ? fmtShortDate(rd.submitted_at) : (rd.started_at ? fmtShortDate(rd.started_at) : "");
+      var outcomeLabel = { sent_back: "退回修改", confirmed: "确认完成", pending_review: "待确认", in_progress: "进行中" };
+      var html = '<div class="iter-round' + (isCurrent ? " current" : "") + '">';
+      html += '<div class="iter-head">第 ' + rd.round + ' 轮' + (dateStr ? ' · ' + esc(dateStr) : '');
+      html += '<span class="iter-outcome ' + esc(rd.outcome) + '">' + esc(outcomeLabel[rd.outcome] || rd.outcome) + '</span>';
+      if (isCurrent) html += '<span class="iter-now">现在</span>';
+      html += '</div>';
+      if (rd.submitted_by){
+        html += '<div class="iter-line">' + esc(uname(rd.submitted_by) || rd.submitted_by) + ' 提交了结果</div>';
+      }
+      if (rd.feedback_text){
+        var fbSnippet = rd.feedback_text.length > 30 ? rd.feedback_text.substring(0, 30) + "..." : rd.feedback_text;
+        html += '<div class="iter-line"><span class="iter-arrow">&#8594;</span>' + esc(uname(rd.feedback_by) || "你") + ': <span class="iter-fb">"' + esc(fbSnippet) + '"</span></div>';
+      }
+      if (rd.outcome === "sent_back"){
+        html += '<div class="iter-line"><span class="iter-arrow">&#8594;</span>退回修改</div>';
+      }
+      html += '</div>';
+      return html;
+    }).join("");
+  }).catch(function(){
+    var el = $("#iterBody");
+    if (el) el.textContent = "加载失败";
+  });
 }
 function statusOptionHint(k, m){
   var from = m && m.status;
-  if (from === "blocked" && k === "in_progress") return "阻塞解除,继续推进";
-  if (from === "review" && k === "in_progress") return "打回重做,继续推进";
-  if (from === "in_progress" && k === "review") return "交回发起人验收";
-  if (from === "review" && k === "done") return "验收通过,进入留档";
+  if (from === "blocked" && k === "in_progress") return "解除协助,继续推进";
+  if (from === "review" && k === "in_progress") return "退回修改";
+  if (from === "in_progress" && k === "review") return "提交确认";
+  if (from === "review" && k === "done") return "确认完成";
   if (from === "open" && k === "backlog") return "退回草稿,暂不执行";
   if (from === "backlog" && k === "open") return "启动,开始执行";
   return ({
-    backlog: "编队中,等启动",
-    open: "还没开工,等负责人接手",
+    backlog: "草稿",
+    open: "等待开始",
     in_progress: "正在做,可以继续补充信息",
-    review: "交回来了,等发起人验收",
-    done: "验收完成,进入留档",
-    blocked: "卡住了,需要说明原因",
+    review: "已提交,等待确认",
+    done: "已完成",
+    blocked: "需要协助",
     cancelled: "停止这单,保留记录",
     archived: "只读归档,不再推进"
   })[k] || "";
@@ -7349,13 +7239,8 @@ function bindInspector(){
   if (srcSend) srcSend.addEventListener("click", function(){
     srcSend.disabled = true;
     api("/matters/" + cur.id + "/send-back", { method: "POST", body: {} }).then(function(){
-      toast("发回去了 — " + srcLabel(cur.m.source_name || "来源会话") + "里马上能看到", { icon: "📨" });
+      toast("发回去了 — " + srcLabel(cur.m.source_name || "来源会话") + "里马上能看到", { icon: "" });
     }).catch(errToast).then(function(){ srcSend.disabled = false; });
-  });
-  var more = $("#trailMore");
-  if (more) more.addEventListener("click", function(){
-    cur.trailOpen = true;
-    paintInspector();
   });
 }
 function setPendingButtonGroup(buttons, primary, pending, statusEl){
@@ -7417,7 +7302,7 @@ function doStatusChange(target, opts){
   }
 }
 
-/* ---- 受阻原因小弹层 ---- */
+/* ---- 需要协助原因小弹层 ---- */
 function askReason(){
   return new Promise(function(resolve){
     var mo = $("#modal");
@@ -7429,7 +7314,7 @@ function askReason(){
       + '<div class="matter-field"><input class="matter-input" id="reasonInput" maxlength="500" placeholder="比如:缺客户名单 / API 403 / 需要确认口径"></div>'
       + '<div class="matter-error" id="reasonErr"></div></div></div>'
       + '<div class="modal-foot"><button class="ff-cancel" id="reasonCancel" type="button">取消</button>'
-      + '<button class="ff-save" id="reasonOk" type="button">标为受阻</button></div>';
+      + '<button class="ff-save" id="reasonOk" type="button">标为需要协助</button></div>';
     openModal(function(){ resolve(null); });
     var done = function(v){
       modalCloseCb = null;
@@ -7440,7 +7325,7 @@ function askReason(){
     $("#reasonCancel").onclick = function(){ done(null); };
     $("#reasonOk").onclick = function(){
       var v = $("#reasonInput").value.trim();
-      if (!v){ $("#reasonErr").textContent = "标为受阻前需要写原因"; return; }
+      if (!v){ $("#reasonErr").textContent = "标为需要协助前需要写原因"; return; }
       done(v);
     };
     $("#reasonInput").addEventListener("keydown", function(e){
@@ -8313,7 +8198,7 @@ function buildNewMatterModal(opts){
     var row = $("#nmAttachList");
     if (!row) return;
     row.innerHTML = fileSt.map(function(f, i){
-      return '<span class="file-chip" style="cursor:default"><span class="fic">📎</span><span class="fnm">' + esc(f.name || "file")
+      return '<span class="file-chip" style="cursor:default"><span class="fic"></span><span class="fnm">' + esc(f.name || "file")
         + '</span><button type="button" data-nm-rmfile="' + i + '" style="border:none;background:none;cursor:pointer;padding:0 2px">✕</button></span>';
     }).join("");
     $$("[data-nm-rmfile]", row).forEach(function(btn){
@@ -9177,7 +9062,7 @@ function sendAnnotation(){
   var box = $("#annotBox");
   var input = $("#annotInput");
   var content = input.value.trim();
-  if (!content){ toast("写一句怎么改,再圈上", { icon: "✏️" }); input.focus(); return; }
+  if (!content){ toast("写一句怎么改,再圈上", { icon: "" }); input.focus(); return; }
   if (!cur) return;
   var entryId = box.getAttribute("data-entry");
   var snippet = box.getAttribute("data-snippet") || "";
@@ -9188,7 +9073,7 @@ function sendAnnotation(){
   api("/matters/" + cur.id + "/feedback", { method: "POST", body: body }).then(function(resp){
     hideAnnotAll();
     var flipped = resp && resp.matter_status === "in_progress";
-    toast(flipped ? "圈上了 — 已替你打回去重做" : "圈上了", { icon: "✏️" });
+    toast(flipped ? "圈上了 — 已退回修改" : "圈上了", { icon: "" });
     render();
   }).catch(function(e){
     errToast(e);

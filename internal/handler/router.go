@@ -132,6 +132,7 @@ func SetupRouter(
 			matters.GET("/:id/tree", v2H.Tree)
 			matters.GET("/:id/context", v2H.MatterContext)
 			matters.GET("/:id/edges", v2H.Edges)
+			matters.GET("/:id/iterations", v2H.Iterations)
 			matters.POST("/:id/join", v2H.Join)
 			matters.POST("/:id/send-back", v2H.SendBack)
 			matters.POST("/:id/summary", v2H.GenerateSummary)

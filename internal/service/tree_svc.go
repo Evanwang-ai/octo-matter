@@ -2,16 +2,20 @@ package service
 
 /**
  * [INPUT]: depends on repository.MatterRepo, repository.AssigneeRepo,
+ *          repository.FeedbackRepo, repository.ActivityRepo,
  *          model.Matter, model.MatterStatus, model.Mode*,
- *          apperr, i18n, TransitionService, ActivityRepo
- * [OUTPUT]: provides TreeNode, TreeResult, Touch, Join, Tree
- * [POS]: tree / join / touch domain, extracted from v2_svc.go
+ *          apperr, i18n, TransitionService
+ * [OUTPUT]: provides TreeNode, TreeResult, Touch, Join, Tree,
+ *           IterationRound, IterationsResult, Iterations
+ * [POS]: tree / join / touch / iterations domain, extracted from v2_svc.go
  * [PROTOCOL]: update this header on change, then check CLAUDE.md
  */
 
 import (
 	"context"
+	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/Mininglamp-OSS/octo-matter/internal/apperr"
 	"github.com/Mininglamp-OSS/octo-matter/internal/i18n"
@@ -204,4 +208,177 @@ func (s *V2Service) Tree(ctx context.Context, matterID, spaceID string, callerUI
 		EventsSeq: m.EventsSeq, ProcessedSeq: m.ProcessedSeq,
 		Contract: contract,
 	}, nil
+}
+
+// ---------------------------------------------------------------------------
+// Iterations — structured submission/feedback round history
+// ---------------------------------------------------------------------------
+
+// IterationRound is one submit-review cycle on a matter.
+type IterationRound struct {
+	Round        int        `json:"round"`
+	StartedAt    *time.Time `json:"started_at,omitempty"`
+	SubmittedAt  *time.Time `json:"submitted_at,omitempty"`
+	SubmittedBy  string     `json:"submitted_by,omitempty"`
+	FeedbackText string     `json:"feedback_text,omitempty"`
+	FeedbackBy   string     `json:"feedback_by,omitempty"`
+	FeedbackAt   *time.Time `json:"feedback_at,omitempty"`
+	Outcome      string     `json:"outcome"` // "sent_back" | "confirmed" | "pending_review" | "in_progress"
+}
+
+// IterationsResult is the response for GET /matters/:id/iterations.
+type IterationsResult struct {
+	MatterID       string           `json:"matter_id"`
+	TotalRounds    int              `json:"total_rounds"`
+	CurrentOutcome string           `json:"current_outcome"`
+	Rounds         []IterationRound `json:"rounds"`
+}
+
+// Iterations reconstructs the submit/feedback cycle history for a matter by
+// walking activity records (status_changed) and feedback records in
+// chronological order.
+func (s *V2Service) Iterations(ctx context.Context, matterID, spaceID string, callerUIDs []string, callerToken string) (*IterationsResult, error) {
+	// 1. Access check
+	m, err := s.matters.GetByID(ctx, matterID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	ok, err := s.matterSvc.CanAccessMatter(ctx, m, callerUIDs, "", callerToken)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, apperr.Forbidden(i18n.KeyMatterView)
+	}
+
+	// 2. Fetch all activities in chronological order
+	activities, err := s.activity.ListAllByMatter(ctx, matterID, 200)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Fetch all feedbacks (newest first from repo, we reverse later)
+	feedbackList, err := s.feedbacks.ListByMatter(ctx, matterID, 50)
+	if err != nil {
+		return nil, err
+	}
+
+	// 4. Walk activities to build rounds
+	var rounds []IterationRound
+	var currentRound *IterationRound
+	roundNum := 0
+
+	for _, act := range activities {
+		if act.Action != "status_changed" {
+			continue
+		}
+		// Parse the detail JSON: {"from":"...", "to":"...", ...}
+		var detail map[string]string
+		if len(act.Detail) > 0 {
+			if err := json.Unmarshal(act.Detail, &detail); err != nil {
+				continue // skip unparseable
+			}
+		}
+		to := detail["to"]
+
+		switch to {
+		case "in_progress":
+			if currentRound == nil {
+				// First time entering in_progress, start round 1
+				roundNum++
+				t := act.CreatedAt
+				currentRound = &IterationRound{
+					Round:     roundNum,
+					StartedAt: &t,
+					Outcome:   "in_progress",
+				}
+			} else if currentRound.Outcome == "pending_review" {
+				// Sent back from review to in_progress
+				currentRound.Outcome = "sent_back"
+				// Match the closest feedback by time window
+				fb := findFeedbackBetween(feedbackList, currentRound.SubmittedAt, &act.CreatedAt)
+				if fb != nil {
+					currentRound.FeedbackText = fb.Content
+					currentRound.FeedbackBy = fb.AuthorID
+					t := fb.CreatedAt
+					currentRound.FeedbackAt = &t
+				} else {
+					t := act.CreatedAt
+					currentRound.FeedbackBy = act.ActorID
+					currentRound.FeedbackAt = &t
+				}
+				// Close current round and start a new one
+				rounds = append(rounds, *currentRound)
+				roundNum++
+				startT := act.CreatedAt
+				currentRound = &IterationRound{
+					Round:     roundNum,
+					StartedAt: &startT,
+					Outcome:   "in_progress",
+				}
+			}
+
+		case "review":
+			if currentRound == nil {
+				// Submission without a tracked start — create a round
+				roundNum++
+				currentRound = &IterationRound{
+					Round:   roundNum,
+					Outcome: "pending_review",
+				}
+			}
+			t := act.CreatedAt
+			currentRound.SubmittedAt = &t
+			currentRound.SubmittedBy = act.ActorID
+			currentRound.Outcome = "pending_review"
+
+		case "done":
+			if currentRound != nil {
+				currentRound.Outcome = "confirmed"
+				if currentRound.SubmittedAt == nil {
+					t := act.CreatedAt
+					currentRound.SubmittedAt = &t
+				}
+				t := act.CreatedAt
+				currentRound.FeedbackBy = act.ActorID
+				currentRound.FeedbackAt = &t
+			}
+		}
+	}
+
+	// Close the last open round
+	if currentRound != nil {
+		rounds = append(rounds, *currentRound)
+	}
+
+	if rounds == nil {
+		rounds = []IterationRound{}
+	}
+
+	currentOutcome := ""
+	if len(rounds) > 0 {
+		currentOutcome = rounds[len(rounds)-1].Outcome
+	}
+
+	return &IterationsResult{
+		MatterID:       matterID,
+		TotalRounds:    len(rounds),
+		CurrentOutcome: currentOutcome,
+		Rounds:         rounds,
+	}, nil
+}
+
+// findFeedbackBetween finds the first feedback whose created_at falls between
+// the submission time and the send-back time.
+func findFeedbackBetween(feedbacks []*model.MatterFeedback, after, before *time.Time) *model.MatterFeedback {
+	if after == nil || before == nil {
+		return nil
+	}
+	// feedbacks are in DESC order from the repo; walk them all
+	for _, fb := range feedbacks {
+		if !fb.CreatedAt.Before(*after) && !fb.CreatedAt.After(*before) {
+			return fb
+		}
+	}
+	return nil
 }

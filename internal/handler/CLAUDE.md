@@ -9,6 +9,7 @@ router.go:                        中央路由注册, 挂载 auth/space/timeout/
 matter_handler.go:                Matter CRUD + 参与者管理 + channel link + doorbell 消费
 matter_handler_test.go:           Matter handler 单测
 v2_handler.go:                    v2 特性: feedback(圈一笔)/touch/tree/join/summary/project/schedule/agent-card/bot-resource
+tree_handler.go:                  树操作 handler (Touch/Join/Tree/Edges/Iterations)
 timeline_handler.go:              Timeline CRUD (读/写事项对话)
 timeline_handler_contenttype_test.go: Timeline content-type 测试
 activity_handler.go:              活动流读取
@@ -33,6 +34,7 @@ PUT  /api/v1/matters/:id/status      状态转换 (全守卫)
 POST /api/v1/matters/:id/feedback    圈一笔 (仅人类)
 POST /api/v1/matters/:id/timeline    写 timeline
 POST /api/v1/matters/:id/bots        添加 bot 资源 (主人主权)
+GET  /api/v1/matters/:id/iterations  迭代轮次 (提交/反馈周期历史)
 GET  /api/v1/projects                项目列表
 POST /api/v1/schedules               创建 cron 委托
 POST /api/v1/internal/bot-tasks/:id/claim   bot-task 领取

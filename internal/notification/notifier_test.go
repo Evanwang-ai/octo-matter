@@ -38,11 +38,11 @@ func TestNotificationWording(t *testing.T) {
 	tests := []struct {
 		name, got, want string
 	}{
-		{"matterCreated", i18n.Localize(zh, i18n.KeyNotifyMatterCreated, map[string]any{"Title": "Review PR", "Actor": "Alice"}), "📋 新任务「Review PR」— Alice 分配给了你"},
-		{"statusDone", statusDone, "📋 任务「Review PR」— Bob 完成了"},
-		{"statusReopened", statusOpen, "📋 任务「Review PR」— Bob 重新打开了"},
-		{"assigneeAdded", i18n.Localize(zh, i18n.KeyNotifyAssigneeAdded, map[string]any{"Title": "Review PR", "Actor": "Alice"}), "📋 任务「Review PR」— Alice 将你添加为负责人"},
-		{"timelineEntryAdded", i18n.Localize(zh, i18n.KeyNotifyTimelineEntryAdded, map[string]any{"Title": "Review PR", "Actor": "Charlie"}), "📋 任务「Review PR」— Charlie 添加了进展"},
+		{"matterCreated", i18n.Localize(zh, i18n.KeyNotifyMatterCreated, map[string]any{"Title": "Review PR", "Actor": "Alice"}), "新任务「Review PR」— Alice 分配给了你"},
+		{"statusDone", statusDone, "任务「Review PR」— Bob 完成了"},
+		{"statusReopened", statusOpen, "任务「Review PR」— Bob 重新打开了"},
+		{"assigneeAdded", i18n.Localize(zh, i18n.KeyNotifyAssigneeAdded, map[string]any{"Title": "Review PR", "Actor": "Alice"}), "任务「Review PR」— Alice 将你添加为负责人"},
+		{"timelineEntryAdded", i18n.Localize(zh, i18n.KeyNotifyTimelineEntryAdded, map[string]any{"Title": "Review PR", "Actor": "Charlie"}), "任务「Review PR」— Charlie 添加了进展"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

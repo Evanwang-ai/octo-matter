@@ -170,16 +170,16 @@ other = "upstream LLM error"
 
 # --- Notifications ---
 [notify.matter_created]
-other = "📋 New task “{{.Title}}” — {{.Actor}} assigned it to you"
+other = "New task \"{{.Title}}\" — {{.Actor}} assigned it to you"
 
 [notify.status_changed]
-other = "📋 Task “{{.Title}}” — {{.Actor}} {{.Action}}"
+other = "Task \"{{.Title}}\" — {{.Actor}} {{.Action}}"
 
 [notify.assignee_added]
-other = "📋 Task “{{.Title}}” — {{.Actor}} added you as an assignee"
+other = "Task \"{{.Title}}\" — {{.Actor}} added you as an assignee"
 
 [notify.timeline_entry_added]
-other = "📋 Task “{{.Title}}” — {{.Actor}} added an update"
+other = "Task \"{{.Title}}\" — {{.Actor}} added an update"
 
 [notify.action.done]
 other = "marked it done"
@@ -238,46 +238,46 @@ other = "Only the creator can distill preferences for this matter"
 
 # --- Doorbells ---
 [notify.doorbell.assigned]
-other = "📌 \"{{.Title}}\" (M-{{.Seq}}) was handed to you"
+other = "\"{{.Title}}\" (M-{{.Seq}}) was handed to you"
 
 [notify.doorbell.handed_back]
-other = "👉 \"{{.Title}}\" (M-{{.Seq}}) is back — your turn to review"
+other = "\"{{.Title}}\" (M-{{.Seq}}) is back — your turn to review"
 
 [notify.doorbell.child_handed_back]
-other = "📥 Subtask \"{{.Title}}\" was handed back"
+other = "Subtask \"{{.Title}}\" was handed back"
 
 [notify.doorbell.next_segment]
-other = "⏭ Previous segment finished; \"{{.Title}}\" is your turn"
+other = "Previous segment finished; \"{{.Title}}\" is your turn"
 
 [notify.doorbell.verify]
-other = "🔍 \"{{.Title}}\" awaits your verification"
+other = "\"{{.Title}}\" awaits your verification"
 
 [notify.doorbell.sent_back]
-other = "↩ \"{{.Title}}\" was sent back for rework"
+other = "\"{{.Title}}\" was sent back for revision"
 
 [notify.doorbell.feedback]
-other = "✏️ New annotation feedback on \"{{.Title}}\""
+other = "New annotation feedback on \"{{.Title}}\""
 
 [notify.doorbell.blocked]
-other = "⚠️ \"{{.Title}}\" is stuck: {{.Reason}}"
+other = "\"{{.Title}}\" needs help: {{.Reason}}"
 
 [notify.doorbell.cancelled]
-other = "⊘ \"{{.Title}}\" was cancelled"
+other = "\"{{.Title}}\" was cancelled"
 
 [notify.doorbell.reassigned]
-other = "🔄 \"{{.Title}}\" was reassigned"
+other = "\"{{.Title}}\" was reassigned"
 
 [notify.doorbell.done]
-other = "✅ \"{{.Title}}\" is done"
+other = "\"{{.Title}}\" is done"
 
 [notify.doorbell.reflect]
-other = "🧠 \"{{.Title}}\" accepted — distill preferences: review the annotations and sendbacks on this matter, record reusable taste per your preference workflow, and note in the matter what you saved"
+other = "\"{{.Title}}\" confirmed — distill preferences: review the annotations and feedback on this matter, record reusable taste per your preference workflow, and note in the matter what you saved"
 
 [notify.doorbell.context_added]
-other = "📎 Project \"{{.Title}}\" gained shared context \"{{.Source}}\" (project_id={{.ProjectID}}) — check whether it affects your in-flight work"
+other = "Project \"{{.Title}}\" gained shared context \"{{.Source}}\" (project_id={{.ProjectID}}) — check whether it affects your in-flight work"
 
 [notify.doorbell.project_dead]
-other = "⚠️ Project \"{{.Title}}\" shared-context doorbell failed; fallback is now assigned to you"
+other = "Project \"{{.Title}}\" shared-context notification failed; fallback is now assigned to you"
 
 [err.matter.sendback_no_source]
 other = "This matter has no source conversation to send back to"
@@ -289,19 +289,19 @@ other = "The responsible party is not a bot — no identity to post as"
 other = "Only the responsible bot may submit a preference draft"
 
 [notify.doorbell.summary_draft]
-other = "🧠 The agent on \"{{.Title}}\" wants to save preferences from this matter — draft awaiting your approval"
+other = "The agent on \"{{.Title}}\" wants to save preferences from this matter — draft awaiting your approval"
 
 [notify.doorbell.summary_approved]
-other = "✅ Preference draft on \"{{.Title}}\" approved — flip the candidate entry to confirmed"
+other = "Preference draft on \"{{.Title}}\" approved — flip the candidate entry to confirmed"
 
 [notify.doorbell.summary_rejected]
-other = "🚫 Preference draft on \"{{.Title}}\" rejected — drop the candidate entry"
+other = "Preference draft on \"{{.Title}}\" rejected — drop the candidate entry"
 
 [notify.doorbell.revive]
-other = "🔔 \"{{.Title}}\" is still waiting (reminder)"
+other = "\"{{.Title}}\" is still waiting (reminder)"
 
 [notify.doorbell.watchdog_blocked]
-other = "⚠️ \"{{.Title}}\" went silent for too long; marked blocked"
+other = "\"{{.Title}}\" went silent for too long; marked as needing help"
 
 [notify.doorbell.schedule]
-other = "⏰ Scheduled matter \"{{.Title}}\" was created; your turn"
+other = "Scheduled matter \"{{.Title}}\" was created; your turn"

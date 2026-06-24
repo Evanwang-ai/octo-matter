@@ -91,3 +91,24 @@ func (r *ActivityRepo) ListByMatter(ctx context.Context, matterID string, cursor
 	}
 	return items, hasMore, nil
 }
+
+// ListAllByMatter returns activities for a matter in chronological order
+// (oldest first), up to `limit` rows. Used by the iterations API which needs
+// to walk the full status-change history without cursor pagination.
+func (r *ActivityRepo) ListAllByMatter(ctx context.Context, matterID string, limit int) ([]*model.MatterActivity, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	items := make([]*model.MatterActivity, 0)
+	_, err := r.runner.Select("*").
+		From("matter_activities").
+		Where("matter_id = ?", matterID).
+		OrderBy("created_at ASC").
+		OrderBy("id ASC").
+		Limit(uint64(limit)).
+		LoadContext(ctx, &items)
+	if err != nil && !errors.Is(err, dbr.ErrNotFound) {
+		return nil, err
+	}
+	return items, nil
+}

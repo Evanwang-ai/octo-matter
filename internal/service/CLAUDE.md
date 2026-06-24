@@ -8,7 +8,7 @@
 matter_svc.go:               Matter CRUD + 参与者管理 + channel link + 权限检查, 创建默认 backlog
 v2_svc.go:                   v2 核心: V2Service 结构体 + 构造器 + PrepareCreate/AfterCreate + UpdateMeta/ReassignLeader
 feedback_svc.go:             反馈(圈一笔): CreateFeedback/ListFeedback, FeedbackInput/FeedbackResult
-tree_svc.go:                 树操作: Touch/Join/Tree, TreeNode/TreeResult
+tree_svc.go:                 树操作: Touch/Join/Tree/Iterations, TreeNode/TreeResult/IterationRound/IterationsResult
 project_svc.go:              项目: CRUD + ProjectContext/AgentContext 构建 + AgentStats
 preference_svc.go:           偏好检索/校准: PreferenceHints/Records + scope匹配 + 去重 + 校准
 summary_svc.go:              蒸馏: GenerateSummary/LatestSummary/ResolveSummary/SubmitSummaryDraft + summarySystemPrompt

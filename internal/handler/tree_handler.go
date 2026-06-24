@@ -2,7 +2,7 @@ package handler
 
 /**
  * [INPUT]: depends on service.V2Service, i18n keys, resp.go helpers
- * [OUTPUT]: provides Touch, Join, Tree, Edges
+ * [OUTPUT]: provides Touch, Join, Tree, Edges, Iterations
  * [POS]: tree handler, extracted from v2_handler.go
  * [PROTOCOL]: update this header on change, then check CLAUDE.md
  */
@@ -77,6 +77,20 @@ func (h *V2Handler) Edges(c *gin.Context) {
 	}
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "30"))
 	res, err := h.v2.MatterEdges(c.Request.Context(), id, spaceID(c), relatedUIDs(c), callerToken(c), limit)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, res)
+}
+
+func (h *V2Handler) Iterations(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	res, err := h.v2.Iterations(c.Request.Context(), id, spaceID(c), effectiveCallerUIDs(c), callerToken(c))
 	if err != nil {
 		respondErr(c, err)
 		return
