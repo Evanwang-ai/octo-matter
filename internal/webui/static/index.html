@@ -1377,6 +1377,10 @@
   .prow .pk { font-size: 12.5px; color: var(--text-2); flex: 0 0 auto; }
   .prow .pv { min-width: 0; flex: 1 1 auto; font-size: 12.5px; color: var(--text); display: flex; align-items: center; gap: 7px; justify-content: flex-end; }
   .pv-none { color: var(--text-4); }
+  .att-list { display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; }
+  .att-link { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; background: var(--fill-1); text-decoration: none; color: var(--text-1); font-size: 12px; transition: background .15s; }
+  .att-link:hover { background: var(--fill-2); }
+  .att-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .proj-select {
     width: 100%; font-family: inherit; font-size: 12.5px; color: var(--text);
     border: 1px solid rgba(28,28,35,.11); border-radius: 7px; padding: 7px 10px; background: #fff;
@@ -2395,7 +2399,7 @@
     <div class="annot-hint">圈点会@负责人并把事项翻回进行中</div>
     <div class="annot-foot">
       <button class="annot-cancel" id="annotCancel" type="button">取消</button>
-      <button class="annot-send" id="annotSend" type="button">圈上</button>
+      <button class="annot-send" id="annotSend" type="button">发送批注</button>
     </div>
   </div>
   <div class="modal-scrim" id="modalScrim"><div class="modal" id="modal"></div></div>
@@ -6263,8 +6267,9 @@ function planGraphHTML(m, kids, tv){
 /* ---- 角色拓扑图(互见模式: critic/roundtable/pipeline, 数据来自 mode_config) ---- */
 var ROLE_LABELS = { critic: { generator: "生成方", verifier: "验证方" }, roundtable: {}, pipeline: {} };
 function roleNodesFromConfig(mode, configStr, timeline){
-  if (!configStr) return null;
-  try { var cfg = JSON.parse(configStr); } catch(e){ return null; }
+  if (!configStr && !mode) return null;
+  var cfg = {};
+  if (configStr) { try { cfg = JSON.parse(configStr); } catch(e){ cfg = {}; } }
   var entries = (timeline && timeline.ok) ? listData(timeline.v) : [];
   function spoken(uid){ return uid && entries.some(function(e){ return e.user_id === uid; }); }
   var nodes = [];
@@ -7022,6 +7027,19 @@ function preferencePanelHTML(){
     + '<div class="panel-h" data-fold><span class="chev">▾</span><span class="ph-title">Preference</span><span class="ph-count">(' + ((row ? 1 : 0) + hints.length) + ")</span></div>"
     + '<div class="panel-body">' + body + "</div></section>";
 }
+function attachRowHTML(m){
+  var atts = m.input_attachments || [];
+  if (!atts.length) return "";
+  var list = atts.map(function(a){
+    var name = a.file_name || a.file_url.split("/").pop() || "文件";
+    var url = a.file_url;
+    return '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="att-link" title="' + esc(name) + '">'
+      + '<span class="att-name">' + esc(name.length > 32 ? name.slice(0, 30) + "…" : name) + '</span></a>';
+  }).join("");
+  return '<div class="props-divider"></div>'
+    + '<div class="prow" style="display:block"><span class="pk" style="display:block;margin-bottom:6px">附件 (' + atts.length + ')</span>'
+    + '<div class="att-list">' + list + '</div></div>';
+}
 function paintInspector(){
   var m = cur.m;
   var c = controlLine(m);
@@ -7066,6 +7084,7 @@ function paintInspector(){
     + '<div class="prow" style="display:block"><span class="pk" style="display:block;margin-bottom:6px">项目</span>'
     + '<select class="proj-select" id="projSel">' + projOpts + "</select></div>"
     + srcRow
+    + attachRowHTML(m)
     + "</div></section>"
     + preferencePanelHTML()
     + '<section class="panel"><div class="panel-h" data-fold><span class="chev">▾</span><span class="ph-title">迭代</span></div><div class="panel-body"><div id="iterBody" class="iter-empty">加载中...</div></div></section>';
@@ -9061,7 +9080,7 @@ function sendAnnotation(){
   var box = $("#annotBox");
   var input = $("#annotInput");
   var content = input.value.trim();
-  if (!content){ toast("写一句怎么改,再圈上", { icon: "" }); input.focus(); return; }
+  if (!content){ toast("写一句怎么改再发送", { icon: "" }); input.focus(); return; }
   if (!cur) return;
   var entryId = box.getAttribute("data-entry");
   var snippet = box.getAttribute("data-snippet") || "";
@@ -9069,11 +9088,24 @@ function sendAnnotation(){
   btn.disabled = true;
   var body = { content: content, anchor: { snippet: snippet } };
   if (entryId) body.entry_id = entryId;
-  api("/matters/" + cur.id + "/feedback", { method: "POST", body: body }).then(function(resp){
+  var matterId = cur.id;
+  var tlContent = snippet ? ("批注: \"" + snippet.slice(0, 60) + (snippet.length > 60 ? "..." : "") + "\"\n\n" + content) : content;
+  api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: tlContent } }).then(function(){
+    return api("/matters/" + matterId + "/feedback", { method: "POST", body: body });
+  }).then(function(resp){
     hideAnnotAll();
     var flipped = resp && resp.matter_status === "in_progress";
-    toast(flipped ? "圈上了 — 已退回修改" : "圈上了", { icon: "" });
-    render();
+    toast(flipped ? "已批注 — 已退回修改" : "已批注", { icon: "" });
+    if (!cur || cur.id !== matterId) return;
+    var sc = $("#detailScroll");
+    var scrollPos = sc ? sc.scrollTop : 0;
+    return api("/matters/" + matterId + "/timeline", { params: { limit: 100 } }).then(function(json){
+      if (!cur || cur.id !== matterId) return;
+      cur.timeline = { ok: true, v: json };
+      var blockEl = $("#repliesBlock");
+      if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
+      if (sc) sc.scrollTop = scrollPos;
+    });
   }).catch(function(e){
     errToast(e);
   }).then(function(){ btn.disabled = false; });
