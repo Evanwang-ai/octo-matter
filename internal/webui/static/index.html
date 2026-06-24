@@ -924,10 +924,10 @@
   .pcard-discard { color: var(--text-3); margin-left: 4px; }
   /* ---- inbox split-pane ---- */
   .inbox-split { display: flex; height: 100%; overflow: hidden; }
-  .inbox-left { width: 30%; min-width: 300px; max-width: 440px; flex: 0 0 auto; border-right: 1px solid var(--hairline-soft); display: flex; flex-direction: column; overflow: hidden; }
+  .inbox-left { width: 30%; min-width: 300px; max-width: 440px; flex: 0 0 auto; border-right: 1px solid var(--hairline-soft); display: flex; flex-direction: column; overflow: hidden; transition: width .3s cubic-bezier(.25,.1,.25,1), min-width .3s cubic-bezier(.25,.1,.25,1), max-width .3s cubic-bezier(.25,.1,.25,1), padding .3s cubic-bezier(.25,.1,.25,1), border-width .3s cubic-bezier(.25,.1,.25,1); }
   @media (max-width: 900px) { .inbox-split { flex-direction: column; } .inbox-left { width: 100%; max-width: none; min-width: 0; max-height: 45%; border-right: none; border-bottom: 1px solid var(--hairline-soft); } .inbox-right { min-height: 0; } }
-  .inbox-left-head { padding: 8px 12px; flex: 0 0 auto; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--hairline-soft); }
-  .inbox-left.collapsed { width: 0 !important; min-width: 0; max-width: 0; padding: 0; border: none; overflow: hidden; }
+  .inbox-left-head { padding: 8px 12px; height: 46px; box-sizing: border-box; flex: 0 0 auto; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--hairline-soft); position: relative; }
+  .inbox-left.collapsed { width: 0 !important; min-width: 0; max-width: 0; padding: 0; border-width: 0; overflow: hidden; }
   .ibx-filter-zone { flex: 1; min-width: 0; position: relative; }
   .ibx-filter-trigger { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border: none; border-radius: 8px; background: transparent; font-size: 13px; font-weight: 500; color: var(--text); cursor: pointer; }
   .ibx-filter-trigger:hover { background: var(--fill-2); }
@@ -941,7 +941,7 @@
   .ibx-newbtn { width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid var(--border-soft); border-radius: 8px; background: transparent; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; }
   .ibx-newbtn:hover { background: var(--fill-2); color: var(--text); border-color: var(--hairline-strong); }
   .ibx-newbtn svg { width: 16px; height: 16px; }
-  .ibx-toggle { width: 30px; height: 30px; flex: 0 0 30px; border: none; border-radius: 8px; background: transparent; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+  .ibx-toggle { width: 30px; height: 30px; flex: 0 0 30px; border: none; border-radius: 8px; background: transparent; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; position: relative; z-index: 1; }
   .ibx-toggle:hover { background: var(--fill-2); color: var(--text); }
   .ibx-toggle svg { width: 18px; height: 18px; }
   .ibx-expand-float { position: absolute; top: 10px; left: 10px; z-index: 10; background: var(--surface-card); border: 1px solid var(--hairline-soft); box-shadow: var(--shadow-card); }
@@ -1307,7 +1307,8 @@
   .composer-send:disabled { opacity: .6; cursor: default; }
 
   /* ============ inspector ============ */
-  .props { width: 350px; flex: 0 0 350px; border-left: 1px solid rgba(28,28,35,.10); background: var(--surface-panel); overflow-y: auto; padding: 4px 18px 28px; }
+  .props { width: 350px; flex: 0 0 350px; border-left: 1px solid rgba(28,28,35,.10); background: var(--surface-panel); overflow-y: auto; padding: 4px 18px 28px; transition: width .3s cubic-bezier(.25,.1,.25,1), flex .3s cubic-bezier(.25,.1,.25,1), padding .3s cubic-bezier(.25,.1,.25,1), border-width .3s cubic-bezier(.25,.1,.25,1), opacity .2s; }
+  .props.collapsed { width: 0 !important; flex: 0 0 0 !important; min-width: 0; padding: 0; border-width: 0; overflow: hidden; opacity: 0; }
   /* Multica/Linear-style rail: no boxes — sections separated by hairlines only. */
   .panel { background: transparent; border: 0; border-radius: 0; margin-bottom: 0; }
   .panel + .panel { border-top: 1px solid rgba(28,28,35,.085); }
@@ -2388,7 +2389,7 @@
       </div>
       <div class="center-wrap">
         <div class="center-col" id="centerCol"></div>
-        <aside class="props" id="props" style="display:none;"></aside>
+        <aside class="props collapsed" id="props"></aside>
       </div>
     </main>
   </div>
@@ -2979,7 +2980,7 @@ function isMidWidth(){ return window.matchMedia("(max-width: 1180px)").matches; 
 function isCompactWidth(){ return window.matchMedia("(max-width: 860px)").matches; }
 function setInspectorOpen(open){
   var p = $("#props"), t = $("#inspToggle"), s = $("#inspScrim");
-  if (p) p.style.display = open ? "block" : "none";
+  if (p) p.classList.toggle("collapsed", !open);
   if (t) t.classList.toggle("on", open);
   if (s){
     s.classList.toggle("open", open && isCompactWidth());
@@ -2989,14 +2990,14 @@ function setInspectorOpen(open){
 function hideInspector(){
   setInspectorOpen(false);
   var t = $("#inspToggle");
-  t.style.display = "none"; t.classList.remove("on"); t.onclick = null;
+  if (t){ t.style.display = "none"; t.classList.remove("on"); t.onclick = null; }
 }
 function showInspector(){
   var t = $("#inspToggle");
   t.style.display = "flex";
   setInspectorOpen(!isMidWidth());
   t.onclick = function(){
-    var open = $("#props").style.display !== "block";
+    var open = $("#props").classList.contains("collapsed");
     setInspectorOpen(open);
   };
 }
@@ -3260,17 +3261,32 @@ function paintMyInbox(my){
   });
   var ibxNewBtn = $("#ibxNew");
   if (ibxNewBtn) ibxNewBtn.addEventListener("click", function(){ openMatterModal({}); });
+  var toggleSVGForBtn = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg>';
   var collapseEl = $("#ibxCollapse");
   if (collapseEl) collapseEl.addEventListener("click", function(){
     inboxLeftCollapsed = true;
-    paintMyInbox(my);
-    if (myInboxSel) loadInboxDetail(my, myInboxSel);
+    var left = $("#inboxLeft");
+    if (left) left.classList.add("collapsed");
+    var split = left && left.parentElement;
+    if (split && !$("#ibxExpand")){
+      var eb = document.createElement("button");
+      eb.className = "ibx-toggle ibx-expand-float"; eb.id = "ibxExpand"; eb.type = "button"; eb.title = "展开列表";
+      eb.innerHTML = toggleSVGForBtn;
+      eb.addEventListener("click", function(){
+        inboxLeftCollapsed = false;
+        if (left) left.classList.remove("collapsed");
+        if (inboxLeftWidth) left.style.width = inboxLeftWidth + "px";
+        eb.remove();
+      });
+      split.insertBefore(eb, split.firstChild);
+    }
   });
   var expandEl = $("#ibxExpand");
   if (expandEl) expandEl.addEventListener("click", function(){
     inboxLeftCollapsed = false;
-    paintMyInbox(my);
-    if (myInboxSel) loadInboxDetail(my, myInboxSel);
+    var left = $("#inboxLeft");
+    if (left){ left.classList.remove("collapsed"); if (inboxLeftWidth) left.style.width = inboxLeftWidth + "px"; }
+    expandEl.remove();
   });
   var resizeEl = $("#ibxResize");
   if (resizeEl) resizeEl.addEventListener("mousedown", function(e){
@@ -3278,12 +3294,13 @@ function paintMyInbox(my){
     var left = $("#inboxLeft");
     if (!left) return;
     var startX = e.clientX, startW = left.offsetWidth;
+    left.style.transition = "none";
     var onMove = function(ev){
       var w = Math.max(200, Math.min(600, startW + ev.clientX - startX));
       left.style.width = w + "px";
       inboxLeftWidth = w;
     };
-    var onUp = function(){ document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+    var onUp = function(){ left.style.transition = ""; document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   });
