@@ -1380,7 +1380,9 @@
   .att-list { display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; }
   .att-link { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; background: var(--fill-1); text-decoration: none; color: var(--text-1); font-size: 12px; transition: background .15s; }
   .att-link:hover { background: var(--fill-2); }
-  .att-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .att-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .att-btn { border: none; background: none; cursor: pointer; color: var(--text-3); padding: 4px; border-radius: 4px; display: flex; align-items: center; flex-shrink: 0; }
+  .att-btn:hover { color: var(--text-1); background: var(--fill-2); }
   .proj-select {
     width: 100%; font-family: inherit; font-size: 12.5px; color: var(--text);
     border: 1px solid rgba(28,28,35,.11); border-radius: 7px; padding: 7px 10px; background: #fff;
@@ -7135,8 +7137,8 @@ function attachRowHTML(m){
     return '<div class="att-row" style="display:flex;align-items:center;justify-content:space-between;padding:4px 0">'
       + '<span class="att-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0" title="' + esc(name) + '">' + esc(displayName) + '</span>'
       + '<span style="flex-shrink:0;margin-left:8px">'
-      + '<button type="button" class="att-act" data-att-preview="' + esc(url) + '" data-att-name="' + esc(name) + '" style="border:none;background:none;cursor:pointer;color:var(--accent,#2563eb);font-size:12px;padding:2px 6px">查看</button>'
-      + '<button type="button" class="att-act" data-att-dl="' + esc(url) + '" data-att-dlname="' + esc(name) + '" style="border:none;background:none;cursor:pointer;color:var(--accent,#2563eb);font-size:12px;padding:2px 6px">下载</button>'
+      + '<button type="button" class="att-btn" data-att-preview="' + esc(url) + '" data-att-name="' + esc(name) + '" title="查看"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>'
+      + '<button type="button" class="att-btn" data-att-dl="' + esc(url) + '" data-att-dlname="' + esc(name) + '" title="下载"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>'
       + '</span></div>';
   }).join("");
   return '<div class="props-divider"></div>'
@@ -8351,16 +8353,17 @@ function buildNewMatterModal(opts){
   var leaderPicker = bindMemberPicker($("#nmLeader"), leaderSt, { ph: "选择领队", single: true, ownedBotsOnly: true });
   var collabPicker = bindMemberPicker($("#nmCollab"), collabSt, { ph: "添加协作者", humansAndOwnBots: true });
   var MULTI_AGENT_MODES = { critic: true, roundtable: true, swarm: true };
+  function uidIsBot(uid){ return uid && (uid.endsWith("_bot") || isBot(uid)); }
   var syncModeWarn = function(){
     var w = $("#nmModeWarn");
     if (!w) return;
     var md = ($("#nmMode") || {}).value || "";
     if (!MULTI_AGENT_MODES[md]){ w.style.display = "none"; return; }
     var bots = new Set();
-    if (leaderSt.sel.length && isBot(leaderSt.sel[0])) bots.add(leaderSt.sel[0]);
-    collabSt.sel.forEach(function(uid){ if (isBot(uid)) bots.add(uid); });
+    if (leaderSt.sel.length && uidIsBot(leaderSt.sel[0])) bots.add(leaderSt.sel[0]);
+    collabSt.sel.forEach(function(uid){ if (uidIsBot(uid)) bots.add(uid); });
     if (bots.size < 2){
-      w.textContent = "此模式至少需要 2 个 Agent 协作";
+      w.textContent = "此模式至少需要 2 个不同的 Agent 协作（当前 " + bots.size + " 个）";
       w.style.display = "block";
     } else {
       w.style.display = "none";
@@ -8418,8 +8421,8 @@ function buildNewMatterModal(opts){
     var modeVal = ($("#nmMode") || {}).value || "";
     if (MULTI_AGENT_MODES[modeVal]){
       var bcSet = new Set();
-      if (leaderSt.sel.length && isBot(leaderSt.sel[0])) bcSet.add(leaderSt.sel[0]);
-      collabSt.sel.forEach(function(uid){ if (isBot(uid)) bcSet.add(uid); });
+      if (leaderSt.sel.length && uidIsBot(leaderSt.sel[0])) bcSet.add(leaderSt.sel[0]);
+      collabSt.sel.forEach(function(uid){ if (uidIsBot(uid)) bcSet.add(uid); });
       if (bcSet.size < 2){
         anyBad = true;
         var mw = $("#nmModeWarn");
