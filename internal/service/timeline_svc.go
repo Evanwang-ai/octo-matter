@@ -95,6 +95,7 @@ type TimelineInput struct {
 	CallerUIDs     []string
 	CallerToken    string
 	Content        string
+	ParentEntryID  *string
 	Attachments    []TimelineAttachmentInput
 	ChannelType    uint8
 	ChannelID      string
@@ -343,6 +344,17 @@ func (s *TimelineService) createDirect(ctx context.Context, in TimelineInput) (*
 		}
 	}
 
+	// Validate parent_entry_id: must exist and belong to the same matter.
+	if in.ParentEntryID != nil && *in.ParentEntryID != "" {
+		parent, err := s.timelineRepo.GetByID(ctx, *in.ParentEntryID)
+		if err != nil || parent == nil {
+			return nil, apperr.InvalidInput("PARENT_ENTRY_NOT_FOUND")
+		}
+		if parent.MatterID != in.MatterID {
+			return nil, apperr.Forbidden("PARENT_ENTRY_WRONG_MATTER")
+		}
+	}
+
 	matter, err := s.matterRepo.GetByID(ctx, in.MatterID, in.SpaceID)
 	if err != nil {
 		return nil, err
@@ -360,9 +372,10 @@ func (s *TimelineService) createDirect(ctx context.Context, in TimelineInput) (*
 		contentPtr = &content
 	}
 	entry := &model.TimelineEntry{
-		MatterID: in.MatterID,
-		UserID:   in.ActorUID,
-		Content:  contentPtr,
+		MatterID:      in.MatterID,
+		UserID:        in.ActorUID,
+		ParentEntryID: in.ParentEntryID,
+		Content:       contentPtr,
 	}
 
 	err = s.tx.Do(ctx, func(ts TimelineStore, as TimelineAttachmentStore, ps ParticipantUpserter, _ TimelineMatterChannelStore) error {

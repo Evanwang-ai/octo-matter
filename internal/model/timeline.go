@@ -80,9 +80,10 @@ func (s *JSONStringSlice) Scan(src interface{}) error {
 // or more attachments; Attachments is populated by the service layer and is not
 // a column. Content is nullable when the entry only carries attachments.
 type TimelineEntry struct {
-	ID       string `db:"id" json:"id"`
-	MatterID string `db:"matter_id" json:"matter_id"`
-	UserID   string `db:"user_id" json:"user_id"`
+	ID            string  `db:"id" json:"id"`
+	MatterID      string  `db:"matter_id" json:"matter_id"`
+	UserID        string  `db:"user_id" json:"user_id"`
+	ParentEntryID *string `db:"parent_entry_id" json:"parent_entry_id,omitempty"`
 	// OnBehalfOf names the human principal when author ≠ producer (an agent
 	// writing for its owner) — doc 09 timeline 增列.
 	OnBehalfOf      *string              `db:"on_behalf_of" json:"on_behalf_of,omitempty"`

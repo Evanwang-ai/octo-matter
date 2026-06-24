@@ -47,6 +47,7 @@ type attachmentInput struct {
 
 type timelineReq struct {
 	Content        string              `json:"content" binding:"max=10000"`
+	ParentEntryID  *string             `json:"parent_entry_id" binding:"omitempty,uuid"`
 	Attachments    []attachmentInput   `json:"attachments" binding:"max=10,dive"`
 	ChannelType    uint8               `json:"channel_type" binding:"omitempty,oneof=1 2 5"`
 	ChannelID      string              `json:"channel_id"`
@@ -122,6 +123,7 @@ func (h *TimelineHandler) Create(c *gin.Context) {
 		CallerUIDs:     callerUIDs,
 		CallerToken:    callerToken(c),
 		Content:        req.Content,
+		ParentEntryID:  req.ParentEntryID,
 		Attachments:    atts,
 		ChannelType:    req.ChannelType,
 		ChannelID:      req.ChannelID,

@@ -1163,18 +1163,6 @@
   .review-note .rv-action.primary { background: var(--amber); border-color: var(--amber); color: #fff; }
   .review-note .rv-action.primary:hover { background: #e97900; border-color: #e97900; }
   .blocker-note .bn-action:disabled, .review-note .rv-action:disabled { opacity: .55; cursor: default; }
-  .inline-review-actions {
-    display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 0 4px;
-    border-top: 1px solid rgba(28,28,35,.08); margin-top: 8px;
-  }
-  .inline-review-actions .rv-action {
-    min-height: 30px; padding: 0 12px; border-radius: 7px; background: #fff; font-size: 12.5px; font-weight: 700;
-    cursor: pointer; transition: .15s; border: 1px solid var(--amber-border); color: var(--tag-review);
-  }
-  .inline-review-actions .rv-action:hover { background: var(--amber-bg); border-color: var(--amber); }
-  .inline-review-actions .rv-action.primary { background: var(--amber); border-color: var(--amber); color: #fff; }
-  .inline-review-actions .rv-action.primary:hover { background: #e97900; border-color: #e97900; }
-  .inline-review-actions .rv-action:disabled { opacity: .55; cursor: default; }
   .decision-status { display: none; font-size: 11.5px; line-height: 15px; font-weight: 650; color: var(--text-3); }
   .decision-status:not(:empty) { display: block; }
   .blocker-note .decision-status { color: rgba(173,31,23,.72); }
@@ -1230,7 +1218,72 @@
   .r-name { font-size: 13.5px; font-weight: 650; color: var(--text); display: flex; align-items: center; gap: 8px; min-width: 0; }
   .r-name .uname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .r-name .r-time { font-family: var(--mono); font-size: 10.5px; font-weight: 500; color: var(--text-3); flex: 0 0 auto; }
+  .report { position: relative; }
   .report-body { padding: 10px 12px 14px; }
+  /* --- per-entry action menu --- */
+  .entry-actions { position: absolute; top: 10px; right: 10px; }
+  .entry-actions-btn {
+    width: 26px; height: 26px; border-radius: 6px; border: none; background: transparent;
+    font-size: 15px; line-height: 26px; text-align: center; cursor: pointer; color: var(--text-3);
+    opacity: 0; transition: opacity .15s, background .15s;
+  }
+  .report:hover .entry-actions-btn { opacity: 1; }
+  .entry-actions-btn:hover { background: rgba(28,28,35,.08); color: var(--text); }
+  .entry-actions-drop {
+    display: none; position: absolute; top: 100%; right: 0; z-index: 20;
+    min-width: 100px; background: #fff; border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.12); padding: 4px 0; margin-top: 2px;
+  }
+  .entry-actions-drop.open { display: block; }
+  .entry-actions-drop button {
+    display: block; width: 100%; text-align: left; padding: 7px 14px; border: none; background: none;
+    font-size: 12.5px; color: var(--text); cursor: pointer; white-space: nowrap;
+  }
+  .entry-actions-drop button:hover { background: var(--fill-2); }
+  /* --- nested reply entries --- */
+  .tl-reply { margin-left: 24px; border-left: 2px solid var(--border-soft, rgba(28,28,35,.1)); padding-left: 12px; }
+  .tl-reply .report { background: rgba(28,28,35,.025); }
+  /* --- inline reply input --- */
+  .tl-reply-input {
+    margin-left: 24px; padding: 8px 0; display: flex; flex-direction: column; gap: 6px;
+  }
+  .tl-reply-quote {
+    font-size: 11.5px; color: var(--text-3); padding: 4px 8px;
+    border-left: 2px solid var(--border-soft, rgba(28,28,35,.1)); background: rgba(28,28,35,.03);
+    border-radius: 0 4px 4px 0; max-height: 28px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tl-reply-row { display: flex; align-items: flex-end; gap: 6px; }
+  .tl-reply-ta {
+    flex: 1; min-height: 34px; max-height: 100px; padding: 7px 10px; border-radius: 8px;
+    border: 1px solid var(--border); font-size: 13px; font-family: inherit; resize: none;
+    line-height: 1.5; background: #fff; outline: none; transition: border-color .15s;
+  }
+  .tl-reply-ta:focus { border-color: var(--accent); }
+  .tl-reply-send {
+    flex: 0 0 auto; height: 34px; padding: 0 14px; border-radius: 8px; border: none;
+    background: var(--accent, #2563eb); color: #fff; font-size: 12.5px; font-weight: 650;
+    cursor: pointer; transition: .15s;
+  }
+  .tl-reply-send:hover { filter: brightness(.92); }
+  .tl-reply-send:disabled { opacity: .5; cursor: default; }
+  .tl-reply-cancel {
+    flex: 0 0 auto; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: #fff; color: var(--text-2); font-size: 12.5px; cursor: pointer; transition: .15s;
+  }
+  .tl-reply-cancel:hover { background: var(--fill-2); }
+  /* --- matter-level confirm done button --- */
+  .matter-confirm-done {
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 0 4px;
+    border-top: 1px solid rgba(28,28,35,.08); margin-top: 8px;
+  }
+  .matter-confirm-done .rv-action {
+    min-height: 30px; padding: 0 12px; border-radius: 7px; background: #fff; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; transition: .15s; border: 1px solid var(--amber-border); color: var(--tag-review);
+  }
+  .matter-confirm-done .rv-action:hover { background: var(--amber-bg); border-color: var(--amber); }
+  .matter-confirm-done .rv-action.primary { background: var(--amber); border-color: var(--amber); color: #fff; }
+  .matter-confirm-done .rv-action.primary:hover { background: #e97900; border-color: #e97900; }
+  .matter-confirm-done .rv-action:disabled { opacity: .55; cursor: default; }
   .r-text { font-size: 13.5px; line-height: 1.68; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
   /* markdown 渲染容器:块级排版接管换行,关掉 pre-wrap 以免双重空行 */
   .md { white-space: normal; }
@@ -6535,6 +6588,41 @@ function emptyOutputHTML(m, es){
 function outputRecordTemplate(){
   return "结论: \n证据: \n风险: ";
 }
+function singleEntryHTML(e, extraCls){
+  var attList = e.attachments || [];
+  var body;
+  if (!e.content && attList.length){
+    body = attList.map(function(a){
+      var label = a.file_name || a.description || "附件";
+      var meta = [fmtSize(a.file_size), uname(e.user_id), fmtTime(e.created_at)].filter(Boolean).join(" . ");
+      return '<a class="file-out" href="' + esc(a.file_url || "#") + '" target="_blank" rel="noopener noreferrer" style="text-decoration:none">'
+        + '<span class="fo-ic"></span><span class="fo-main"><span class="fo-name" style="display:block">' + esc(label) + "</span>"
+        + '<span class="fo-meta" style="display:block">' + esc(meta) + "</span></span></a>";
+    }).join("");
+  } else {
+    var atts = attList.map(function(a){
+      var label = a.file_name || a.description || "附件";
+      return '<a class="file-chip" href="' + esc(a.file_url || "#") + '" target="_blank" rel="noopener noreferrer"><span class="fic"></span><span class="fnm">' + esc(label) + "</span></a>";
+    }).join("");
+    body = (e.content ? '<div class="r-text">' + mdHTML(e.content) + "</div>" : "")
+      + (atts ? '<div class="attach-row">' + atts + "</div>" : "");
+  }
+  var canAct = authReady() && !isTerminalRow(cur.m);
+  var isChild = !!e.parent_entry_id;
+  var actionMenu = canAct
+    ? '<div class="entry-actions"><button class="entry-actions-btn" type="button" data-entry-menu="' + esc(e.id) + '">&#xb7;&#xb7;&#xb7;</button>'
+      + '<div class="entry-actions-drop" data-entry-drop="' + esc(e.id) + '">'
+      + (isChild ? '' : '<button type="button" data-entry-reply="' + esc(e.id) + '">回复</button>')
+      + '<button type="button" data-entry-copy="' + esc(e.id) + '">复制</button>'
+      + '</div></div>'
+    : '';
+  return '<div class="report' + (extraCls ? " " + extraCls : "") + '" data-report-id="' + esc(e.id) + '">'
+    + actionMenu
+    + '<div class="report-head">' + av(e.user_id, "r-av")
+    + '<div class="r-meta"><div class="r-name"><span class="uname" data-uid="' + esc(e.user_id) + '">' + esc(uname(e.user_id)) + "</span>" + aiTagHTML(e.user_id)
+    + '<span class="r-time" title="' + esc(fmtFull(e.created_at)) + '">' + esc(fmtTime(e.created_at)) + "</span></div></div></div>"
+    + '<div class="report-body" data-entry-id="' + esc(e.id) + '">' + body + "</div></div>";
+}
 function timelineBlockHTML(m){
   var t = cur.timeline;
   if (!t.ok){
@@ -6558,36 +6646,30 @@ function timelineBlockHTML(m){
     }[m.status] || { cls: "", ic: "○", title: "还没有动态", sub: "" };
     inner = emptyOutputHTML(m, es);
   } else {
-    inner = '<div class="replies">' + entries.map(function(e){
-      var attList = e.attachments || [];
-      var body;
-      if (!e.content && attList.length){
-        // 只有文件没有正文:按产出文件块呈现(文件图标/名字/大小/发的人/时间)
-        body = attList.map(function(a){
-          var label = a.file_name || a.description || "附件";
-          var meta = [fmtSize(a.file_size), uname(e.user_id), fmtTime(e.created_at)].filter(Boolean).join(" · ");
-          return '<a class="file-out" href="' + esc(a.file_url || "#") + '" target="_blank" rel="noopener noreferrer" style="text-decoration:none">'
-            + '<span class="fo-ic"></span><span class="fo-main"><span class="fo-name" style="display:block">' + esc(label) + "</span>"
-            + '<span class="fo-meta" style="display:block">' + esc(meta) + "</span></span></a>";
-        }).join("");
-      } else {
-        var atts = attList.map(function(a){
-          var label = a.file_name || a.description || "附件";
-          return '<a class="file-chip" href="' + esc(a.file_url || "#") + '" target="_blank" rel="noopener noreferrer"><span class="fic"></span><span class="fnm">' + esc(label) + "</span></a>";
-        }).join("");
-        body = (e.content ? '<div class="r-text">' + mdHTML(e.content) + "</div>" : "")
-          + (atts ? '<div class="attach-row">' + atts + "</div>" : "");
+    // Group entries: top-level (no parent) + children nested under parents
+    var topLevel = entries.filter(function(e){ return !e.parent_entry_id; });
+    var childrenMap = {};
+    entries.forEach(function(e){
+      if (e.parent_entry_id) {
+        if (!childrenMap[e.parent_entry_id]) childrenMap[e.parent_entry_id] = [];
+        childrenMap[e.parent_entry_id].push(e);
       }
-      return '<div class="report">'
-        + '<div class="report-head">' + av(e.user_id, "r-av")
-        + '<div class="r-meta"><div class="r-name"><span class="uname" data-uid="' + esc(e.user_id) + '">' + esc(uname(e.user_id)) + "</span>" + aiTagHTML(e.user_id)
-        + '<span class="r-time" title="' + esc(fmtFull(e.created_at)) + '">' + esc(fmtTime(e.created_at)) + "</span></div></div></div>"
-        + '<div class="report-body" data-entry-id="' + esc(e.id) + '">' + body + "</div></div>";
+    });
+    inner = '<div class="replies">' + topLevel.map(function(e){
+      var html = singleEntryHTML(e, "");
+      var kids = childrenMap[e.id];
+      if (kids && kids.length){
+        html += '<div class="tl-reply">' + kids.map(function(child){
+          return singleEntryHTML(child, "");
+        }).join("") + "</div>";
+      }
+      return html;
     }).join("") + "</div>";
   }
+  // Matter-level review actions: "确认完成" and "需要修改" as matter-level controls
   var reviewActions = "";
   if (m.status === "review" && isMe(m.creator_id)){
-    reviewActions = '<div class="inline-review-actions">'
+    reviewActions = '<div class="matter-confirm-done">'
       + '<button class="rv-action" type="button" data-review-feedback aria-controls="composerInput">需要修改</button>'
       + '<button class="rv-action primary" type="button" data-review-accept data-pending-label="确认中">确认完成</button>'
       + '<div class="decision-status" role="status" aria-live="polite"></div>'
@@ -6858,6 +6940,7 @@ function bindDetail(my){
           cur.timeline = { ok: true, v: json };
           var blockEl = $("#repliesBlock");
           if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
+          bindEntryActions();
           var sc2 = $("#detailScroll");
           if (sc2) sc2.scrollTop = sc2.scrollHeight;
         });
@@ -6876,6 +6959,7 @@ function bindDetail(my){
         cur.timeline = { ok: true, v: json };
         var blockEl = $("#repliesBlock");
         if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
+        bindEntryActions();
         toast("发出去了");
         var sc2 = $("#detailScroll");
         if (sc2) sc2.scrollTop = sc2.scrollHeight;
@@ -6884,6 +6968,211 @@ function bindDetail(my){
       send.disabled = false; send.textContent = "发送";
     });
   }
+  // --- entry action menus (toggle dropdown) ---
+  $$("[data-entry-menu]", $("#repliesBlock")).forEach(function(btn){
+    btn.addEventListener("click", function(ev){
+      ev.stopPropagation();
+      var eid = btn.getAttribute("data-entry-menu");
+      var drop = document.querySelector('[data-entry-drop="' + eid + '"]');
+      if (!drop) return;
+      // close other open drops
+      $$(".entry-actions-drop.open", $("#repliesBlock")).forEach(function(d){ if (d !== drop) d.classList.remove("open"); });
+      drop.classList.toggle("open");
+    });
+  });
+  // close drops on outside click
+  document.addEventListener("click", function(){ $$(".entry-actions-drop.open").forEach(function(d){ d.classList.remove("open"); }); });
+  // --- "回复" action: inline reply input ---
+  $$("[data-entry-reply]", $("#repliesBlock")).forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var eid = btn.getAttribute("data-entry-reply");
+      // close drop
+      var drop = btn.closest(".entry-actions-drop"); if (drop) drop.classList.remove("open");
+      // find the parent entry to get a quote preview
+      var entries = listData(cur.timeline.v);
+      var parent = null;
+      for (var i = 0; i < entries.length; i++) { if (entries[i].id === eid) { parent = entries[i]; break; } }
+      // remove any existing inline reply inputs
+      $$(".tl-reply-input", $("#repliesBlock")).forEach(function(el){ el.remove(); });
+      // insert reply input after the entry (or after its children block)
+      var reportEl = document.querySelector('[data-report-id="' + eid + '"]');
+      if (!reportEl) return;
+      // find insertion point: after any tl-reply block that follows this report
+      var insertAfter = reportEl;
+      var next = reportEl.nextElementSibling;
+      if (next && next.classList.contains("tl-reply")) insertAfter = next;
+      // build quote preview
+      var quoteText = "";
+      if (parent && parent.content) {
+        quoteText = parent.content.split("\n")[0];
+        if (quoteText.length > 60) quoteText = quoteText.substring(0, 60) + "...";
+      }
+      var replyBox = document.createElement("div");
+      replyBox.className = "tl-reply-input";
+      replyBox.innerHTML = (quoteText ? '<div class="tl-reply-quote">' + esc(uname(parent.user_id)) + ': ' + esc(quoteText) + '</div>' : '')
+        + '<div class="tl-reply-row">'
+        + '<textarea class="tl-reply-ta" rows="1" placeholder="回复..."></textarea>'
+        + '<button class="tl-reply-send" type="button">发送</button>'
+        + '<button class="tl-reply-cancel" type="button">取消</button>'
+        + '</div>';
+      insertAfter.parentNode.insertBefore(replyBox, insertAfter.nextSibling);
+      var rta = replyBox.querySelector(".tl-reply-ta");
+      rta.focus();
+      rta.addEventListener("input", function(){ rta.style.height = "auto"; rta.style.height = Math.min(rta.scrollHeight, 100) + "px"; });
+      rta.addEventListener("keydown", function(e){ if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); doReply(); } });
+      replyBox.querySelector(".tl-reply-cancel").addEventListener("click", function(){ replyBox.remove(); });
+      replyBox.querySelector(".tl-reply-send").addEventListener("click", doReply);
+      function doReply(){
+        var text = rta.value.trim();
+        if (!text) { toast("写点什么再发"); rta.focus(); return; }
+        var sendBtn = replyBox.querySelector(".tl-reply-send");
+        sendBtn.disabled = true; sendBtn.textContent = "发送中...";
+        var matterId = cur.id;
+        api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: text, parent_entry_id: eid } }).then(function(){
+          replyBox.remove();
+          return api("/matters/" + matterId + "/timeline", { params: { limit: 100 } }).then(function(json){
+            if (!cur || cur.id !== matterId) return;
+            cur.timeline = { ok: true, v: json };
+            var blockEl = $("#repliesBlock");
+            if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
+            bindEntryActions();
+            toast("已回复");
+          });
+        }).catch(function(e){
+          errToast(e);
+          sendBtn.disabled = false;
+          sendBtn.textContent = "发送";
+        });
+      }
+    });
+  });
+  // --- "复制" action: copy entry content ---
+  $$("[data-entry-copy]", $("#repliesBlock")).forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var eid = btn.getAttribute("data-entry-copy");
+      var drop = btn.closest(".entry-actions-drop"); if (drop) drop.classList.remove("open");
+      var entries = listData(cur.timeline.v);
+      var entry = null;
+      for (var i = 0; i < entries.length; i++) { if (entries[i].id === eid) { entry = entries[i]; break; } }
+      if (entry && entry.content) {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(entry.content).then(function(){ toast("已复制"); }).catch(function(){ toast("复制失败"); });
+        } else {
+          toast("浏览器不支持复制");
+        }
+      }
+    });
+  });
+}
+function bindEntryActions(){
+  // re-bind entry actions after re-render (called from inline reply send)
+  $$("[data-entry-menu]", $("#repliesBlock")).forEach(function(btn){
+    btn.addEventListener("click", function(ev){
+      ev.stopPropagation();
+      var eid = btn.getAttribute("data-entry-menu");
+      var drop = document.querySelector('[data-entry-drop="' + eid + '"]');
+      if (!drop) return;
+      $$(".entry-actions-drop.open", $("#repliesBlock")).forEach(function(d){ if (d !== drop) d.classList.remove("open"); });
+      drop.classList.toggle("open");
+    });
+  });
+  $$("[data-entry-reply]", $("#repliesBlock")).forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var eid = btn.getAttribute("data-entry-reply");
+      var drop = btn.closest(".entry-actions-drop"); if (drop) drop.classList.remove("open");
+      var entries = listData(cur.timeline.v);
+      var parent = null;
+      for (var i = 0; i < entries.length; i++) { if (entries[i].id === eid) { parent = entries[i]; break; } }
+      $$(".tl-reply-input", $("#repliesBlock")).forEach(function(el){ el.remove(); });
+      var reportEl = document.querySelector('[data-report-id="' + eid + '"]');
+      if (!reportEl) return;
+      var insertAfter = reportEl;
+      var next = reportEl.nextElementSibling;
+      if (next && next.classList.contains("tl-reply")) insertAfter = next;
+      var quoteText = "";
+      if (parent && parent.content) {
+        quoteText = parent.content.split("\n")[0];
+        if (quoteText.length > 60) quoteText = quoteText.substring(0, 60) + "...";
+      }
+      var replyBox = document.createElement("div");
+      replyBox.className = "tl-reply-input";
+      replyBox.innerHTML = (quoteText ? '<div class="tl-reply-quote">' + esc(uname(parent.user_id)) + ': ' + esc(quoteText) + '</div>' : '')
+        + '<div class="tl-reply-row">'
+        + '<textarea class="tl-reply-ta" rows="1" placeholder="回复..."></textarea>'
+        + '<button class="tl-reply-send" type="button">发送</button>'
+        + '<button class="tl-reply-cancel" type="button">取消</button>'
+        + '</div>';
+      insertAfter.parentNode.insertBefore(replyBox, insertAfter.nextSibling);
+      var rta = replyBox.querySelector(".tl-reply-ta");
+      rta.focus();
+      rta.addEventListener("input", function(){ rta.style.height = "auto"; rta.style.height = Math.min(rta.scrollHeight, 100) + "px"; });
+      rta.addEventListener("keydown", function(e){ if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); doReply(); } });
+      replyBox.querySelector(".tl-reply-cancel").addEventListener("click", function(){ replyBox.remove(); });
+      replyBox.querySelector(".tl-reply-send").addEventListener("click", doReply);
+      function doReply(){
+        var text = rta.value.trim();
+        if (!text) { toast("写点什么再发"); rta.focus(); return; }
+        var sendBtn = replyBox.querySelector(".tl-reply-send");
+        sendBtn.disabled = true; sendBtn.textContent = "发送中...";
+        var matterId = cur.id;
+        api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: text, parent_entry_id: eid } }).then(function(){
+          replyBox.remove();
+          return api("/matters/" + matterId + "/timeline", { params: { limit: 100 } }).then(function(json){
+            if (!cur || cur.id !== matterId) return;
+            cur.timeline = { ok: true, v: json };
+            var blockEl = $("#repliesBlock");
+            if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
+            bindEntryActions();
+            toast("已回复");
+          });
+        }).catch(function(e){
+          errToast(e);
+          sendBtn.disabled = false;
+          sendBtn.textContent = "发送";
+        });
+      }
+    });
+  });
+  $$("[data-entry-copy]", $("#repliesBlock")).forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var eid = btn.getAttribute("data-entry-copy");
+      var drop = btn.closest(".entry-actions-drop"); if (drop) drop.classList.remove("open");
+      var entries = listData(cur.timeline.v);
+      var entry = null;
+      for (var i = 0; i < entries.length; i++) { if (entries[i].id === eid) { entry = entries[i]; break; } }
+      if (entry && entry.content) {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(entry.content).then(function(){ toast("已复制"); }).catch(function(){ toast("复制失败"); });
+        } else {
+          toast("浏览器不支持复制");
+        }
+      }
+    });
+  });
+  // re-bind review actions after re-render
+  $$("[data-review-accept]", $("#repliesBlock")).forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var reset = setDecisionPending(btn);
+      doStatusChange("done", { onError: reset });
+    });
+  });
+  $$("[data-review-feedback]", $("#repliesBlock")).forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var ta = $("#composerInput");
+      if (!ta) return;
+      if (!ta.value.trim()){
+        var who = (cur && cur.m && (cur.m.leader || cur.m.assignees[0])) || "";
+        ta.value = "需要调整: " + (who ? ("@" + uname(who) + " ") : "");
+        ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+        ta.focus();
+        try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
+      } else {
+        ta.focus();
+      }
+      ta.placeholder = "写清楚要改什么,发送后会退回修改";
+      toast("继续补充修改内容", { icon: "" });
+    });
+  });
 }
 
 /* ---- 控制权 / inspector ---- */
@@ -9269,6 +9558,7 @@ function sendAnnotation(){
       cur.timeline = { ok: true, v: json };
       var blockEl = $("#repliesBlock");
       if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
+      bindEntryActions();
       if (sc) sc.scrollTop = scrollPos;
     });
   }).catch(function(e){
