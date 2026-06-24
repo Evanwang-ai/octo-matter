@@ -583,6 +583,16 @@ func (s *TransitionService) doorbellParamsFor(m *model.Matter, from model.Matter
 		"Edge":   string(from) + "->" + string(in.Target),
 		"Reason": in.Reason,
 	}
+	if m.Mode != nil && *m.Mode != "" {
+		p["Mode"] = *m.Mode
+	}
+	if m.Description != nil && *m.Description != "" {
+		brief := *m.Description
+		if len([]rune(brief)) > 200 {
+			brief = string([]rune(brief)[:200])
+		}
+		p["BriefPreview"] = brief
+	}
 	return p
 }
 

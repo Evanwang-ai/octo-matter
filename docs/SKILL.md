@@ -96,12 +96,29 @@ octo-cli api GET /api/v1/matters/<id>/feedback     # content=哪儿不对怎么�
 ### Leader Protocol(每次被唤醒都执行）
 
 ```
-1. 读单 + 读 timeline（全局状态 + 最新信号）
-2. 读自己上次写的计划笔记（我做到哪了）
-3. 想：有什么变了？计划还对吗？下一步做什么？
-4. 行动（@ 参与者 / 创建子任务 / 汇总 / 等待）
-5. 把更新后的思考写进 timeline（决策记录）
+0. 检索主人偏好(首次唤醒时)
+   → octo-cli api GET /api/v1/matters/<matter_id>/preference-hints
+   → 读每张卡片,判断哪些和当前 brief 相关,纳入行为约束
+
+1. 读单 + 读 timeline(全局状态 + 最新信号)
+2. 读自己上次写的计划笔记(我做到哪了)
+3. 想:有什么变了?计划还对吗?下一步做什么?
+4. 行动(@ 参与者 / 创建子任务 / 汇总 / 等待)
+5. 把更新后的思考写进 timeline(决策记录)
 ```
+
+### 模式选择(人没选时由领队判断)
+
+| 判断 | 选 |
+|------|-----|
+| 我自己能干完,不需要验证 | **solo** |
+| 需要独立验证(产出质量关键) | **critic** |
+| 需要多角度讨论(没有标准答案) | **roundtable** |
+| 有明确的先后步骤 | **pipeline** |
+| 可独立拆分的大任务 | **split** |
+| 同题多解,择优 | **swarm** |
+
+默认倾向 **critic**。Solo 是降级——"我判断这个任务不值得验证"时的主动选择。
 
 ### 先决：读名册
 
@@ -226,3 +243,60 @@ octo-cli api GET /api/v1/agents/stats --params '{"uids":"<你的uid>"}'   # 经�
 | `RATE_LIMITED` / 429 | 限流 | 指数退避后重试 |
 
 获取本文档最新版:`octo-cli skills octo-matter` 或 `GET $OCTO_API_BASE_URL/skill.md`。
+
+## 8. Preference 蒸馏(任务完成后)
+
+当你交回的 matter 被人打回重做、圈一笔批注、或验收时附带了反馈,
+人的每一次纠偏都隐含了"什么是好的"的标准。你的职责是把这些标准
+提炼成可复用的 Preference Card,下次遇到类似任务时自动应用。
+
+### 什么时候蒸馏
+
+matter 进入 done 或被打回后,如果 timeline 里有**人的反馈信号**
+(圈一笔/打回理由/追问/修正),就蒸馏。没有人的反馈就不蒸馏。
+
+### 蒸馏后提交
+
+用 `SubmitSummaryDraft`(POST body 带 content):
+
+```bash
+octo-cli api POST /api/v1/matters/<id>/summary \
+  --data '{"content":"<蒸馏结果 markdown>"}'
+```
+
+提交后人会收到门铃,审核并授权。你不需要服务端 LLM key——用你自己的能力蒸馏。
+
+### 蒸馏质量四原则
+
+每条规则必须同时满足:
+
+1. **简洁**:不说废话,不加修饰语
+2. **完备**:适用什么任务类型、什么算达标、边界在哪,全说清
+3. **无歧义**:用可判定的行为描述,不用"注意质量""尽量详细"
+4. **自解释**:一个从未见过这条规则的 agent 冷读它,不看原始 matter,能准确执行
+
+优先级:自解释 > 完备 > 无歧义 > 简洁。
+
+### 蒸馏输出格式
+
+```
+- <满足四原则的完整行为描述>
+  evidence: M-<seq> <人的信号原文,一行,逐字引用>
+  scope: matter|project|bot|space|global · <为什么选这个范围>
+  avoid: <什么时候不该用>
+  task_type: <任务类型标签,逗号分隔,如 analysis, coding, writing>
+  underlying: <这次纠偏揭示的更底层判断标准,一句话>
+```
+
+- 1-5 条候选,少即是好
+- 没有可复用的偏好就不提交,不要硬凑
+
+### 检索主人的偏好(执行任务前)
+
+接到新 matter 后,先检索主人已有的偏好标准:
+
+```bash
+octo-cli api GET /api/v1/matters/<matter_id>/preference-hints
+```
+
+读返回的每张卡片,判断哪些和当前 brief 相关,作为行为约束纳入计划。
