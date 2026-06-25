@@ -1240,9 +1240,18 @@
     font-size: 12.5px; color: var(--text); cursor: pointer; white-space: nowrap;
   }
   .entry-actions-drop button:hover { background: var(--fill-2); }
-  /* --- nested reply entries --- */
-  .tl-reply { margin-left: 24px; border-left: 2px solid var(--border-soft, rgba(28,28,35,.1)); padding-left: 12px; }
-  .tl-reply .report { background: rgba(28,28,35,.025); }
+  /* --- nested reply entries (inside parent card) --- */
+  .tl-children { margin: 0 12px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .tl-children .report {
+    background: var(--fill-1); border-radius: 8px;
+    border-left: 2px solid var(--accent-border);
+    font-size: 12.5px;
+  }
+  .tl-children .report-head { padding: 8px 10px 0; gap: 8px; }
+  .tl-children .r-av { width: 22px; height: 22px; flex: 0 0 22px; font-size: 10px; }
+  .tl-children .r-name { font-size: 12px; }
+  .tl-children .report-body { padding: 4px 10px 8px; }
+  .tl-children .r-text { font-size: 12.5px; line-height: 1.55; color: var(--text-2); }
   /* --- inline reply input --- */
   .tl-reply-input {
     margin-left: 24px; padding: 8px 0; display: flex; flex-direction: column; gap: 6px;
@@ -1271,10 +1280,14 @@
     background: #fff; color: var(--text-2); font-size: 12.5px; cursor: pointer; transition: .15s;
   }
   .tl-reply-cancel:hover { background: var(--fill-2); }
-  /* --- matter-level confirm done button --- */
+  /* --- matter-level confirm done button (sticky) --- */
   .matter-confirm-done {
-    display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 0 4px;
-    border-top: 1px solid rgba(28,28,35,.08); margin-top: 8px;
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+    padding: 12px 0;
+    border-top: 1px solid var(--hairline-soft);
+    margin-top: 8px;
+    position: sticky; bottom: 0; z-index: 2;
+    background: var(--surface-panel);
   }
   .matter-confirm-done .rv-action {
     min-height: 30px; padding: 0 12px; border-radius: 7px; background: #fff; font-size: 12.5px; font-weight: 700;
@@ -6651,28 +6664,17 @@ function timelineBlockHTML(m){
       var html = singleEntryHTML(e, "");
       var kids = childrenMap[e.id];
       if (kids && kids.length){
-        html += '<div class="tl-reply">' + kids.map(function(child){
+        // Inject children inside the parent's .report card (before closing </div>)
+        var childrenBlock = '<div class="tl-children">' + kids.map(function(child){
           return singleEntryHTML(child, "");
         }).join("") + "</div>";
+        // Insert before the last </div> (the .report closing tag)
+        html = html.slice(0, html.lastIndexOf("</div>")) + childrenBlock + "</div>";
       }
       return html;
     }).join("") + "</div>";
   }
-  // Matter-level review actions: "确认完成" and "需要修改" as matter-level controls
   var reviewActions = "";
-  if (m.status === "review" && isMe(m.creator_id)){
-    reviewActions = '<div class="matter-confirm-done">'
-      + '<button class="rv-action primary" type="button" data-review-accept data-pending-label="确认中">确认完成</button>'
-      + '<div class="decision-status" role="status" aria-live="polite"></div>'
-      + "</div>"
-      + '<div class="satisfaction-panel" data-sat-panel style="display:none">'
-      + '<div class="sat-label">有什么做得好的想记住吗？（选填）</div>'
-      + '<textarea class="sat-textarea" data-sat-text placeholder="比如：数据分析很全面，格式规范，响应及时"></textarea>'
-      + '<div class="sat-actions">'
-      + '<button class="sat-skip" type="button" data-sat-skip>跳过，直接完成</button>'
-      + '<button class="sat-submit" type="button" data-sat-submit>记下并完成</button>'
-      + '</div></div>';
-  }
   var n = t.ok ? listData(t.v).length : 0;
   var hint = n ? '<span class="sec-count" title="选中正文里的一句话,可以批注">' + n + " 条 · 选中文字可批注</span>" : "";
   var attachAction = authReady() && !isTerminalRow(m) ? '<button class="sec-action" type="button" data-output-attach>加附件</button>' : "";
@@ -6736,11 +6738,6 @@ function bindDetail(my){
     if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); doSendTimeline(); }
   });
   send.addEventListener("click", doSendTimeline);
-  $$("[data-review-accept]", $("#centerCol")).forEach(function(btn){
-    btn.addEventListener("click", function(){
-      showSatisfactionPanel(btn);
-    });
-  });
   $$("[data-output-focus]", $("#repliesBlock")).forEach(function(btn){
     btn.addEventListener("click", function(){
       if (!ta.value.trim()){
@@ -6988,8 +6985,6 @@ function openInlineReply(eid, opts){
   var reportEl = document.querySelector('[data-report-id="' + eid + '"]');
   if (!reportEl) return;
   var insertAfter = reportEl;
-  var next = reportEl.nextElementSibling;
-  if (next && next.classList.contains("tl-reply")) insertAfter = next;
   // build quote: use snippet if provided, otherwise first line of parent content
   var quoteText = "";
   var quoteAuthor = "";
@@ -7119,12 +7114,6 @@ function bindEntryActions(){
   bindReplyButtons($("#repliesBlock"));
   bindNeedsRevisionButtons($("#repliesBlock"));
   bindCopyButtons($("#repliesBlock"));
-  // re-bind review actions after re-render
-  $$("[data-review-accept]", $("#repliesBlock")).forEach(function(btn){
-    btn.addEventListener("click", function(){
-      showSatisfactionPanel(btn);
-    });
-  });
 }
 
 /* ---- 控制权 / inspector ---- */
@@ -7552,7 +7541,12 @@ function bindInspector(){
     opt.addEventListener("click", function(e){
       e.stopPropagation();
       setStatusMenuOpen(field, false);
-      doStatusChange(opt.getAttribute("data-status"));
+      var targetSt = opt.getAttribute("data-status");
+      if (targetSt === "done" && cur && cur.m && cur.m.status === "review" && isMe(cur.m.creator_id)) {
+        showSatisfactionModal();
+      } else {
+        doStatusChange(targetSt);
+      }
     });
     opt.addEventListener("keydown", function(e){
       if (e.key === "Escape"){
@@ -7579,7 +7573,12 @@ function bindInspector(){
       if (e.key !== "Enter" && e.key !== " ") return;
       e.preventDefault();
       setStatusMenuOpen(field, false);
-      doStatusChange(opt.getAttribute("data-status"));
+      var targetSt = opt.getAttribute("data-status");
+      if (targetSt === "done" && cur && cur.m && cur.m.status === "review" && isMe(cur.m.creator_id)) {
+        showSatisfactionModal();
+      } else {
+        doStatusChange(targetSt);
+      }
     });
   });
   var pj = $("#projSel");
@@ -7657,50 +7656,39 @@ function setDecisionPending(btn){
   var pending = btn.getAttribute("data-pending-label") || "处理中";
   return setPendingButtonGroup(note ? $$("button", note) : [btn], btn, pending, note ? $(".decision-status", note) : null);
 }
-function showSatisfactionPanel(acceptBtn){
-  // Hide the confirm-done button row
-  var btnRow = acceptBtn.closest(".matter-confirm-done");
-  if (btnRow) btnRow.style.display = "none";
-  // Reveal the satisfaction panel (sibling of the button row)
-  var panel = btnRow ? btnRow.parentElement.querySelector("[data-sat-panel]") : null;
-  if (!panel) {
-    // Fallback: if panel not found, proceed with original behavior
-    var reset = setDecisionPending(acceptBtn);
-    doStatusChange("done", { onError: reset });
-    return;
-  }
-  panel.style.display = "";
-  var textarea = panel.querySelector("[data-sat-text]");
-  var skipBtn = panel.querySelector("[data-sat-skip]");
-  var submitBtn = panel.querySelector("[data-sat-submit]");
-  if (textarea) textarea.focus();
+function showSatisfactionModal(){
+  var mo = $("#modal");
+  mo.className = "modal";
+  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">确认完成</div></div>'
+    + '<button class="modal-x" id="mx" type="button">×</button></div>'
+    + '<div class="modal-body">'
+    + '<div style="margin-bottom:12px;font-size:14px;color:var(--text-2)">有什么做得好的想记住吗？（选填）</div>'
+    + '<textarea id="satText" style="width:100%;min-height:80px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;resize:vertical" placeholder="比如：数据分析很全面，格式规范，响应及时"></textarea>'
+    + '</div>'
+    + '<div class="modal-foot">'
+    + '<button class="ff-cancel" id="satSkip" type="button">跳过，直接完成</button>'
+    + '<button class="ff-save" id="satSubmit" type="button">记下并完成</button></div>';
+  openModal();
 
   function finishDone(){
-    skipBtn.disabled = true;
-    submitBtn.disabled = true;
     doStatusChange("done", {
       onError: function(){
-        // On error, restore the panel so user can try again
-        skipBtn.disabled = false;
-        submitBtn.disabled = false;
+        $("#satSkip").disabled = false;
+        $("#satSubmit").disabled = false;
+        $("#satSubmit").textContent = "记下并完成";
       }
     });
+    closeModal();
   }
 
-  skipBtn.addEventListener("click", function(){
-    finishDone();
-  });
-
-  submitBtn.addEventListener("click", function(){
-    var text = textarea ? textarea.value.trim() : "";
-    if (!text){
-      // Nothing typed -- same as skip
-      finishDone();
-      return;
-    }
-    skipBtn.disabled = true;
-    submitBtn.disabled = true;
-    submitBtn.textContent = "记录中...";
+  $("#mx").onclick = function(){ closeModal(); };
+  $("#satSkip").onclick = function(){ finishDone(); };
+  $("#satSubmit").onclick = function(){
+    var text = ($("#satText").value || "").trim();
+    if (!text){ finishDone(); return; }
+    $("#satSkip").disabled = true;
+    $("#satSubmit").disabled = true;
+    $("#satSubmit").textContent = "记录中...";
     var matterId = cur.id;
     var feedbackContent = "满意反馈: " + text;
     api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: feedbackContent } })
@@ -7708,11 +7696,11 @@ function showSatisfactionPanel(acceptBtn){
       .then(function(){ finishDone(); })
       .catch(function(e){
         errToast(e);
-        skipBtn.disabled = false;
-        submitBtn.disabled = false;
-        submitBtn.textContent = "记下并完成";
+        $("#satSkip").disabled = false;
+        $("#satSubmit").disabled = false;
+        $("#satSubmit").textContent = "记下并完成";
       });
-  });
+  };
 }
 function doStatusChange(target, opts){
   opts = opts || {};
