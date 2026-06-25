@@ -2094,36 +2094,6 @@
   }
   .im-fab.show { display: inline-flex; }
   .im-fab:hover { background: var(--accent-tint); }
-  .annot-box {
-    position: fixed; z-index: 36; display: none; width: 360px; max-width: calc(100vw - 16px);
-    background: var(--panel); border: 1px solid var(--border-soft); border-radius: 10px;
-    box-shadow: 0 10px 32px rgba(28,28,35,.18); padding: 10px;
-  }
-  .annot-box.show { display: block; }
-  .im-quote {
-    background: var(--fill-2); border: 1px solid var(--border); border-radius: 6px;
-    padding: 8px 10px; margin-bottom: 8px; max-height: 64px; overflow: hidden;
-    font-size: 12.5px; color: var(--text-2); line-height: 1.6;
-  }
-  .annot-text {
-    width: 100%; min-height: 54px; resize: none; border: 0; outline: none; border-radius: 8px;
-    background: rgba(46,50,56,.05); color: var(--text); font-family: inherit; font-size: 13px; line-height: 1.6;
-    padding: 8px 10px; box-sizing: border-box;
-  }
-  .annot-text:focus { box-shadow: 0 0 0 2px rgba(28,28,35,.08); }
-  .annot-hint { font-size: 11px; color: var(--text-4); margin: 7px 0 8px; line-height: 1.5; }
-  .annot-foot { display: flex; justify-content: flex-end; gap: 8px; }
-  .annot-cancel {
-    min-height: 30px; padding: 0 13px; border: 1px solid var(--border); border-radius: 999px;
-    background: #fff; color: var(--text-2); font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
-  }
-  .annot-cancel:hover { background: var(--fill-2); }
-  .annot-send {
-    flex: 0 0 auto; min-height: 30px; padding: 0 14px; border: 0; border-radius: 999px;
-    background: #1c1c23; color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
-  }
-  .annot-send:hover { opacity: .9; }
-  .annot-send:disabled { opacity: .5; }
 
   /* ============ 战绩 popover ============ */
   .agent-pop {
@@ -2419,7 +2389,6 @@
     .ac-ledger-body { grid-template-columns: 1fr; }
     .main-trail-entry { grid-template-columns: 72px minmax(0, 1fr); column-gap: 8px; }
     .main-trail-time { display: none; }
-    .annot-box.docked { left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; }
     .issue-title { font-size: 20px; }
   }
   /* -- Iterations panel -- */
@@ -2479,15 +2448,6 @@
 
   <div class="toast" id="toast"></div>
   <div class="im-fab" id="annotFab" role="button" tabindex="0" title="指着选中的这句,说哪儿不对怎么改">批注</div>
-  <div class="annot-box" id="annotBox" role="dialog" aria-label="批注说一句">
-    <div class="im-quote" id="annotQuote"></div>
-    <textarea class="annot-text" id="annotInput" rows="2" placeholder="哪儿不对,怎么改" maxlength="500"></textarea>
-    <div class="annot-hint">圈点会@负责人并把事项翻回进行中</div>
-    <div class="annot-foot">
-      <button class="annot-cancel" id="annotCancel" type="button">取消</button>
-      <button class="annot-send" id="annotSend" type="button">发送批注</button>
-    </div>
-  </div>
   <div class="modal-scrim" id="modalScrim"><div class="modal" id="modal"></div></div>
   <div class="agent-pop" id="agentPop" role="dialog" aria-label="战绩"></div>
   <div class="float-menu" id="floatMenu" role="menu"></div>
@@ -6639,10 +6599,12 @@ function singleEntryHTML(e, extraCls){
   }
   var canAct = authReady() && !isTerminalRow(cur.m);
   var isChild = !!e.parent_entry_id;
+  var showNeedsRevision = canAct && !isChild && isBot(e.user_id) && cur.m.status === "review" && isMe(cur.m.creator_id);
   var actionMenu = canAct
     ? '<div class="entry-actions"><button class="entry-actions-btn" type="button" data-entry-menu="' + esc(e.id) + '">&#xb7;&#xb7;&#xb7;</button>'
       + '<div class="entry-actions-drop" data-entry-drop="' + esc(e.id) + '">'
       + (isChild ? '' : '<button type="button" data-entry-reply="' + esc(e.id) + '">回复</button>')
+      + (showNeedsRevision ? '<button type="button" data-entry-needs-revision="' + esc(e.id) + '">需要修改</button>' : '')
       + '<button type="button" data-entry-copy="' + esc(e.id) + '">复制</button>'
       + '</div></div>'
     : '';
@@ -6700,7 +6662,6 @@ function timelineBlockHTML(m){
   var reviewActions = "";
   if (m.status === "review" && isMe(m.creator_id)){
     reviewActions = '<div class="matter-confirm-done">'
-      + '<button class="rv-action" type="button" data-review-feedback aria-controls="composerInput">需要修改</button>'
       + '<button class="rv-action primary" type="button" data-review-accept data-pending-label="确认中">确认完成</button>'
       + '<div class="decision-status" role="status" aria-live="polite"></div>'
       + "</div>"
@@ -6778,23 +6739,6 @@ function bindDetail(my){
   $$("[data-review-accept]", $("#centerCol")).forEach(function(btn){
     btn.addEventListener("click", function(){
       showSatisfactionPanel(btn);
-    });
-  });
-  $$("[data-review-feedback]", $("#centerCol")).forEach(function(btn){
-    btn.addEventListener("click", function(){
-      var seeded = false;
-      if (!ta.value.trim()){
-        var who = (cur && cur.m && (cur.m.leader || cur.m.assignees[0])) || "";
-        ta.value = "需要调整: " + (who ? ("@" + uname(who) + " ") : "");
-        seeded = true;
-        autoGrow();
-        ta.focus();
-        try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
-      } else {
-        ta.focus();
-      }
-      ta.placeholder = "写清楚要改什么,发送后会退回修改";
-      toast(seeded ? "已把修改内容放到输入框" : "继续补充修改内容", { icon: "" });
     });
   });
   $$("[data-output-focus]", $("#repliesBlock")).forEach(function(btn){
@@ -7018,72 +6962,132 @@ function bindDetail(my){
   });
   // close drops on outside click
   document.addEventListener("click", function(){ $$(".entry-actions-drop.open").forEach(function(d){ d.classList.remove("open"); }); });
-  // --- "回复" action: inline reply input ---
-  $$("[data-entry-reply]", $("#repliesBlock")).forEach(function(btn){
+  // --- "回复" action ---
+  bindReplyButtons($("#repliesBlock"));
+  // --- "需要修改" per-entry action ---
+  bindNeedsRevisionButtons($("#repliesBlock"));
+  // --- "复制" action ---
+  bindCopyButtons($("#repliesBlock"));
+}
+/* ---- openInlineReply: shared entry-level reply box ----
+ * opts.snippet    - pre-fill quote text (from text selection / annotation)
+ * opts.prefill    - pre-fill textarea content
+ * opts.isFeedback - also POST /feedback (triggers doorbell + status flip)
+ * opts.placeholder - custom placeholder text
+ */
+function openInlineReply(eid, opts){
+  opts = opts || {};
+  if (!cur) return;
+  var drop = document.querySelector('[data-entry-drop="' + eid + '"]');
+  if (drop) drop.classList.remove("open");
+  var entries = listData(cur.timeline.v);
+  var parent = null;
+  for (var i = 0; i < entries.length; i++) { if (entries[i].id === eid) { parent = entries[i]; break; } }
+  // remove any existing inline reply inputs
+  $$(".tl-reply-input", $("#repliesBlock")).forEach(function(el){ el.remove(); });
+  var reportEl = document.querySelector('[data-report-id="' + eid + '"]');
+  if (!reportEl) return;
+  var insertAfter = reportEl;
+  var next = reportEl.nextElementSibling;
+  if (next && next.classList.contains("tl-reply")) insertAfter = next;
+  // build quote: use snippet if provided, otherwise first line of parent content
+  var quoteText = "";
+  var quoteAuthor = "";
+  if (opts.snippet) {
+    quoteText = opts.snippet.length > 80 ? opts.snippet.substring(0, 80) + "..." : opts.snippet;
+    quoteAuthor = parent ? uname(parent.user_id) : "";
+  } else if (parent && parent.content) {
+    quoteText = parent.content.split("\n")[0];
+    if (quoteText.length > 60) quoteText = quoteText.substring(0, 60) + "...";
+    quoteAuthor = uname(parent.user_id);
+  }
+  var replyBox = document.createElement("div");
+  replyBox.className = "tl-reply-input";
+  replyBox.innerHTML = (quoteText ? '<div class="tl-reply-quote">' + esc(quoteAuthor ? quoteAuthor + ": " : "") + esc(quoteText) + '</div>' : '')
+    + '<div class="tl-reply-row">'
+    + '<textarea class="tl-reply-ta" rows="1" placeholder="' + esc(opts.placeholder || "回复...") + '"></textarea>'
+    + '<button class="tl-reply-send" type="button">发送</button>'
+    + '<button class="tl-reply-cancel" type="button">取消</button>'
+    + '</div>';
+  insertAfter.parentNode.insertBefore(replyBox, insertAfter.nextSibling);
+  var rta = replyBox.querySelector(".tl-reply-ta");
+  if (opts.prefill) {
+    rta.value = opts.prefill;
+    rta.style.height = "auto"; rta.style.height = Math.min(rta.scrollHeight, 100) + "px";
+  }
+  rta.focus();
+  if (opts.prefill) { try { rta.setSelectionRange(rta.value.length, rta.value.length); } catch(e){} }
+  rta.addEventListener("input", function(){ rta.style.height = "auto"; rta.style.height = Math.min(rta.scrollHeight, 100) + "px"; });
+  rta.addEventListener("keydown", function(e){ if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); doSend(); } });
+  replyBox.querySelector(".tl-reply-cancel").addEventListener("click", function(){ replyBox.remove(); });
+  replyBox.querySelector(".tl-reply-send").addEventListener("click", doSend);
+  // scroll into view
+  setTimeout(function(){ replyBox.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, 60);
+  var snippet = opts.snippet || "";
+  var isFeedback = !!opts.isFeedback;
+  function doSend(){
+    var text = rta.value.trim();
+    if (!text) { toast("写点什么再发"); rta.focus(); return; }
+    var sendBtn = replyBox.querySelector(".tl-reply-send");
+    sendBtn.disabled = true; sendBtn.textContent = "发送中...";
+    var matterId = cur.id;
+    // For annotation/feedback replies, prepend snippet context into timeline content
+    var tlContent = text;
+    if (isFeedback && snippet) {
+      tlContent = "批注: \"" + snippet.slice(0, 60) + (snippet.length > 60 ? "..." : "") + "\"\n\n" + text;
+    }
+    var timelinePosted = replyBox.__timelinePosted;
+    var chain = timelinePosted
+      ? Promise.resolve()
+      : api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: tlContent, parent_entry_id: eid } }).then(function(){ replyBox.__timelinePosted = true; });
+    if (isFeedback) {
+      var fbBody = { content: text, anchor: { snippet: snippet } };
+      fbBody.entry_id = eid;
+      chain = chain.then(function(){
+        return api("/matters/" + matterId + "/feedback", { method: "POST", body: fbBody });
+      });
+    }
+    chain.then(function(resp){
+      replyBox.remove();
+      var flipped = isFeedback && resp && resp.matter_status === "in_progress";
+      var sc = $("#detailScroll");
+      var scrollPos = sc ? sc.scrollTop : 0;
+      return api("/matters/" + matterId + "/timeline", { params: { limit: 100 } }).then(function(json){
+        if (!cur || cur.id !== matterId) return;
+        cur.timeline = { ok: true, v: json };
+        var blockEl = $("#repliesBlock");
+        if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
+        bindEntryActions();
+        if (sc) sc.scrollTop = scrollPos;
+        toast(flipped ? "已批注 -- 已退回修改" : isFeedback ? "已批注" : "已回复");
+      });
+    }).catch(function(e){
+      errToast(e);
+      sendBtn.disabled = false;
+      sendBtn.textContent = "发送";
+    });
+  }
+}
+function bindReplyButtons(root){
+  $$("[data-entry-reply]", root).forEach(function(btn){
     btn.addEventListener("click", function(){
       var eid = btn.getAttribute("data-entry-reply");
-      // close drop
       var drop = btn.closest(".entry-actions-drop"); if (drop) drop.classList.remove("open");
-      // find the parent entry to get a quote preview
-      var entries = listData(cur.timeline.v);
-      var parent = null;
-      for (var i = 0; i < entries.length; i++) { if (entries[i].id === eid) { parent = entries[i]; break; } }
-      // remove any existing inline reply inputs
-      $$(".tl-reply-input", $("#repliesBlock")).forEach(function(el){ el.remove(); });
-      // insert reply input after the entry (or after its children block)
-      var reportEl = document.querySelector('[data-report-id="' + eid + '"]');
-      if (!reportEl) return;
-      // find insertion point: after any tl-reply block that follows this report
-      var insertAfter = reportEl;
-      var next = reportEl.nextElementSibling;
-      if (next && next.classList.contains("tl-reply")) insertAfter = next;
-      // build quote preview
-      var quoteText = "";
-      if (parent && parent.content) {
-        quoteText = parent.content.split("\n")[0];
-        if (quoteText.length > 60) quoteText = quoteText.substring(0, 60) + "...";
-      }
-      var replyBox = document.createElement("div");
-      replyBox.className = "tl-reply-input";
-      replyBox.innerHTML = (quoteText ? '<div class="tl-reply-quote">' + esc(uname(parent.user_id)) + ': ' + esc(quoteText) + '</div>' : '')
-        + '<div class="tl-reply-row">'
-        + '<textarea class="tl-reply-ta" rows="1" placeholder="回复..."></textarea>'
-        + '<button class="tl-reply-send" type="button">发送</button>'
-        + '<button class="tl-reply-cancel" type="button">取消</button>'
-        + '</div>';
-      insertAfter.parentNode.insertBefore(replyBox, insertAfter.nextSibling);
-      var rta = replyBox.querySelector(".tl-reply-ta");
-      rta.focus();
-      rta.addEventListener("input", function(){ rta.style.height = "auto"; rta.style.height = Math.min(rta.scrollHeight, 100) + "px"; });
-      rta.addEventListener("keydown", function(e){ if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); doReply(); } });
-      replyBox.querySelector(".tl-reply-cancel").addEventListener("click", function(){ replyBox.remove(); });
-      replyBox.querySelector(".tl-reply-send").addEventListener("click", doReply);
-      function doReply(){
-        var text = rta.value.trim();
-        if (!text) { toast("写点什么再发"); rta.focus(); return; }
-        var sendBtn = replyBox.querySelector(".tl-reply-send");
-        sendBtn.disabled = true; sendBtn.textContent = "发送中...";
-        var matterId = cur.id;
-        api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: text, parent_entry_id: eid } }).then(function(){
-          replyBox.remove();
-          return api("/matters/" + matterId + "/timeline", { params: { limit: 100 } }).then(function(json){
-            if (!cur || cur.id !== matterId) return;
-            cur.timeline = { ok: true, v: json };
-            var blockEl = $("#repliesBlock");
-            if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
-            bindEntryActions();
-            toast("已回复");
-          });
-        }).catch(function(e){
-          errToast(e);
-          sendBtn.disabled = false;
-          sendBtn.textContent = "发送";
-        });
-      }
+      openInlineReply(eid);
     });
   });
-  // --- "复制" action: copy entry content ---
-  $$("[data-entry-copy]", $("#repliesBlock")).forEach(function(btn){
+}
+function bindNeedsRevisionButtons(root){
+  $$("[data-entry-needs-revision]", root).forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var eid = btn.getAttribute("data-entry-needs-revision");
+      var drop = btn.closest(".entry-actions-drop"); if (drop) drop.classList.remove("open");
+      openInlineReply(eid, { prefill: "需要调整: ", isFeedback: true, placeholder: "写清楚要改什么" });
+    });
+  });
+}
+function bindCopyButtons(root){
+  $$("[data-entry-copy]", root).forEach(function(btn){
     btn.addEventListener("click", function(){
       var eid = btn.getAttribute("data-entry-copy");
       var drop = btn.closest(".entry-actions-drop"); if (drop) drop.classList.remove("open");
@@ -7101,7 +7105,7 @@ function bindDetail(my){
   });
 }
 function bindEntryActions(){
-  // re-bind entry actions after re-render (called from inline reply send)
+  // re-bind entry actions after re-render
   $$("[data-entry-menu]", $("#repliesBlock")).forEach(function(btn){
     btn.addEventListener("click", function(ev){
       ev.stopPropagation();
@@ -7112,100 +7116,13 @@ function bindEntryActions(){
       drop.classList.toggle("open");
     });
   });
-  $$("[data-entry-reply]", $("#repliesBlock")).forEach(function(btn){
-    btn.addEventListener("click", function(){
-      var eid = btn.getAttribute("data-entry-reply");
-      var drop = btn.closest(".entry-actions-drop"); if (drop) drop.classList.remove("open");
-      var entries = listData(cur.timeline.v);
-      var parent = null;
-      for (var i = 0; i < entries.length; i++) { if (entries[i].id === eid) { parent = entries[i]; break; } }
-      $$(".tl-reply-input", $("#repliesBlock")).forEach(function(el){ el.remove(); });
-      var reportEl = document.querySelector('[data-report-id="' + eid + '"]');
-      if (!reportEl) return;
-      var insertAfter = reportEl;
-      var next = reportEl.nextElementSibling;
-      if (next && next.classList.contains("tl-reply")) insertAfter = next;
-      var quoteText = "";
-      if (parent && parent.content) {
-        quoteText = parent.content.split("\n")[0];
-        if (quoteText.length > 60) quoteText = quoteText.substring(0, 60) + "...";
-      }
-      var replyBox = document.createElement("div");
-      replyBox.className = "tl-reply-input";
-      replyBox.innerHTML = (quoteText ? '<div class="tl-reply-quote">' + esc(uname(parent.user_id)) + ': ' + esc(quoteText) + '</div>' : '')
-        + '<div class="tl-reply-row">'
-        + '<textarea class="tl-reply-ta" rows="1" placeholder="回复..."></textarea>'
-        + '<button class="tl-reply-send" type="button">发送</button>'
-        + '<button class="tl-reply-cancel" type="button">取消</button>'
-        + '</div>';
-      insertAfter.parentNode.insertBefore(replyBox, insertAfter.nextSibling);
-      var rta = replyBox.querySelector(".tl-reply-ta");
-      rta.focus();
-      rta.addEventListener("input", function(){ rta.style.height = "auto"; rta.style.height = Math.min(rta.scrollHeight, 100) + "px"; });
-      rta.addEventListener("keydown", function(e){ if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); doReply(); } });
-      replyBox.querySelector(".tl-reply-cancel").addEventListener("click", function(){ replyBox.remove(); });
-      replyBox.querySelector(".tl-reply-send").addEventListener("click", doReply);
-      function doReply(){
-        var text = rta.value.trim();
-        if (!text) { toast("写点什么再发"); rta.focus(); return; }
-        var sendBtn = replyBox.querySelector(".tl-reply-send");
-        sendBtn.disabled = true; sendBtn.textContent = "发送中...";
-        var matterId = cur.id;
-        api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: text, parent_entry_id: eid } }).then(function(){
-          replyBox.remove();
-          return api("/matters/" + matterId + "/timeline", { params: { limit: 100 } }).then(function(json){
-            if (!cur || cur.id !== matterId) return;
-            cur.timeline = { ok: true, v: json };
-            var blockEl = $("#repliesBlock");
-            if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
-            bindEntryActions();
-            toast("已回复");
-          });
-        }).catch(function(e){
-          errToast(e);
-          sendBtn.disabled = false;
-          sendBtn.textContent = "发送";
-        });
-      }
-    });
-  });
-  $$("[data-entry-copy]", $("#repliesBlock")).forEach(function(btn){
-    btn.addEventListener("click", function(){
-      var eid = btn.getAttribute("data-entry-copy");
-      var drop = btn.closest(".entry-actions-drop"); if (drop) drop.classList.remove("open");
-      var entries = listData(cur.timeline.v);
-      var entry = null;
-      for (var i = 0; i < entries.length; i++) { if (entries[i].id === eid) { entry = entries[i]; break; } }
-      if (entry && entry.content) {
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(entry.content).then(function(){ toast("已复制"); }).catch(function(){ toast("复制失败"); });
-        } else {
-          toast("浏览器不支持复制");
-        }
-      }
-    });
-  });
+  bindReplyButtons($("#repliesBlock"));
+  bindNeedsRevisionButtons($("#repliesBlock"));
+  bindCopyButtons($("#repliesBlock"));
   // re-bind review actions after re-render
   $$("[data-review-accept]", $("#repliesBlock")).forEach(function(btn){
     btn.addEventListener("click", function(){
       showSatisfactionPanel(btn);
-    });
-  });
-  $$("[data-review-feedback]", $("#repliesBlock")).forEach(function(btn){
-    btn.addEventListener("click", function(){
-      var ta = $("#composerInput");
-      if (!ta) return;
-      if (!ta.value.trim()){
-        var who = (cur && cur.m && (cur.m.leader || cur.m.assignees[0])) || "";
-        ta.value = "需要调整: " + (who ? ("@" + uname(who) + " ") : "");
-        ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
-        ta.focus();
-        try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
-      } else {
-        ta.focus();
-      }
-      ta.placeholder = "写清楚要改什么,发送后会退回修改";
-      toast("继续补充修改内容", { icon: "" });
     });
   });
 }
@@ -9567,8 +9484,8 @@ var annotSnap = null;
 var annotFabRaf = 0;
 function positionAnnotFab(){
   var fab = $("#annotFab");
-  var box = $("#annotBox");
-  if (box.classList.contains("show")) return;
+  // If an inline reply is already open, don't reposition fab
+  if ($$(".tl-reply-input", $("#repliesBlock")).length) return;
   var sel = window.getSelection();
   var txt = sel ? String(sel).trim() : "";
   if (!sel || sel.rangeCount === 0 || sel.isCollapsed || txt.length < 2){
@@ -9588,74 +9505,17 @@ function positionAnnotFab(){
   fab.style.top = (r.top - 40 < 54 ? r.bottom + 8 : r.top - 40) + "px";
   fab.classList.add("show");
 }
-function hideAnnotBox(){
-  $("#annotBox").classList.remove("show");
-  $("#annotBox").classList.remove("docked");
-}
 function hideAnnotAll(){
   $("#annotFab").classList.remove("show");
-  hideAnnotBox();
   annotSel = null;
 }
 function openAnnotBox(){
   var snap = annotSnap || annotSel;
   annotSnap = null;
   if (!snap || !cur) return;
-  var fab = $("#annotFab");
-  var box = $("#annotBox");
-  fab.classList.remove("show");
-  $("#annotQuote").textContent = "“" + snap.snippet + "”";
-  $("#annotInput").value = "";
-  box.setAttribute("data-entry", snap.entryId);
-  box.setAttribute("data-snippet", snap.snippet);
-  box.classList.add("show");
-  if (window.matchMedia("(max-width: 480px)").matches){
-    box.classList.add("docked");
-    box.style.top = "";
-    box.style.left = "";
-  } else {
-    var fr = fab.getBoundingClientRect();
-    var top = parseFloat(fab.style.top) || fr.top || 100;
-    var left = parseFloat(fab.style.left) || fr.left || 100;
-    box.style.top = Math.min(top + 4, window.innerHeight - 230) + "px";
-    box.style.left = Math.max(8, Math.min(left, window.innerWidth - 376)) + "px";
-  }
-  setTimeout(function(){ $("#annotInput").focus(); }, 30);
-}
-function sendAnnotation(){
-  var box = $("#annotBox");
-  var input = $("#annotInput");
-  var content = input.value.trim();
-  if (!content){ toast("写一句怎么改再发送", { icon: "" }); input.focus(); return; }
-  if (!cur) return;
-  var entryId = box.getAttribute("data-entry");
-  var snippet = box.getAttribute("data-snippet") || "";
-  var btn = $("#annotSend");
-  btn.disabled = true;
-  var body = { content: content, anchor: { snippet: snippet } };
-  if (entryId) body.entry_id = entryId;
-  var matterId = cur.id;
-  var tlContent = snippet ? ("批注: \"" + snippet.slice(0, 60) + (snippet.length > 60 ? "..." : "") + "\"\n\n" + content) : content;
-  api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: tlContent } }).then(function(){
-    return api("/matters/" + matterId + "/feedback", { method: "POST", body: body });
-  }).then(function(resp){
-    hideAnnotAll();
-    var flipped = resp && resp.matter_status === "in_progress";
-    toast(flipped ? "已批注 — 已退回修改" : "已批注", { icon: "" });
-    if (!cur || cur.id !== matterId) return;
-    var sc = $("#detailScroll");
-    var scrollPos = sc ? sc.scrollTop : 0;
-    return api("/matters/" + matterId + "/timeline", { params: { limit: 100 } }).then(function(json){
-      if (!cur || cur.id !== matterId) return;
-      cur.timeline = { ok: true, v: json };
-      var blockEl = $("#repliesBlock");
-      if (blockEl) blockEl.outerHTML = timelineBlockHTML(cur.m);
-      bindEntryActions();
-      if (sc) sc.scrollTop = scrollPos;
-    });
-  }).catch(function(e){
-    errToast(e);
-  }).then(function(){ btn.disabled = false; });
+  $("#annotFab").classList.remove("show");
+  window.getSelection().removeAllRanges();
+  openInlineReply(snap.entryId, { snippet: snap.snippet, isFeedback: true });
 }
 
 /* ================= modal helpers ================= */
@@ -9836,12 +9696,6 @@ function bindGlobal(){
   var fab = $("#annotFab");
   fab.addEventListener("pointerdown", function(e){ e.preventDefault(); annotSnap = annotSel; });
   fab.addEventListener("click", openAnnotBox);
-  $("#annotSend").addEventListener("click", sendAnnotation);
-  $("#annotCancel").addEventListener("click", hideAnnotAll);
-  $("#annotInput").addEventListener("keydown", function(e){
-    if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendAnnotation(); }
-    if (e.key === "Escape"){ e.stopPropagation(); hideAnnotBox(); }
-  });
   // ? → 键盘帮助(输入态不抢)
   document.addEventListener("keydown", function(e){
     if (e.key !== "?") return;
@@ -9849,13 +9703,6 @@ function bindGlobal(){
     if (a && (["INPUT", "TEXTAREA", "SELECT"].indexOf(a.tagName) >= 0 || a.isContentEditable)) return;
     e.preventDefault();
     openKeysHelp();
-  });
-  document.addEventListener("pointerdown", function(e){
-    var box = $("#annotBox");
-    if (!box.classList.contains("show")) return;
-    var t = e.target instanceof Element ? e.target : null;
-    if (t && (box.contains(t) || t.closest("#annotFab"))) return;
-    hideAnnotBox();
   });
   // modal scrim
   $("#modalScrim").addEventListener("click", function(e){
