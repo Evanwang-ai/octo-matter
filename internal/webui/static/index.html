@@ -7250,7 +7250,7 @@ function preferencePanelHTML(){
     + (row && row.status === "draft" && canManagePrefs
       ? '<div style="display:flex;gap:8px;margin-top:8px"><button class="pref-act" id="prefAuthBtn" type="button" style="color:var(--done)">授权</button><button class="pref-act pref-act-warn" id="prefDiscardBtn" type="button">弃用</button></div>'
       : "")
-    + (canOpen ? '<button class="pref-open" id="prefPanelOpen" type="button">' + (row ? "查看 Preference" : "提炼 Preference") + "</button>" : "")
+    + (canOpen ? '<button class="pref-open" id="prefPanelOpen" type="button">' + (row ? "查看 Preference" : "通知 Agent 提炼") + "</button>" : "")
     + (canManagePrefs && !(row && row.status === "draft") ? '<button class="pref-open" id="prefManageOpen" type="button" data-pref-bot="' + esc(manageTarget) + '">管理</button>' : "")
     + manageNote
     + "</div>"
@@ -7724,12 +7724,10 @@ function doStatusChange(target, opts){
     if (field) field.classList.add("pending");
     var body = { status: target, expected_version: m.version };
     if (reason) body.reason = reason;
-    var wantSummary = target === "done" && isMe(m.creator_id);
+
     api("/matters/" + m.id + "/status", { method: "PUT", body: body }).then(function(){
       toast("改到「" + stName(target) + "」了");
-      return render().then(function(){
-        if (wantSummary) openSummaryFlow(m.id);
-      });
+      return render();
     }).catch(function(e){
       if (e.status === 409){
         toast("被人改过了,已刷新", { err: true, title: e.code || "" });
@@ -8195,39 +8193,21 @@ function openSummaryFlow(matterId){
   var mo = $("#modal");
   mo.className = "modal";
   var who = summaryLeaderName(matterId);
-  mo.innerHTML = prefHeadHTML(who ? who + " · 提炼中…" : "提炼中…")
-    + '<div class="modal-body"><div class="ap-loading">把这单里的验收、圈点和反馈交给 AI 提炼…</div></div>'
-    + '<div class="modal-foot"><button class="ff-cancel" id="smClose" type="button">关闭</button></div>';
-  openModal();
-  $("#mx").onclick = closeModal;
-  $("#smClose").onclick = closeModal;
-  var fail = function(e){
-    if (!$("#modalScrim").classList.contains("open")) return;
-    var inner;
-    if (e && (e.status === 503 || e.code === "LLM_NOT_CONFIGURED")){
-      // 诚实呈现:LLM 没配就是提炼不了,不给手写假草稿的旁路
-      inner = '<div class="llm-warn"><span>⚠</span><span>LLM 未配置(LLM_API_KEY 为空),无法自动提炼</span></div>';
-    } else {
-      inner = '<div class="matter-error" style="min-height:0">' + esc((e && e.message) || "提炼失败") + "</div>";
-    }
-    mo.innerHTML = prefHeadHTML(who || "") + '<div class="modal-body">' + inner + "</div>"
-      + '<div class="modal-foot"><button class="ff-cancel" id="smClose" type="button">关闭</button></div>';
-    $("#mx").onclick = closeModal;
-    $("#smClose").onclick = closeModal;
-  };
-  // 先看有没有已有记录:草稿直接进编辑;已授权给只读视图;否则才请求生成
+  // Check for existing drafts/authorized first
   settle(api("/matters/" + matterId + "/summary")).then(function(got){
-    if (!$("#modalScrim").classList.contains("open")) return;
     var row = got.ok ? summaryRow(got.v) : null;
-    if (row && row.status === "draft"){ summaryEditStep(matterId, row); return; }
-    if (row && row.status === "authorized"){ summaryWrittenView(matterId, row); return; }
-    if (row && row.status === "discarded"){ summaryDiscardedView(matterId, row); return; }
-    api("/matters/" + matterId + "/summary", { method: "POST" }).then(function(json){
-      if (!$("#modalScrim").classList.contains("open")) return;
-      var fresh = summaryRow(json);
-      if (!fresh){ fail(apiError(0, "", "服务端没有返回草稿")); return; }
-      summaryEditStep(matterId, fresh);
-    }).catch(fail);
+    if (row && row.status === "draft"){ openModal(); mo.innerHTML = prefHeadHTML(who || ""); summaryEditStep(matterId, row); return; }
+    if (row && row.status === "authorized"){ openModal(); mo.innerHTML = prefHeadHTML(who || ""); summaryWrittenView(matterId, row); return; }
+    if (row && row.status === "discarded"){ openModal(); mo.innerHTML = prefHeadHTML(who || ""); summaryDiscardedView(matterId, row); return; }
+    // No existing record — notify the Bot to distill (路径 B: Bot 自蒸馏)
+    var leader = cur && cur.m && cur.m.leader;
+    if (!leader || !leader.endsWith("_bot")){
+      toast("领队不是 Agent，无法自动提炼"); return;
+    }
+    // Send reflect doorbell to the bot by posting a feedback that signals distillation
+    api("/matters/" + matterId + "/feedback", { method: "POST", body: { content: "请提炼这单的 Preference（系统触发）" } }).then(function(){
+      toast("已通知 " + uname(leader) + " 提炼 Preference");
+    }).catch(function(e){ errToast(e); });
   });
 }
 function prefFileCardHTML(matterId, row, botName){
