@@ -7691,9 +7691,22 @@ function showSatisfactionModal(){
     $("#satSubmit").textContent = "记录中...";
     var matterId = cur.id;
     var feedbackContent = "满意反馈: " + text;
+    // Write timeline first, then transition to done, then write feedback AFTER done.
+    // Feedback on review-state matters triggers review→in_progress flip, so must be after done.
     api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: feedbackContent } })
-      .then(function(){ return api("/matters/" + matterId + "/feedback", { method: "POST", body: { content: feedbackContent } }); })
-      .then(function(){ finishDone(); })
+      .then(function(){
+        var body = { status: "done", expected_version: cur.m.version };
+        return api("/matters/" + matterId + "/status", { method: "PUT", body: body });
+      })
+      .then(function(){
+        // Now matter is done — feedback won't flip status
+        return api("/matters/" + matterId + "/feedback", { method: "POST", body: { content: feedbackContent } }).catch(function(){});
+      })
+      .then(function(){
+        closeModal();
+        toast("已完成");
+        render();
+      })
       .catch(function(e){
         errToast(e);
         $("#satSkip").disabled = false;
