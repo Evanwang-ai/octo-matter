@@ -4738,10 +4738,10 @@ function paintCardRow(c){
   var srcLink = matterId ? '<a href="#/matter/' + esc(matterId) + '" class="pref-src" onclick="event.stopPropagation()">来源</a>' : '';
   var actions = '';
   if (c.status === "draft"){
-    actions = '<button class="pref-act" data-auth="' + esc(c.id) + '" onclick="event.stopPropagation()" title="确认">确认</button>'
-      + '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" onclick="event.stopPropagation()" title="弃用">弃用</button>';
+    actions = '<button class="pref-act" data-auth="' + esc(c.id) + '" title="确认">确认</button>'
+      + '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" title="弃用">弃用</button>';
   } else if (c.status === "authorized" || c.status === "hit"){
-    actions = '<button class="pref-act pref-act-warn" data-suspend="' + esc(c.id) + '" onclick="event.stopPropagation()" title="停用">停用</button>';
+    actions = '<button class="pref-act pref-act-warn" data-suspend="' + esc(c.id) + '" title="停用">停用</button>';
   }
   return '<div class="pref-row" data-card-id="' + esc(c.id) + '" role="button" tabindex="0">'
     + '<div class="pref-main">'
@@ -8291,10 +8291,13 @@ function importStrayDistillEntry(){
       agent_uid: selBot,
       evidence: seqLabel(m) + " timeline — " + uname(entry.user_id)
     };
-    api("/preference-cards", { method: "POST", body: body }).then(function(){
+    api("/preference-cards", { method: "POST", body: body }).then(function(card){
       closeModal();
-      toast("蒸馏结果已导入为 Preference Card", { icon: "" });
-      render();
+      toast("蒸馏结果已导入为 Preference Card");
+      // Update cur.summary so the preference panel shows the imported card
+      cur.summary = { id: card.id, status: "authorized", content: body.content, target_bot_uid: selBot, scope_type: body.scope || "project" };
+      paintInspector();
+      fetchIterations(matterId);
     }).catch(function(e){
       btn.disabled = false; btn.textContent = "导入并授权";
       $("#strayErr").textContent = e.message || "导入失败";
