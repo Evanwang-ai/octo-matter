@@ -271,9 +271,9 @@ octo-cli api GET /api/v1/agents/stats --params '{"uids":"<你的uid>"}'   # 经�
 matter 进入 done 或被打回后,如果 timeline 里有**人的反馈信号**
 (圈一笔/打回理由/追问/修正),就蒸馏。没有人的反馈就不蒸馏。
 
-### 蒸馏后提交
+### 蒸馏后提交（重要：必须用 POST /summary）
 
-用 `SubmitSummaryDraft`(POST body 带 content):
+蒸馏结果**必须**通过 `SubmitSummaryDraft` API 提交:
 
 ```bash
 octo-cli api POST /api/v1/matters/<id>/summary \
@@ -281,6 +281,17 @@ octo-cli api POST /api/v1/matters/<id>/summary \
 ```
 
 提交后人会收到门铃,审核并授权。你不需要服务端 LLM key——用你自己的能力蒸馏。
+
+### 禁止：不要把蒸馏结果写到 timeline
+
+**严禁**把蒸馏结果写到 timeline 或 @ 回复里。
+
+- timeline 是对话记录,不是 Preference 存储。
+- 写到 timeline 的蒸馏结果不会出现在 Preference 面板,人看不到也无法授权。
+- 只有通过 `POST /summary` 提交的草案,才会进入 Preference 审核流程。
+
+正确: `octo-cli api POST /api/v1/matters/<id>/summary --data '{"content":"..."}'`
+错误: `octo-cli api POST /api/v1/matters/<id>/timeline --data '{"content":"已沉淀 P-..."}'`
 
 ### 蒸馏质量四原则
 

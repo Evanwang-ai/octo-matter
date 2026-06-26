@@ -7210,11 +7210,25 @@ function actTagCls(a){
     || a.action === "assignee_added" || a.action === "reassigned") return "h2a";
   return "sys";
 }
+function findStrayDistillEntry(){
+  if (!cur || !cur.timeline || !cur.timeline.ok) return null;
+  var entries = listData(cur.timeline.v);
+  for (var i = entries.length - 1; i >= 0; i--){
+    var e = entries[i];
+    if (e.user_id && isBot(e.user_id) && e.content &&
+        (e.content.indexOf("已沉淀") >= 0 || e.content.indexOf("[candidate]") >= 0 ||
+         /P-(?:new|\d+)/i.test(e.content))){
+      return e;
+    }
+  }
+  return null;
+}
 function preferencePanelHTML(){
   var m = cur.m;
   var row = cur.summary;
   var hints = (cur.prefHints && cur.prefHints.ok) ? listData(cur.prefHints.v) : [];
-  if (!row && !hints.length && (!isMe(m.creator_id) || m.status !== "done")) return "";
+  var strayEntry = !row ? findStrayDistillEntry() : null;
+  if (!row && !hints.length && !strayEntry && (!isMe(m.creator_id) || m.status !== "done")) return "";
   var status = row && row.status ? row.status : (hints.length ? "hint" : "empty");
   var title, sub, preview = "";
   if (!row){
@@ -7253,6 +7267,7 @@ function preferencePanelHTML(){
       ? '<div style="display:flex;gap:8px;margin-top:8px"><button class="pref-act" id="prefAuthBtn" type="button" style="color:var(--done)">授权</button><button class="pref-act pref-act-warn" id="prefDiscardBtn" type="button">弃用</button></div>'
       : "")
     + (canOpen ? '<button class="pref-open" id="prefPanelOpen" type="button">' + (row ? "查看 Preference" : "通知 Agent 提炼") + "</button>" : "")
+    + (!row && strayEntry ? '<button class="pref-open" id="prefImportStray" type="button" style="border-color:var(--amber-border);color:var(--amber)">发现蒸馏结果,点击导入</button>' : "")
     + (canManagePrefs && !(row && row.status === "draft") ? '<button class="pref-open" id="prefManageOpen" type="button" data-pref-bot="' + esc(manageTarget) + '">管理</button>' : "")
     + manageNote
     + "</div>"
@@ -7594,6 +7609,8 @@ function bindInspector(){
   });
   var prefOpen = $("#prefPanelOpen");
   if (prefOpen) prefOpen.addEventListener("click", function(){ openSummaryFlow(cur.id); });
+  var prefImport = $("#prefImportStray");
+  if (prefImport) prefImport.addEventListener("click", function(){ importStrayDistillEntry(); });
   var prefManage = $("#prefManageOpen");
   if (prefManage) prefManage.addEventListener("click", function(){
     openPreferenceManager(prefManage.getAttribute("data-pref-bot") || "");
@@ -8210,6 +8227,79 @@ function matterOwnedBots(matterId){
   if (m.leader) add(m.leader);
   (m.assignees || []).forEach(add);
   return candidates;
+}
+function importStrayDistillEntry(){
+  var entry = findStrayDistillEntry();
+  if (!entry){ toast("没有找到 Agent 蒸馏结果"); return; }
+  var matterId = cur.id;
+  var m = cur.m;
+  var ob = ownedBotInfo();
+  var bots = members.list.filter(function(it){ return it && it.uid && it.robot; });
+  if (ob.known) bots = bots.filter(function(it){ return ob.owned[it.uid]; });
+  var selBot = entry.user_id || "";
+  if (!selBot && m && m.leader && isBot(m.leader)) selBot = m.leader;
+  if (!selBot && bots.length) selBot = bots[0].uid;
+  var botRows = bots.length
+    ? '<div class="pref-who" id="strayWho">' + bots.map(function(b){
+        return '<div class="pref-bot' + (b.uid === selBot ? " sel" : "") + '" data-bot="' + esc(b.uid) + '" role="radio" aria-checked="' + (b.uid === selBot) + '" tabindex="0">'
+          + '<span class="pb-radio"></span>' + av(b.uid) + '<span class="nm">' + esc(b.name || b.uid) + '</span><span class="ai-tag">AI</span>'
+          + (ob.known && ob.owned[b.uid] ? '<span class="ac-tag" style="margin-left:auto">你创建的</span>' : "")
+          + "</div>";
+      }).join("") + "</div>"
+    : '';
+  var mo = $("#modal");
+  mo.className = "modal";
+  mo.innerHTML = prefHeadHTML("从 Timeline 导入蒸馏结果")
+    + '<div class="modal-body">'
+    + '<div style="font-size:12.5px;color:var(--amber);margin-bottom:10px;line-height:1.5">Agent 把蒸馏结果写到了 Timeline 而不是 POST /summary,下面是检测到的内容:</div>'
+    + '<div class="pref-label">行为规则<span class="pref-count">' + draftCount(entry.content) + " 条</span></div>"
+    + '<textarea class="smart-draft" id="strayDraft" style="min-height:120px;margin-bottom:12px">' + esc(entry.content || "") + "</textarea>"
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
+    + '<div><div class="pref-label">写给</div>' + botRows + '</div>'
+    + '<div><div class="pref-label">适用范围</div>' + prefScopeSelectHTML(m, null) + '</div>'
+    + '</div>'
+    + '<div class="matter-error" id="strayErr"></div>'
+    + "</div>"
+    + '<div class="modal-foot">'
+    + '<button class="ff-cancel" id="strayCancel" type="button">取消</button>'
+    + '<button class="ff-save" id="strayAuth" type="button"' + (bots.length ? "" : " disabled") + '>导入并授权</button></div>';
+  openModal();
+  var x = $(".modal-x", mo);
+  if (x) x.onclick = closeModal;
+  $("#strayCancel").onclick = closeModal;
+  $$(".pref-bot", mo).forEach(function(el){
+    el.addEventListener("click", function(){
+      selBot = el.getAttribute("data-bot");
+      $$(".pref-bot", mo).forEach(function(o){
+        var on = o === el;
+        o.classList.toggle("sel", on);
+        o.setAttribute("aria-checked", String(on));
+      });
+    });
+  });
+  $("#strayAuth").onclick = function(){
+    var content = ($("#strayDraft").value || "").trim();
+    if (!content){ $("#strayErr").textContent = "内容不能为空"; return; }
+    if (!selBot){ $("#strayErr").textContent = "得选一个写给谁"; return; }
+    var btn = $("#strayAuth");
+    btn.disabled = true; btn.textContent = "导入中…";
+    var scopeType = $("#prefScopeType") ? $("#prefScopeType").value : "matter";
+    var body = {
+      content: content,
+      scope: scopeType,
+      matter_id: matterId,
+      agent_uid: selBot,
+      evidence: seqLabel(m) + " timeline — " + uname(entry.user_id)
+    };
+    api("/preference-cards", { method: "POST", body: body }).then(function(){
+      closeModal();
+      toast("蒸馏结果已导入为 Preference Card", { icon: "" });
+      render();
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = "导入并授权";
+      $("#strayErr").textContent = e.message || "导入失败";
+    });
+  };
 }
 function openSummaryFlow(matterId){
   var mo = $("#modal");
