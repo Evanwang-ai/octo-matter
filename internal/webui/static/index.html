@@ -7233,7 +7233,9 @@ function preferencePanelHTML(){
     sub = prefScopeLabel(m.id, row);
     preview = prefPreview(row);
   }
-  var canOpen = isMe(m.creator_id) && (m.status === "done" || row);
+  var hasOwnedBots = matterOwnedBots(m.id).length > 0;
+  // canOpen: with existing row, creator can view; without row, only bot_creator who owns bots in this matter
+  var canOpen = row ? isMe(m.creator_id) : (m.status === "done" && hasOwnedBots);
   var hintTarget = (cur.prefHints && cur.prefHints.ok && cur.prefHints.v && cur.prefHints.v.target_bot_uid) || m.leader || "";
   var owned = ownedBotInfo();
   var canManageHints = !!(hintTarget && ((owned.owned && owned.owned[hintTarget]) || (!owned.known && isMe(m.creator_id))));
@@ -8189,6 +8191,26 @@ function summaryLeaderName(matterId){
   var m = (cur && cur.id === matterId) ? cur.m : null;
   return m ? uname(m.leader || m.creator_id || "") : "";
 }
+function matterOwnedBots(matterId){
+  var m = (cur && cur.id === matterId) ? cur.m : null;
+  if (!m) return [];
+  var ob = ownedBotInfo();
+  // Collect all bots involved: leader + assignees
+  var seen = {};
+  var candidates = [];
+  var add = function(uid){
+    if (!uid || seen[uid]) return;
+    seen[uid] = true;
+    if (!isBot(uid)) return;
+    // Permission: only bots the current user owns
+    if (ob.known && !ob.owned[uid]) return;
+    var mi = memberInfo(uid);
+    candidates.push({ uid: uid, name: (mi && mi.name) || uid });
+  };
+  if (m.leader) add(m.leader);
+  (m.assignees || []).forEach(add);
+  return candidates;
+}
 function openSummaryFlow(matterId){
   var mo = $("#modal");
   mo.className = "modal";
@@ -8199,16 +8221,92 @@ function openSummaryFlow(matterId){
     if (row && row.status === "draft"){ openModal(); mo.innerHTML = prefHeadHTML(who || ""); summaryEditStep(matterId, row); return; }
     if (row && row.status === "authorized"){ openModal(); mo.innerHTML = prefHeadHTML(who || ""); summaryWrittenView(matterId, row); return; }
     if (row && row.status === "discarded"){ openModal(); mo.innerHTML = prefHeadHTML(who || ""); summaryDiscardedView(matterId, row); return; }
-    // No existing record — notify the Bot to distill (路径 B: Bot 自蒸馏)
-    var leader = cur && cur.m && cur.m.leader;
-    if (!leader || !leader.endsWith("_bot")){
-      toast("领队不是 Agent，无法自动提炼"); return;
+    // No existing record — show bot selector for distillation trigger
+    var ownedBots = matterOwnedBots(matterId);
+    if (!ownedBots.length){
+      toast("你在这个事项里没有可提炼的 Agent"); return;
     }
-    // Send reflect doorbell to the bot by posting a feedback that signals distillation
-    api("/matters/" + matterId + "/feedback", { method: "POST", body: { content: "请提炼这单的 Preference（系统触发）" } }).then(function(){
-      toast("已通知 " + uname(leader) + " 提炼 Preference");
-    }).catch(function(e){ errToast(e); });
+    if (ownedBots.length === 1){
+      // Single owned bot: show confirmation modal
+      showDistillConfirm(matterId, ownedBots[0]);
+    } else {
+      // Multiple owned bots: show selector modal
+      showDistillSelector(matterId, ownedBots);
+    }
   });
+}
+function showDistillConfirm(matterId, bot){
+  var mo = $("#modal");
+  mo.innerHTML = prefHeadHTML("提炼 Preference")
+    + '<div class="modal-body" style="text-align:center;padding:24px 22px">'
+    + '<div style="font-size:14px;color:var(--text);margin-bottom:8px">通知 ' + esc(bot.name) + ' 提炼这单的偏好？</div>'
+    + '</div>'
+    + '<div class="modal-foot">'
+    + '<button class="ff-cancel" id="distillCancel" type="button">取消</button>'
+    + '<button class="ff-save" id="distillGo" type="button">通知提炼</button></div>';
+  openModal();
+  var x = $(".modal-x", mo);
+  if (x) x.onclick = closeModal;
+  $("#distillCancel").onclick = closeModal;
+  $("#distillGo").onclick = function(){
+    var btn = $("#distillGo");
+    btn.disabled = true; btn.textContent = "通知中…";
+    triggerDistill(matterId, bot.uid, bot.name);
+  };
+}
+function showDistillSelector(matterId, bots){
+  var mo = $("#modal");
+  var selBot = bots[0].uid;
+  var botRows = '<div class="pref-who" id="distillWho">' + bots.map(function(b){
+    return '<div class="pref-bot' + (b.uid === selBot ? " sel" : "") + '" data-bot="' + esc(b.uid) + '" role="radio" aria-checked="' + (b.uid === selBot) + '" tabindex="0">'
+      + '<span class="pb-radio"></span>' + av(b.uid) + '<span class="nm">' + esc(b.name) + '</span><span class="ai-tag">AI</span>'
+      + '<span class="ac-tag" style="margin-left:auto">你的 bot</span>'
+      + "</div>";
+  }).join("") + "</div>";
+  mo.innerHTML = prefHeadHTML("提炼 Preference")
+    + '<div class="modal-body">'
+    + '<div style="font-size:13px;color:var(--text-2);margin-bottom:12px">选择要提炼的 Agent：</div>'
+    + botRows
+    + '</div>'
+    + '<div class="modal-foot">'
+    + '<button class="ff-cancel" id="distillCancel" type="button">取消</button>'
+    + '<button class="ff-save" id="distillGo" type="button">通知提炼</button></div>';
+  openModal();
+  var x = $(".modal-x", mo);
+  if (x) x.onclick = closeModal;
+  $("#distillCancel").onclick = closeModal;
+  // Wire up radio selection
+  $$(".pref-bot", mo).forEach(function(el){
+    el.addEventListener("click", function(){
+      selBot = el.getAttribute("data-bot");
+      $$(".pref-bot", mo).forEach(function(o){
+        var isSel = o.getAttribute("data-bot") === selBot;
+        o.classList.toggle("sel", isSel);
+        o.setAttribute("aria-checked", isSel);
+      });
+    });
+  });
+  $("#distillGo").onclick = function(){
+    var btn = $("#distillGo");
+    btn.disabled = true; btn.textContent = "通知中…";
+    var chosen = bots.filter(function(b){ return b.uid === selBot; })[0] || bots[0];
+    triggerDistill(matterId, chosen.uid, chosen.name);
+  };
+}
+function triggerDistill(matterId, botUid, botName){
+  var content = "@" + (botName || botUid) + " 请按 SKILL.md §8 提炼这单的 Preference";
+  api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: content } })
+    .then(function(){
+      return api("/matters/" + matterId + "/feedback", { method: "POST", body: { content: content, target_uid: botUid } });
+    })
+    .then(function(){
+      closeModal();
+      toast("已通知 " + (botName || botUid) + " 提炼 Preference");
+    })
+    .catch(function(e){
+      closeModal();
+      errToast(e);
+    });
 }
 function prefFileCardHTML(matterId, row, botName){
   var m = (cur && cur.id === matterId) ? cur.m : null;
