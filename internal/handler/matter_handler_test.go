@@ -75,6 +75,91 @@ func TestMatterListLimitAllowsMyMattersBoardWindow(t *testing.T) {
 	}
 }
 
+func TestMatterListRepeatedStatusIgnoresEmptyValues(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []struct {
+		target       string
+		wantStatus   string
+		wantStatuses []string
+		wantOK       bool
+	}{
+		{"/api/v1/matters?status=&status=review", "review", nil, true},
+		{"/api/v1/matters?status=&status=review&status=done", "", []string{"review", "done"}, true},
+		{"/api/v1/matters?status=review&status=review&status=", "review", nil, true},
+		{"/api/v1/matters?status=&status=closed", "", nil, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.target, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, tc.target, nil)
+
+			gotStatus, gotStatuses, ok := parseMatterStatusQuery(c)
+			if ok != tc.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tc.wantOK)
+			}
+			if !tc.wantOK {
+				return
+			}
+			if tc.wantStatus == "" {
+				if gotStatus != nil {
+					t.Fatalf("single status = %q, want nil", *gotStatus)
+				}
+			} else if gotStatus == nil || *gotStatus != tc.wantStatus {
+				t.Fatalf("single status = %v, want %q", gotStatus, tc.wantStatus)
+			}
+			if !sameStrings(gotStatuses, tc.wantStatuses) {
+				t.Fatalf("statuses = %v, want %v", gotStatuses, tc.wantStatuses)
+			}
+		})
+	}
+}
+
+func TestMatterListRepeatedLeaderIgnoresEmptyValuesAndMapsMe(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []struct {
+		target        string
+		wantLeaderID  string
+		wantLeaderIDs []string
+	}{
+		{"/api/v1/matters?leader_id=&leader_id=bot-1", "bot-1", nil},
+		{"/api/v1/matters?leader_id=&leader_id=me", "user-1", nil},
+		{"/api/v1/matters?leader_id=&leader_id=me&leader_id=bot-2", "", []string{"user-1", "bot-2"}},
+		{"/api/v1/matters?leader_id=bot-1&leader_id=bot-1&leader_id=", "bot-1", nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.target, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, tc.target, nil)
+
+			gotLeaderID, gotLeaderIDs := parseMatterLeaderQuery(c, "user-1")
+			if tc.wantLeaderID == "" {
+				if gotLeaderID != nil {
+					t.Fatalf("single leader_id = %q, want nil", *gotLeaderID)
+				}
+			} else if gotLeaderID == nil || *gotLeaderID != tc.wantLeaderID {
+				t.Fatalf("single leader_id = %v, want %q", gotLeaderID, tc.wantLeaderID)
+			}
+			if !sameStrings(gotLeaderIDs, tc.wantLeaderIDs) {
+				t.Fatalf("leader_ids = %v, want %v", gotLeaderIDs, tc.wantLeaderIDs)
+			}
+		})
+	}
+}
+
+func sameStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // TestCreateMatterReq_BindsSourceMsgIDs guards the manual-create path: clients
 // pass the LLM-filtered source_msgs alongside source_channel_id when re-issuing
 // a matter creation request. The DTO must surface the field so the handler can

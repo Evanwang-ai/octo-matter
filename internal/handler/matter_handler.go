@@ -274,7 +274,6 @@ func (h *MatterHandler) Create(c *gin.Context) {
 func (h *MatterHandler) List(c *gin.Context) {
 	limit := matterListLimit(c)
 	cursor := c.Query("cursor")
-	status := c.Query("status")
 	assigneeID := c.Query("assignee_id")
 	creatorID := c.Query("creator_id")
 	participantID := c.Query("participant_id")
@@ -291,21 +290,15 @@ func (h *MatterHandler) List(c *gin.Context) {
 	if cursor != "" {
 		filter.Cursor = &cursor
 	}
-	statuses := nonemptyQueryArray(c, "status")
-	if len(statuses) > 1 {
-		for _, st := range statuses {
-			if !model.IsValidStatus(model.MatterStatus(st)) {
-				failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyStatusInvalid, nil)
-				return
-			}
-		}
+	status, statuses, okStatus := parseMatterStatusQuery(c)
+	if !okStatus {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyStatusInvalid, nil)
+		return
+	}
+	if len(statuses) > 0 {
 		filter.Statuses = statuses
-	} else if status != "" {
-		if !model.IsValidStatus(model.MatterStatus(status)) {
-			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyStatusInvalid, nil)
-			return
-		}
-		filter.Status = &status
+	} else if status != nil {
+		filter.Status = status
 	}
 	if assigneeID != "" {
 		if assigneeID == "me" {
@@ -343,19 +336,11 @@ func (h *MatterHandler) List(c *gin.Context) {
 		}
 		filter.SeqNo = &n
 	}
-	leaderIDs := nonemptyQueryArray(c, "leader_id")
-	if len(leaderIDs) > 1 {
-		for i := range leaderIDs {
-			if leaderIDs[i] == "me" {
-				leaderIDs[i] = uid(c)
-			}
-		}
+	leaderID, leaderIDs := parseMatterLeaderQuery(c, uid(c))
+	if len(leaderIDs) > 0 {
 		filter.LeaderIDs = leaderIDs
-	} else if leaderID := c.Query("leader_id"); leaderID != "" {
-		if leaderID == "me" {
-			leaderID = uid(c)
-		}
-		filter.LeaderID = &leaderID
+	} else if leaderID != nil {
+		filter.LeaderID = leaderID
 	}
 	if parentID := c.Query("parent_id"); parentID != "" {
 		if !validUUID(parentID) {
@@ -438,6 +423,40 @@ func matterListLimit(c *gin.Context) int {
 		return maxMatterListLimit
 	}
 	return limit
+}
+
+func parseMatterStatusQuery(c *gin.Context) (*string, []string, bool) {
+	statuses := nonemptyQueryArray(c, "status")
+	if len(statuses) == 0 {
+		return nil, nil, true
+	}
+	for _, st := range statuses {
+		if !model.IsValidStatus(model.MatterStatus(st)) {
+			return nil, nil, false
+		}
+	}
+	if len(statuses) > 1 {
+		return nil, statuses, true
+	}
+	status := statuses[0]
+	return &status, nil, true
+}
+
+func parseMatterLeaderQuery(c *gin.Context, callerUID string) (*string, []string) {
+	leaderIDs := nonemptyQueryArray(c, "leader_id")
+	if len(leaderIDs) == 0 {
+		return nil, nil
+	}
+	for i := range leaderIDs {
+		if leaderIDs[i] == "me" {
+			leaderIDs[i] = callerUID
+		}
+	}
+	if len(leaderIDs) > 1 {
+		return nil, leaderIDs
+	}
+	leaderID := leaderIDs[0]
+	return &leaderID, nil
 }
 
 func nonemptyQueryArray(c *gin.Context, key string) []string {
