@@ -435,6 +435,15 @@ Local verification:
   `Code/octo-deployment`, `research/`); override `DEPLOY_DIR=...` or
   `OUT_DIR=...` when running elsewhere. Use `KEEP_FIXTURES=1` only when
   intentionally preserving a failing fixture for inspection.
+- `RUN_LABEL=local node scripts/v2-mailbox-mymatters-smoke.mjs` runs the live
+  Mailbox / My Matters UI smoke: it creates a temporary Matter, verifies
+  `#/matters`, `#/matters/board`, `#/mailbox`, and legacy hashes
+  `#/board`, `#/review-me`, `#/archived` on desktop and mobile, saves
+  screenshots, then deletes the Matter fixture. If `NOTIFY_INTERNAL_TOKEN` (or
+  legacy `OCTO_NOTIFY_INTERNAL_TOKEN`) is configured, it also pushes a temporary
+  system letter through `/internal/mailbox/system-letter` and verifies the
+  Mailbox UI renders it. Set `REQUIRE_MAILBOX_FIXTURE=1` when that system-letter
+  path must be present rather than reported as skipped.
 
 ## 2026-06-12 打磨期新增面(均已活体验证)
 
