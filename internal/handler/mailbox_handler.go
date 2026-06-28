@@ -82,7 +82,7 @@ func (h *MailboxHandler) Get(c *gin.Context) {
 }
 
 type mailboxUpdateReq struct {
-	Action string `json:"action"`
+	Action string `json:"action" binding:"required,oneof=mark_read archive"`
 }
 
 func (h *MailboxHandler) Update(c *gin.Context) {

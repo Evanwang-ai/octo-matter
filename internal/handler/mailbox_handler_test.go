@@ -74,6 +74,40 @@ func TestMailboxListRejectsInvalidDirection(t *testing.T) {
 	}
 }
 
+func TestMailboxUpdateRejectsInvalidAction(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []struct {
+		name string
+		body string
+	}{
+		{name: "missing action", body: `{}`},
+		{name: "bad action", body: `{"action":"restore"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := gin.New()
+			h := NewMailboxHandler(nil)
+			authMW := func(c *gin.Context) {
+				c.Set("uid", "user-1")
+				c.Set("role", "user")
+				c.Next()
+			}
+			mailbox := r.Group("/api/v1/mailbox")
+			mailbox.Use(authMW, userOnlyMailbox())
+			mailbox.PATCH("/letters/:id", h.Update)
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPatch, "/api/v1/mailbox/letters/letter-1", bytes.NewReader([]byte(tc.body)))
+			req.Header.Set("Content-Type", "application/json")
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("expected invalid update request to be rejected, got %d body=%s", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
 func TestMailboxBulkRejectsInvalidRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cases := []struct {
