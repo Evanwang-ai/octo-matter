@@ -128,12 +128,14 @@ async function login() {
 async function ensureProject(api, headers) {
   const projects = await apiJson(`${api}/projects`, { headers });
   const list = listData(projects);
-  const existing = list.find((p) => p.name === "mailbox/my matters smoke") || list.find((p) => p.name === "v2冒烟项目");
+  const existing = list.find((p) => p.name === "收件箱全局事项冒烟") ||
+    list.find((p) => p.name === "mailbox/my matters smoke") ||
+    list.find((p) => p.name === "v2冒烟项目");
   if (existing) return existing;
   return await apiJson(`${api}/projects`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ name: "mailbox/my matters smoke", description: "Mailbox and My Matters live UI smoke fixtures" })
+    body: JSON.stringify({ name: "收件箱全局事项冒烟", description: "收件箱全局事项 live UI smoke fixtures" })
   });
 }
 
@@ -142,10 +144,10 @@ async function createMatter(api, headers, project) {
     method: "POST",
     headers,
     body: JSON.stringify({
-      title: `Mailbox My Matters smoke ${RUN_LABEL}`,
+      title: `收件箱全局事项冒烟 ${RUN_LABEL}`,
       project_id: project.id,
       leader_uid: "admin",
-      brief: "temporary fixture for My Matters list/board smoke"
+      brief: "temporary fixture for global matters list/board smoke"
     })
   });
 }
@@ -174,8 +176,8 @@ async function maybeCreateSystemLetter(api, mailboxHeaders, userID) {
   if (!internalToken) {
     return { status: "skipped", reason: "NOTIFY_INTERNAL_TOKEN/OCTO_NOTIFY_INTERNAL_TOKEN is not configured" };
   }
-  const title = `Mailbox system smoke ${RUN_LABEL}`;
-  const body = `<p>Mailbox live smoke ${RUN_LABEL}</p>`;
+  const title = `收件箱系统信冒烟 ${RUN_LABEL}`;
+  const body = `<p>收件箱 live smoke ${RUN_LABEL}</p>`;
   try {
     await apiJson(`${api}/internal/mailbox/system-letter`, {
       method: "POST",
@@ -279,10 +281,10 @@ try {
   const routes = [
     { name: "matters-list", hash: "#/matters", expectedText: matter.title, forbiddenText: "读取失败" },
     { name: "matters-board", hash: "#/matters/board", expectedText: matter.title, forbiddenText: "读取失败" },
-    { name: "mailbox", hash: "#/mailbox", expectedText: mailboxFixture?.status === "created" ? mailboxFixture.title : "Mailbox", forbiddenText: "读取失败" },
+    { name: "mailbox", hash: "#/mailbox", expectedText: mailboxFixture?.status === "created" ? mailboxFixture.title : "邮件", forbiddenText: "读取失败" },
     { name: "legacy-board", hash: "#/board", expectedHash: "#/matters/board", expectedText: matter.title, forbiddenText: "读取失败" },
-    { name: "legacy-review", hash: "#/review-me", expectedHash: "#/matters", expectedText: "My Matters", forbiddenText: "读取失败" },
-    { name: "legacy-archived", hash: "#/archived", expectedHash: "#/matters", expectedText: "My Matters", forbiddenText: "读取失败" }
+    { name: "legacy-review", hash: "#/review-me", expectedHash: "#/matters", expectedText: "收件箱", forbiddenText: "读取失败" },
+    { name: "legacy-archived", hash: "#/archived", expectedHash: "#/matters", expectedText: "收件箱", forbiddenText: "读取失败" }
   ];
   for (const viewport of viewports) {
     for (const route of routes) {

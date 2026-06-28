@@ -315,13 +315,16 @@ octo-server with the same `token` header:
 `#/mailbox  #/matters  #/matters/assigned  #/matters/created
 #/matters/agents  #/matters/board  #/projects  #/automation
 #/matter/:id  #/project/:id`).
-My Matters List/Board share the same `/api/v1/matters` filter contract; the
-UI passes repeated query keys for multi-select status and owned-agent leader
-filters.
+The embedded UI names the workspace-level entry 「收件箱」. Its 「全部事项」
+surface is the global Matter view: List/Board share the same
+`/api/v1/matters` filter contract, and the UI passes repeated query keys for
+multi-select status and owned-agent leader filters. The Agent Mail letter
+surface remains a separate 「邮件」 entry under the same inbox module; the API
+path stays `/api/v1/mailbox/*`.
 Legacy bookmarks are redirected in-place: `#/inbox` → `#/matters`,
 `#/mine` → `#/matters/assigned`, `#/initiated` → `#/matters/created`,
 `#/board` → `#/matters/board`; `#/review-me` and `#/archived` redirect to
-`#/matters` while preserving the equivalent My Matters status filter.
+`#/matters` while preserving the equivalent global-Matter status filter.
 Behind nginx, `GET /matter` redirects to `/matter/ui` with the original
 host/port preserved, while `/matter/` and `/matter/ui` serve the SPA directly.
 Same-origin auth reuse: reads `localStorage` keys `token`, `uid`, `name`,
@@ -436,13 +439,13 @@ Local verification:
   `OUT_DIR=...` when running elsewhere. Use `KEEP_FIXTURES=1` only when
   intentionally preserving a failing fixture for inspection.
 - `RUN_LABEL=local node scripts/v2-mailbox-mymatters-smoke.mjs` runs the live
-  Mailbox / My Matters UI smoke: it creates a temporary Matter, verifies
+  inbox / global-Matter UI smoke: it creates a temporary Matter, verifies
   `#/matters`, `#/matters/board`, `#/mailbox`, and legacy hashes
   `#/board`, `#/review-me`, `#/archived` on desktop and mobile, saves
   screenshots, then deletes the Matter fixture. If `NOTIFY_INTERNAL_TOKEN` (or
   legacy `OCTO_NOTIFY_INTERNAL_TOKEN`) is configured, it also pushes a temporary
   system letter through `/internal/mailbox/system-letter` and verifies the
-  Mailbox UI renders it. Set `REQUIRE_MAILBOX_FIXTURE=1` when that system-letter
+  「邮件」 UI renders it. Set `REQUIRE_MAILBOX_FIXTURE=1` when that system-letter
   path must be present rather than reported as skipped.
 
 ## 2026-06-12 打磨期新增面(均已活体验证)
