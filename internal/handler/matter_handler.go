@@ -23,6 +23,11 @@ type MatterHandler struct {
 	worker     *notification.Worker
 }
 
+const (
+	defaultMatterListLimit = 20
+	maxMatterListLimit     = 200
+)
+
 func NewMatterHandler(svc *service.MatterService, v2 *service.V2Service, transition *service.TransitionService, notifier notification.Notifier, worker *notification.Worker) *MatterHandler {
 	if notifier == nil {
 		notifier = notification.Noop{}
@@ -267,10 +272,7 @@ func (h *MatterHandler) Create(c *gin.Context) {
 }
 
 func (h *MatterHandler) List(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	if limit <= 0 || limit > 100 {
-		limit = 20
-	}
+	limit := matterListLimit(c)
 	cursor := c.Query("cursor")
 	status := c.Query("status")
 	assigneeID := c.Query("assignee_id")
@@ -425,6 +427,17 @@ func (h *MatterHandler) List(c *gin.Context) {
 		return
 	}
 	paginated(c, result.Items, result.HasMore, result.NextCursor)
+}
+
+func matterListLimit(c *gin.Context) int {
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(defaultMatterListLimit)))
+	if err != nil || limit <= 0 {
+		return defaultMatterListLimit
+	}
+	if limit > maxMatterListLimit {
+		return maxMatterListLimit
+	}
+	return limit
 }
 
 func nonemptyQueryArray(c *gin.Context, key string) []string {

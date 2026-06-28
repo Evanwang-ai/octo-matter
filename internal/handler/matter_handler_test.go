@@ -43,6 +43,38 @@ func TestMatterListRejectsInvalidNumericFilters(t *testing.T) {
 	}
 }
 
+func TestMatterListLimitAllowsMyMattersBoardWindow(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []struct {
+		raw  string
+		want int
+	}{
+		{"", defaultMatterListLimit},
+		{"50", 50},
+		{"200", 200},
+		{"201", maxMatterListLimit},
+		{"5000", maxMatterListLimit},
+		{"0", defaultMatterListLimit},
+		{"-1", defaultMatterListLimit},
+		{"abc", defaultMatterListLimit},
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("limit=%s", tc.raw), func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			target := "/api/v1/matters"
+			if tc.raw != "" {
+				target += "?limit=" + tc.raw
+			}
+			c.Request = httptest.NewRequest(http.MethodGet, target, nil)
+
+			if got := matterListLimit(c); got != tc.want {
+				t.Fatalf("matterListLimit(%q) = %d, want %d", tc.raw, got, tc.want)
+			}
+		})
+	}
+}
+
 // TestCreateMatterReq_BindsSourceMsgIDs guards the manual-create path: clients
 // pass the LLM-filtered source_msgs alongside source_channel_id when re-issuing
 // a matter creation request. The DTO must surface the field so the handler can
