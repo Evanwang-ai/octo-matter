@@ -108,6 +108,30 @@ func TestMailboxUpdateRejectsInvalidAction(t *testing.T) {
 	}
 }
 
+func TestMailboxConvertRejectsInvalidAssigneeIDs(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	h := NewMailboxHandler(nil)
+	authMW := func(c *gin.Context) {
+		c.Set("uid", "user-1")
+		c.Set("role", "user")
+		c.Next()
+	}
+	mailbox := r.Group("/api/v1/mailbox")
+	mailbox.Use(authMW, userOnlyMailbox())
+	mailbox.POST("/letters/:id/convert", h.Convert)
+
+	w := httptest.NewRecorder()
+	body := []byte(`{"space_id":"space-1","assignee_ids":[""]}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/mailbox/letters/letter-1/convert", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid convert request to be rejected, got %d body=%s", w.Code, w.Body.String())
+	}
+}
+
 func TestMailboxBulkRejectsInvalidRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cases := []struct {

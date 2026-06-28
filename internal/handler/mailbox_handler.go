@@ -119,7 +119,7 @@ type mailboxConvertReq struct {
 	ProjectID   string   `json:"project_id" binding:"omitempty,max=64"`
 	LeaderUID   string   `json:"leader_uid" binding:"omitempty,max=64"`
 	Status      string   `json:"status" binding:"omitempty,oneof=backlog open"`
-	AssigneeIDs []string `json:"assignee_ids" binding:"omitempty,max=20,dive,max=64"`
+	AssigneeIDs []string `json:"assignee_ids" binding:"omitempty,max=20,dive,required,max=64"`
 }
 
 func (h *MailboxHandler) Convert(c *gin.Context) {
