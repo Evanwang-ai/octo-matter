@@ -133,7 +133,7 @@ func TestAgentMailBindingRepo_UpsertDoesNotClearCredentialsWhenInputCredentialIs
 	)
 	mock.ExpectQuery(`SELECT \* FROM agent_mail_bindings WHERE \(mail_address = 'bot@agent\.qq\.com' OR \(user_id = 'u-1' AND bot_uid = 'bot-1'\)\)`).
 		WillReturnRows(rows)
-	mock.ExpectExec(`(?s)credentials_encrypted = COALESCE\(VALUES\(credentials_encrypted\), credentials_encrypted\)`).
+	mock.ExpectExec(`(?s)WHEN mail_address = VALUES\(mail_address\) THEN COALESCE\(VALUES\(credentials_encrypted\), credentials_encrypted\).*ELSE VALUES\(credentials_encrypted\)`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := &AgentMailBindingRepo{runner: sess}
@@ -154,11 +154,47 @@ func TestAgentMailBindingRepo_UpsertDoesNotClearCredentialsWhenInputCredentialIs
 	}
 }
 
+func TestAgentMailBindingRepo_UpsertClearsCredentialsWhenAddressChanges(t *testing.T) {
+	sess, mock, cleanup := newMockSession(t)
+	defer cleanup()
+
+	createdAt := time.Date(2026, 6, 27, 9, 0, 0, 0, time.UTC)
+	updatedAt := time.Date(2026, 6, 28, 9, 0, 0, 0, time.UTC)
+	rows := sqlmock.NewRows([]string{
+		"id", "user_id", "bot_uid", "mail_address", "credentials_encrypted", "sync_cursor",
+		"sync_status", "last_sync_at", "last_error", "retry_count", "deleted_at", "created_at", "updated_at",
+	}).AddRow(
+		"b-existing", "u-1", "bot-1", "old@agent.qq.com", []byte("encrypted"), nil,
+		model.AgentMailSyncActive, nil, nil, 0, nil, createdAt, updatedAt,
+	)
+	mock.ExpectQuery(`SELECT \* FROM agent_mail_bindings WHERE \(mail_address = 'new@agent\.qq\.com' OR \(user_id = 'u-1' AND bot_uid = 'bot-1'\)\)`).
+		WillReturnRows(rows)
+	mock.ExpectExec(`(?s)WHEN mail_address = VALUES\(mail_address\) THEN COALESCE\(VALUES\(credentials_encrypted\), credentials_encrypted\).*ELSE VALUES\(credentials_encrypted\)`).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	r := &AgentMailBindingRepo{runner: sess}
+	b := &model.AgentMailBinding{
+		UserID:      "u-1",
+		BotUID:      "bot-1",
+		MailAddress: "new@agent.qq.com",
+		SyncStatus:  model.AgentMailSyncPaused,
+	}
+	if err := r.Upsert(context.Background(), b); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	if b.ID != "b-existing" {
+		t.Fatalf("binding ID = %q, want existing DB id", b.ID)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
 func TestAgentMailBindingRepo_DeleteSoftDeletesAndPausesSync(t *testing.T) {
 	sess, mock, cleanup := newMockSession(t)
 	defer cleanup()
 
-	mock.ExpectExec("UPDATE `agent_mail_bindings` SET .*`credentials_encrypted` = NULL.*`sync_cursor` = NULL.*WHERE \\(id = 'b-1' AND user_id = 'u-1' AND deleted_at IS NULL\\)").
+	mock.ExpectExec("UPDATE `agent_mail_bindings` SET .*`credentials_encrypted` = NULL.*WHERE \\(id = 'b-1' AND user_id = 'u-1' AND deleted_at IS NULL\\)").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := &AgentMailBindingRepo{runner: sess}
