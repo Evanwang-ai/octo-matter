@@ -162,8 +162,8 @@ func (h *MailboxHandler) Reply(c *gin.Context) {
 }
 
 type mailboxBulkReq struct {
-	IDs    []string `json:"ids"`
-	Action string   `json:"action"`
+	IDs    []string `json:"ids" binding:"required,min=1,max=100,dive,required,max=64"`
+	Action string   `json:"action" binding:"required,oneof=mark_read archive delete"`
 }
 
 func (h *MailboxHandler) Bulk(c *gin.Context) {

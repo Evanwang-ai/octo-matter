@@ -74,6 +74,40 @@ func TestMailboxListRejectsInvalidDirection(t *testing.T) {
 	}
 }
 
+func TestMailboxBulkRejectsInvalidRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []struct {
+		name string
+		body string
+	}{
+		{name: "empty ids", body: `{"ids":[],"action":"mark_read"}`},
+		{name: "bad action", body: `{"ids":["letter-1"],"action":"restore"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := gin.New()
+			h := NewMailboxHandler(nil)
+			authMW := func(c *gin.Context) {
+				c.Set("uid", "user-1")
+				c.Set("role", "user")
+				c.Next()
+			}
+			mailbox := r.Group("/api/v1/mailbox")
+			mailbox.Use(authMW, userOnlyMailbox())
+			mailbox.POST("/letters/bulk", h.Bulk)
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/mailbox/letters/bulk", bytes.NewReader([]byte(tc.body)))
+			req.Header.Set("Content-Type", "application/json")
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("expected invalid bulk request to be rejected, got %d body=%s", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
 func TestMailboxRoutesRejectBotCaller(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
