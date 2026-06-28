@@ -133,7 +133,7 @@ func TestAgentMailBindingRepo_UpsertDoesNotClearCredentialsWhenInputCredentialIs
 	)
 	mock.ExpectQuery(`SELECT \* FROM agent_mail_bindings WHERE \(mail_address = 'bot@agent\.qq\.com' OR \(user_id = 'u-1' AND bot_uid = 'bot-1'\)\)`).
 		WillReturnRows(rows)
-	mock.ExpectExec(`(?s)WHEN mail_address = VALUES\(mail_address\) THEN COALESCE\(VALUES\(credentials_encrypted\), credentials_encrypted\).*ELSE VALUES\(credentials_encrypted\)`).
+	mock.ExpectExec(`(?s)credentials_encrypted = CASE.*WHEN mail_address = VALUES\(mail_address\) THEN COALESCE\(VALUES\(credentials_encrypted\), credentials_encrypted\).*ELSE VALUES\(credentials_encrypted\).*END,\s*mail_address = VALUES\(mail_address\)`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := &AgentMailBindingRepo{runner: sess}
@@ -169,7 +169,7 @@ func TestAgentMailBindingRepo_UpsertClearsCredentialsWhenAddressChanges(t *testi
 	)
 	mock.ExpectQuery(`SELECT \* FROM agent_mail_bindings WHERE \(mail_address = 'new@agent\.qq\.com' OR \(user_id = 'u-1' AND bot_uid = 'bot-1'\)\)`).
 		WillReturnRows(rows)
-	mock.ExpectExec(`(?s)WHEN mail_address = VALUES\(mail_address\) THEN COALESCE\(VALUES\(credentials_encrypted\), credentials_encrypted\).*ELSE VALUES\(credentials_encrypted\)`).
+	mock.ExpectExec(`(?s)credentials_encrypted = CASE.*WHEN mail_address = VALUES\(mail_address\) THEN COALESCE\(VALUES\(credentials_encrypted\), credentials_encrypted\).*ELSE VALUES\(credentials_encrypted\).*END,\s*mail_address = VALUES\(mail_address\)`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := &AgentMailBindingRepo{runner: sess}

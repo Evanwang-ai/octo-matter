@@ -84,11 +84,11 @@ func (r *AgentMailBindingRepo) Upsert(ctx context.Context, b *model.AgentMailBin
 			 sync_status, last_sync_at, last_error, retry_count, deleted_at, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
-			mail_address = VALUES(mail_address),
 			credentials_encrypted = CASE
 				WHEN mail_address = VALUES(mail_address) THEN COALESCE(VALUES(credentials_encrypted), credentials_encrypted)
 				ELSE VALUES(credentials_encrypted)
 			END,
+			mail_address = VALUES(mail_address),
 			sync_cursor = VALUES(sync_cursor),
 			sync_status = VALUES(sync_status),
 			last_error = NULL,
