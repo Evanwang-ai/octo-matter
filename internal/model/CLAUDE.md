@@ -13,6 +13,8 @@ agent_card.go:         AgentCard 扩展类型 + AgentCardCapabilities 结构
 assignee.go:           MatterAssignee 多对多关系
 participant.go:        MatterParticipant (timeline 参与者, 自动维护)
 preference_card.go:    PreferenceCard 偏好卡片结构
+mailbox.go:            MailboxLetter user-level 信件模型 + source_type/direction 常量
+agent_mail.go:         AgentMailBinding per-bot 邮箱绑定 + sync_status 常量
 timeline.go:           TimelineEntry 时间线条目 (content_type: note/feedback/system)
 timeline_test.go:      Timeline 测试
 timeline_attachment.go: TimelineAttachment 附件
@@ -36,6 +38,12 @@ draft → authorized | discarded
 
 ### BotTask 状态
 queued → dispatched → succeeded | failed
+
+### Agent Mail sync 状态
+active | paused | error
+
+### Mailbox direction
+inbound | outbound
 
 ## 关键字段
 

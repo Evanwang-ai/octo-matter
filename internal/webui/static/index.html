@@ -459,6 +459,7 @@
   .board-head-main { min-width: 0; }
   .board-summary { margin: 4px 0 0; }
   .board-actions { position: relative; display: flex; gap: 8px; align-items: center; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+  .my-matters-filter { position: relative; display: inline-flex; align-items: center; }
   .board-filter-trigger {
     min-height: 34px; display: inline-flex; align-items: center; gap: 7px;
     padding: 0 12px; border: 1px solid var(--hairline); border-radius: 9px;
@@ -964,6 +965,21 @@
   .mail-row-time { margin-left: auto; font-size: 12px; color: var(--text-3); white-space: nowrap; flex: 0 0 auto; }
   .mail-row-subject { font-size: 13.5px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
   .mail-row-preview { font-size: 12.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
+  .mail-html-frame {
+    width: 100%; min-height: 420px; border: 1px solid var(--hairline-soft); border-radius: 10px;
+    background: #fff; box-shadow: 0 1px 2px rgba(28,28,35,.04);
+  }
+  .mail-bind-panel { padding: 10px 12px; border-bottom: 1px solid var(--hairline-soft); background: var(--fill-1); }
+  .mail-bind-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .mail-bind-title { font-size: 12px; font-weight: 720; color: var(--text-2); }
+  .mail-bind-add { height: 26px; padding: 0 8px; border: 1px solid var(--border-soft); border-radius: 7px; background: #fff; color: var(--text); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+  .mail-bind-add:hover { border-color: var(--hairline-strong); box-shadow: 0 1px 2px rgba(28,28,35,.06); }
+  .mail-bind-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; padding: 6px 0; border-top: 1px solid rgba(28,28,35,.05); }
+  .mail-bind-row:first-of-type { border-top: 0; }
+  .mail-bind-addr { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 650; color: var(--text); }
+  .mail-bind-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: var(--text-3); }
+  .mail-bind-del { border: 0; background: transparent; color: var(--text-4); cursor: pointer; font-size: 12px; padding: 2px 4px; }
+  .mail-bind-del:hover { color: #d92d20; }
 
   .pref-list { display: flex; flex-direction: column; }
   .pref-row { display: flex; align-items: flex-start; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--hairline-soft); cursor: pointer; transition: background .1s; }
@@ -2563,7 +2579,8 @@ function loadAuth(){
     auth.space = localStorage.getItem("currentSpaceId") || "";
   } catch (e) { /* storage 不可用时停留在连接面板 */ }
 }
-function authReady(){ return !!(auth.token && auth.space); }
+function authReady(){ return !!auth.token; }
+function spaceReady(){ return !!(auth.token && auth.space); }
 var uidResolved = false;
 function resolveUid(){
   if (uidResolved || !auth.token || auth.uid) return Promise.resolve();
@@ -2628,7 +2645,7 @@ function isMe(uidStr){ return !!auth.uid && uidStr === auth.uid; }
 var members = { space: "", at: 0, map: {}, list: [], inflight: null };
 var MEMBERS_TTL = 5 * 60e3; // 5 分钟懒刷新
 function loadMembers(force){
-  if (!authReady()) return Promise.resolve([]);
+  if (!spaceReady()) return Promise.resolve([]);
   if (members.space !== auth.space){ members = { space: auth.space, at: 0, map: {}, list: [], inflight: null }; }
   if (members.inflight) return members.inflight;
   if (!force && members.list.length && Date.now() - members.at < MEMBERS_TTL) return Promise.resolve(members.list);
@@ -2687,12 +2704,16 @@ function api(path, opts){
   if (opts.params){
     Object.keys(opts.params).forEach(function(k){
       var v = opts.params[k];
-      if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
+      if (v === undefined || v === null || v === "") return;
+      if (Array.isArray(v)) v.forEach(function(item){
+        if (item !== undefined && item !== null && item !== "") url.searchParams.append(k, item);
+      });
+      else url.searchParams.set(k, v);
     });
   }
   var headers = {};
   if (auth.token) headers["token"] = auth.token;
-  if (auth.space) headers["X-Space-Id"] = auth.space;
+  if (auth.space && path.indexOf("/mailbox") !== 0) headers["X-Space-Id"] = auth.space;
   var init = { method: opts.method || "GET", headers: headers };
   if (opts.body !== undefined){
     headers["Content-Type"] = "application/json";
@@ -2745,8 +2766,10 @@ var ERR_HUMAN = {
   VERSION_CONFLICT: "这单刚被改过 — 刷新看看最新状态再操作",
   EPOCH_STALE: "这活已经改派了,不用再做了",
   CHILDREN_NOT_TERMINAL: "还有子任务没收口 — 先把它们确认完成",
+  MAILBOX_ALREADY_CONVERTED: "这封信已经转成 Matter 了",
   FORBIDDEN: "这一步不归你做(权限不够)",
   MATTER_NOT_FOUND: "这单找不到了,可能已被删除",
+  FEATURE_NOT_CONFIGURED: "这个能力还没接上服务端发送通道",
   LLM_NOT_CONFIGURED: "智能提炼还没接入(缺模型钥匙),其他功能不受影响",
   UPSTREAM_ERROR: "后台服务暂时没应答,稍等再试",
   AUTH_UNAVAILABLE: "登录服务暂时连不上,稍等再试"
@@ -2932,9 +2955,11 @@ function scopeLabel(p){ return p && p.scope === "private" ? "私有项目" : "�
 
 /* ---------------- shell / nav ---------------- */
 var NAV_ITEMS = [
-  { key: "myinbox", hash: "#/inbox", label: "收件箱",
+  { key: "mailbox", hash: "#/mailbox", label: "Mailbox",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l7-3.5L17 7v8l-7 3.5L3 15z"/><path d="M3 7l7 3.5L17 7"/><path d="M10 10.5V18"/></svg>',
     badge: true },
+  { key: "mymatters", hash: "#/matters", label: "My Matters",
+    ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h10M5 9.5h10M5 14.5h10"/><circle cx="3" cy="4.5" r=".8"/><circle cx="3" cy="9.5" r=".8"/><circle cx="3" cy="14.5" r=".8"/></svg>' },
   { key: "projects", hash: "#/projects", label: "项目",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5h3l1.6 1.8h5.4A1.5 1.5 0 0 1 16 8.3V15a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 3 15z"/></svg>' },
   { key: "automation", hash: "#/automation", label: "自动化",
@@ -2985,7 +3010,7 @@ function closeDrawer(){
   $("#navScrim").classList.remove("open");
 }
 function setNavBadge(n){
-  var b = $("#navBadge_myinbox");
+  var b = $("#navBadge_mailbox");
   if (!b) return;
   b.textContent = n ? (n > 99 ? "99+" : String(n)) : "";
 }
@@ -3083,22 +3108,31 @@ function bindRetry(root){
 /* ---------------- router ---------------- */
 var renderToken = 0;
 function parseHash(){
-  var h = (location.hash || "#/inbox").replace(/^#\//, "");
+  var h = (location.hash || "#/matters").replace(/^#\//, "");
   if (h.indexOf("matter/") === 0) return { view: "matter", id: h.slice(7) };
   if (h.indexOf("project/") === 0) return { view: "project", id: h.slice(8) };
-  if (h === "timeline" || h === "board") { location.hash = "#/inbox"; return { view: "myinbox", tab: "all" }; }
+  if (h === "timeline") { location.hash = "#/matters"; return { view: "mymatters", tab: "all", mode: "list" }; }
+  if (h === "board") { location.hash = "#/matters/board"; return { view: "mymatters", tab: "all", mode: "board" }; }
   if (h === "projects" || h === "automation" || h === "cards") return { view: h };
-  if (h === "mine") return { view: "myinbox", tab: "mine" };
-  if (h === "review-me") return { view: "myinbox", tab: "review" };
-  if (h === "initiated") return { view: "myinbox", tab: "initiated" };
-  if (h === "archived") return { view: "myinbox", tab: "archived" };
-  if (h === "inbox") return { view: "myinbox", tab: "all" };
-  return { view: "myinbox", tab: "all" };
+  if (h === "mailbox") return { view: "mailbox" };
+  if (h === "mine") { location.hash = "#/matters/assigned"; return { view: "mymatters", tab: "assigned", mode: "list" }; }
+  if (h === "initiated") { location.hash = "#/matters/created"; return { view: "mymatters", tab: "created", mode: "list" }; }
+  if (h === "review-me") { location.hash = "#/matters"; return { view: "mymatters", tab: "all", mode: "list" }; }
+  if (h === "archived") { location.hash = "#/matters"; return { view: "mymatters", tab: "all", mode: "list" }; }
+  if (h === "inbox") { location.hash = "#/matters"; return { view: "mymatters", tab: "all", mode: "list" }; }
+  if (h === "matters/board") return { view: "mymatters", tab: "all", mode: "board" };
+  if (h.indexOf("matters/") === 0 && /\/board$/.test(h)) return { view: "mymatters", tab: h.slice(8, -6) || "all", mode: "board" };
+  if (h.indexOf("matters/") === 0) return { view: "mymatters", tab: h.slice(8) || "all", mode: "list" };
+  if (h === "matters") return { view: "mymatters", tab: "all", mode: "list" };
+  return { view: "mymatters", tab: "all", mode: "list" };
 }
-function matterViewSwitchHTML(active){
+function matterViewSwitchHTML(active, tab){
+  tab = tab && tab !== "all" ? tab : "";
+  var listHash = tab ? ("#/matters/" + tab) : "#/matters";
+  var boardHash = tab ? ("#/matters/" + tab + "/board") : "#/matters/board";
   return '<div class="matter-view-switch" role="tablist" aria-label="事项视图">'
-    + '<a class="mvs-btn' + (active === "list" ? " active" : "") + '" href="#/inbox" role="tab" aria-selected="' + (active === "list") + '">列表</a>'
-    + '<a class="mvs-btn' + (active === "board" ? " active" : "") + '" href="#/board" role="tab" aria-selected="' + (active === "board") + '">看板</a>'
+    + '<a class="mvs-btn' + (active === "list" ? " active" : "") + '" href="' + listHash + '" role="tab" aria-selected="' + (active === "list") + '">列表</a>'
+    + '<a class="mvs-btn' + (active === "board" ? " active" : "") + '" href="' + boardHash + '" role="tab" aria-selected="' + (active === "board") + '">看板</a>'
     + "</div>";
 }
 function render(){
@@ -3119,12 +3153,23 @@ function render(){
     showConnect();
     return Promise.resolve();
   }
+  if (!spaceReady() && r.view !== "mailbox"){
+    setNav(r.view === "matter" || r.view === "project" ? null : r.view);
+    hideInspector();
+    setCrumbText("事项");
+    $("#centerCol").innerHTML = '<div class="content"><div class="content-inner">'
+      + '<div class="empty-state"><div class="es-t">还没选空间</div><div class="es-s">Mailbox 可以直接打开；Matter 视图需要先选一个空间</div></div></div></div>';
+    showConnect();
+    return Promise.resolve();
+  }
   if (r.view === "matter") p = renderMatter(my, r.id);
+  else if (r.view === "mailbox") p = renderMailbox(my);
   else if (r.view === "projects") p = renderProjects(my);
   else if (r.view === "automation") p = renderAutomation(my);
   else if (r.view === "cards") p = renderCards(my);
   else if (r.view === "project") p = renderProjectDetail(my, r.id);
-  else p = renderMyInbox(my, r.tab || "all");
+  else if (r.mode === "board") p = renderMyMattersBoard(my, r.tab || "all");
+  else p = renderMyMatters(my, r.tab || "all");
   return p.catch(function(e){
     if (my !== renderToken) return;
     errToast(e);
@@ -3134,32 +3179,188 @@ function render(){
   });
 }
 
-/* ================= INBOX ================= */
+/* ================= MY MATTERS ================= */
 var inboxTab = "all";
 var inboxSearch = "";
 var inboxState = null; // { rows, page, params, key }
 var expandedRows = {};
 var projShowArchived = false;
 var INBOX_TABS = [
-  { k: "all", hash: "#/inbox", label: "全部", title: "全部事项" },
-  { k: "initiated", hash: "#/initiated", label: "我发起的", title: "我发起的" },
-  { k: "archived", hash: "#/archived", label: "已归档", title: "已归档" }
+  { k: "all", hash: "#/matters", label: "全部", title: "全部事项" },
+  { k: "created", hash: "#/matters/created", label: "我创建的", title: "我创建的" }
 ];
-var MY_INBOX_TABS = [
-  { k: "all", hash: "#/inbox", label: "全部", title: "全部" },
-  { k: "review", hash: "#/review-me", label: "待确认", title: "待确认" },
-  { k: "mine", hash: "#/mine", label: "我负责的", title: "我负责的" },
-  { k: "initiated", hash: "#/initiated", label: "我发起的", title: "我发起的" },
-  { k: "archived", hash: "#/archived", label: "已归档", title: "已归档" }
+var MY_MATTERS_TABS = [
+  { k: "all", hash: "#/matters", label: "全部", title: "全部" },
+  { k: "assigned", hash: "#/matters/assigned", label: "分配给我", title: "分配给我" },
+  { k: "created", hash: "#/matters/created", label: "我创建的", title: "我创建的" },
+  { k: "agents", hash: "#/matters/agents", label: "我的 Agent", title: "我的 Agent" }
 ];
+var myMattersFilterOpen = false;
+var myMattersFilter = { statuses: [], project_id: "", mode: "", created: "", has_attachments: "" };
 function tabInfo(k){
   return INBOX_TABS.find(function(t){ return t.k === k; }) || INBOX_TABS[0];
 }
+function myMattersParams(tab, limit){
+  limit = limit || 50;
+  var params = { top_level: 1, limit: limit };
+  if (tab === "assigned") params.assignee_id = auth.uid || "me";
+  if (tab === "created") params.creator_id = "me";
+  if (tab === "agents") {
+    var botIDs = ownedBotUIDs();
+    if (botIDs.length) params.leader_id = botIDs;
+  }
+  return applyMyMattersFilters(params);
+}
+function ownedBotUIDs(){
+  var info = ownedBotInfo();
+  if (!info.known) return [];
+  return Object.keys(info.owned);
+}
+function applyMyMattersFilters(params){
+  params = Object.assign({}, params);
+  if (myMattersFilter.statuses.length) params.status = myMattersFilter.statuses.slice();
+  if (myMattersFilter.project_id) params.project_id = myMattersFilter.project_id;
+  if (myMattersFilter.mode) params.mode = myMattersFilter.mode;
+  if (myMattersFilter.has_attachments) params.has_attachments = myMattersFilter.has_attachments;
+  var createdFrom = createdFilterFrom(myMattersFilter.created);
+  if (createdFrom) params.created_from = createdFrom;
+  return params;
+}
+function createdFilterFrom(v){
+  if (!v) return "";
+  var d = new Date();
+  if (v === "today") d.setHours(0, 0, 0, 0);
+  else if (v === "7d") d.setDate(d.getDate() - 7);
+  else if (v === "30d") d.setDate(d.getDate() - 30);
+  else return "";
+  return d.toISOString();
+}
+function myMattersFilterCount(){
+  var n = 0;
+  if (myMattersFilter.statuses.length) n++;
+  if (myMattersFilter.project_id) n++;
+  if (myMattersFilter.mode) n++;
+  if (myMattersFilter.created) n++;
+  if (myMattersFilter.has_attachments) n++;
+  return n;
+}
+function toggleMyMatterStatus(st){
+  var arr = myMattersFilter.statuses;
+  var i = arr.indexOf(st);
+  if (i >= 0) arr.splice(i, 1);
+  else arr.push(st);
+}
+function clearMyMattersFilter(){
+  myMattersFilter = { statuses: [], project_id: "", mode: "", created: "", has_attachments: "" };
+}
+function resetMyMattersFilterOnSpaceChange(prevSpace){
+  if (prevSpace !== undefined && prevSpace !== auth.space) {
+    clearMyMattersFilter();
+    setMyMattersFilterOpen(false);
+  }
+}
+function myMattersFilterOptionHTML(kind, value, label, active, iconHTML){
+  return '<button type="button" class="bf-option' + (active ? " is-active" : "") + '" data-mmf-kind="' + esc(kind) + '" data-mmf-value="' + esc(value) + '">'
+    + (iconHTML || '<span class="bf-dot"></span>') + '<span class="bf-main">' + esc(label) + '</span></button>';
+}
+function myMattersFilterPopoverHTML(){
+  var statusHTML = BOARD_COLS.map(function(c){
+    return myMattersFilterOptionHTML("status", c.st, stName(c.st), myMattersFilter.statuses.indexOf(c.st) >= 0,
+      '<span class="bf-dot" style="background:var(' + (BOARD_STATUS_COLOR[c.st] || "--hairline-strong") + ')"></span>');
+  }).join("");
+  var projectHTML = myMattersFilterOptionHTML("project", "", "全部项目", !myMattersFilter.project_id, FOLDER_SVG.replace('width="12" height="12"', 'width="16" height="16"'))
+    + (cache.projects || []).map(function(p){
+      return myMattersFilterOptionHTML("project", p.id, p.name || p.id, myMattersFilter.project_id === p.id,
+        FOLDER_SVG.replace('width="12" height="12"', 'width="16" height="16"'));
+    }).join("");
+  var modes = [
+    { v: "", label: "全部模式" },
+    { v: "solo", label: "单干" },
+    { v: "split", label: "分头干" },
+    { v: "swarm", label: "撒网" },
+    { v: "roundtable", label: "圆桌" },
+    { v: "pipeline", label: "流水线" },
+    { v: "critic", label: "生成-验证" }
+  ];
+  var modeHTML = modes.map(function(m){
+    return myMattersFilterOptionHTML("mode", m.v, m.label, myMattersFilter.mode === m.v);
+  }).join("");
+  var dateHTML = [
+    { v: "", label: "全部时间" },
+    { v: "today", label: "今天" },
+    { v: "7d", label: "最近 7 天" },
+    { v: "30d", label: "最近 30 天" }
+  ].map(function(d){
+    return myMattersFilterOptionHTML("created", d.v, d.label, myMattersFilter.created === d.v, CAL_SVG.replace('width="12" height="12"', 'width="16" height="16"'));
+  }).join("");
+  var attachHTML = [
+    { v: "", label: "全部事项" },
+    { v: "true", label: "有附件" },
+    { v: "false", label: "无附件" }
+  ].map(function(a){
+    return myMattersFilterOptionHTML("attachments", a.v, a.label, myMattersFilter.has_attachments === a.v, FILE_SVG);
+  }).join("");
+  return '<div class="board-filter-pop' + (myMattersFilterOpen ? " open" : "") + '" id="myMattersFilterPop" role="menu" aria-label="筛选 My Matters">'
+    + '<div class="bf-pop-head"><div><div class="bf-pop-title">筛选</div><div class="bf-pop-sub">状态 / 项目 / 模式 / 时间 / 附件</div></div>'
+    + '<button type="button" class="bf-clear" id="myMattersFilterClear">清空</button></div>'
+    + '<div class="bf-section"><div class="bf-section-title">状态</div><div class="bf-options">' + statusHTML + '</div></div>'
+    + '<div class="bf-section"><div class="bf-section-title">项目</div><div class="bf-options">' + projectHTML + '</div></div>'
+    + '<div class="bf-section"><div class="bf-section-title">模式</div><div class="bf-options">' + modeHTML + '</div></div>'
+    + '<div class="bf-section"><div class="bf-section-title">创建时间</div><div class="bf-options">' + dateHTML + '</div></div>'
+    + '<div class="bf-section"><div class="bf-section-title">附件</div><div class="bf-options">' + attachHTML + '</div></div>'
+    + '</div>';
+}
+function myMattersFilterButtonHTML(){
+  var n = myMattersFilterCount();
+  return '<div class="my-matters-filter"><button type="button" class="board-filter-trigger' + (n ? " has-filters" : "") + (myMattersFilterOpen ? " open" : "") + '" id="myMattersFilterBtn" aria-haspopup="menu" aria-expanded="' + (myMattersFilterOpen ? "true" : "false") + '" aria-label="筛选 My Matters">'
+    + FILTER_SVG + '<span>筛选</span><span class="bf-count">' + n + '</span></button>' + myMattersFilterPopoverHTML() + '</div>';
+}
+function setMyMattersFilterOpen(open){
+  myMattersFilterOpen = !!open;
+  var btn = $("#myMattersFilterBtn");
+  var pop = $("#myMattersFilterPop");
+  if (btn){
+    btn.classList.toggle("open", myMattersFilterOpen);
+    btn.setAttribute("aria-expanded", myMattersFilterOpen ? "true" : "false");
+  }
+  if (pop) pop.classList.toggle("open", myMattersFilterOpen);
+}
+function bindMyMattersFilter(){
+  var btn = $("#myMattersFilterBtn");
+  if (btn) btn.addEventListener("click", function(e){
+    e.stopPropagation();
+    setMyMattersFilterOpen(!myMattersFilterOpen);
+  });
+  var clear = $("#myMattersFilterClear");
+  if (clear) clear.addEventListener("click", function(e){
+    e.stopPropagation();
+    clearMyMattersFilter();
+    setMyMattersFilterOpen(false);
+    render();
+  });
+  $$("[data-mmf-kind]", $("#centerCol")).forEach(function(el){
+    el.addEventListener("click", function(e){
+      e.stopPropagation();
+      var kind = el.getAttribute("data-mmf-kind");
+      var value = el.getAttribute("data-mmf-value") || "";
+      if (kind === "status") toggleMyMatterStatus(value);
+      else if (kind === "project") myMattersFilter.project_id = value;
+      else if (kind === "mode") myMattersFilter.mode = value;
+      else if (kind === "created") myMattersFilter.created = value;
+      else if (kind === "attachments") myMattersFilter.has_attachments = value;
+      myMattersFilterOpen = true;
+      render();
+    });
+  });
+}
+function myMattersRowsForTab(rows, tab){
+  if (tab !== "agents") return rows;
+  var info = ownedBotInfo();
+  if (!info.known) return [];
+  return rows.filter(function(m){ return !!info.owned[m.leader || ""]; });
+}
 function inboxParams(tab){
-  if (tab === "mine") return { top_level: 1, leader_id: auth.uid || "me", limit: 50 };
-  if (tab === "initiated") return { top_level: 1, creator_id: "me", limit: 50 };
-  if (tab === "review") return { status: "review", limit: 50 };
-  if (tab === "archived") return { status: "archived", limit: 50 };
+  if (tab === "initiated" || tab === "created") return myMattersParams("created", 50);
   return { top_level: 1, limit: 50 };
 }
 /* 四个 tab 的计数:各拉一页(≤50)数出来 —— 没有计数接口,超过一页就显示 50+ */
@@ -3175,19 +3376,19 @@ function fetchTabCounts(){
     cache.tabCounts = { at: Date.now(), counts: counts };
     var rv = counts.review;
     if (rv) cache.reviewBadge = { at: Date.now(), count: rv };
-    setNavBadge(rv ? rv.n : 0);
     return counts;
   });
 }
-function fetchReviewBadge(){
-  if (cache.reviewBadge && Date.now() - cache.reviewBadge.at < 60e3){
-    setNavBadge(cache.reviewBadge.count ? cache.reviewBadge.count.n : 0);
-    return Promise.resolve(cache.reviewBadge.count);
+function fetchMailboxBadge(){
+  if (!authReady()) return Promise.resolve(null);
+  if (cache.mailboxBadge && Date.now() - cache.mailboxBadge.at < 60e3){
+    setNavBadge(cache.mailboxBadge.count || 0);
+    return Promise.resolve(cache.mailboxBadge.count);
   }
-  return api("/matters", { params: inboxParams("review") }).then(function(json){
-    var count = { n: listData(json).length, more: !!pageInfo(json).has_more };
-    cache.reviewBadge = { at: Date.now(), count: count };
-    setNavBadge(count.n);
+  return api("/mailbox/unread-count").then(function(json){
+    var count = json && (json.unread_count || json.count || 0);
+    cache.mailboxBadge = { at: Date.now(), count: count };
+    setNavBadge(count);
     return count;
   }).catch(function(){});
 }
@@ -3199,13 +3400,12 @@ function tabCountHTML(t, active, liveN){
   if (t.k === "review" && n > 0) return '<span class="tab-badge">' + txt + "</span>";
   return '<span class="inbox-filter-count">' + txt + "</span>";
 }
-/* ---- 收件箱(个人待办 · split-pane 邮件式) ---- */
-var myInboxTab = "all";
-var myInboxState = null;
-var myInboxSel = null;
-function myInboxTabInfo(k){ return MY_INBOX_TABS.find(function(t){ return t.k === k; }) || MY_INBOX_TABS[0]; }
+/* ---- My Matters(split-pane 邮件式) ---- */
+var myMattersTab = "all";
+var myMattersState = null;
+var myMattersSel = null;
+function myMattersTabInfo(k){ return MY_MATTERS_TABS.find(function(t){ return t.k === k; }) || MY_MATTERS_TABS[0]; }
 function mailRowSender(m){
-  if (myInboxTab === "review") return m.leader || m.creator_id || "";
   return m.creator_id || m.leader || "";
 }
 function mailRowPreview(m){
@@ -3251,42 +3451,362 @@ function fmtRelative(d){
   if (dy < 30) return Math.floor(dy) + "天前";
   return fmtShortDate(d);
 }
-function renderMyInbox(my, tab){
-  if (tab) myInboxTab = tab;
-  setNav("myinbox");
-  setCrumbText("收件箱");
+function normLetter(raw){
+  raw = raw || {};
+  var meta = raw.metadata || {};
+  return {
+    id: raw.id || raw.letter_id || raw.message_id || "",
+    source_type: raw.source_type || "system",
+    direction: raw.direction || "inbound",
+    thread_id: raw.thread_id || "",
+    metadata: meta,
+    converted_matter_id: raw.converted_matter_id || meta.converted_matter_id || "",
+    title: raw.title || raw.subject || "无标题",
+    snippet: raw.snippet || raw.body_text || raw.preview || "",
+    body_html: raw.body_html || raw.body || "",
+    body_text: raw.body_text || raw.text || "",
+    from_name: raw.from_name || (raw.from && raw.from.name) || "Octo",
+    from_email: raw.from_email || (raw.from && raw.from.email) || "",
+    created_at: raw.created_at || raw.received_at || raw.updated_at || "",
+    read_at: raw.read_at || null
+  };
+}
+function letterRowHTML(l, sel){
+  var unread = !l.read_at;
+  return '<div class="mail-row' + (sel === l.id ? " active" : "") + (unread ? " unread" : "") + '" data-lid="' + esc(l.id) + '">'
+    + av(l.from_email || l.from_name || l.source_type)
+    + '<div class="mail-row-body">'
+    + '<div class="mail-row-top"><span class="mail-row-sender">' + esc(l.from_name || l.from_email || "Mailbox") + '</span>'
+    + '<span class="mail-row-time">' + esc(fmtRelative(l.created_at)) + '</span><span class="mail-row-st">' + (unread ? "●" : "") + '</span></div>'
+    + '<div class="mail-row-subject">' + esc(l.title) + '</div>'
+    + (l.snippet ? '<div class="mail-row-preview">' + esc(l.snippet) + '</div>' : '')
+    + '</div></div>';
+}
+function mailboxHTMLDoc(bodyHTML){
+  return '<!doctype html><html><head><meta charset="utf-8"><base target="_blank">'
+    + '<style>body{margin:0;padding:18px;font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1c1c23;background:#fff;}'
+    + 'a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}img{max-width:100%;height:auto}table{max-width:100%;border-collapse:collapse}td,th{border:1px solid #e5e7eb;padding:6px 8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f6f7f9;padding:10px;border-radius:8px}blockquote{border-left:3px solid #d1d5db;margin-left:0;padding-left:12px;color:#4b5563}</style>'
+    + '</head><body>' + (bodyHTML || "") + '</body></html>';
+}
+function mailboxBodyHTML(l){
+  if (l.body_html) {
+    return '<iframe class="mail-html-frame" sandbox="" referrerpolicy="no-referrer"'
+      + ' csp="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src https: data:"'
+      + ' srcdoc="' + esc(mailboxHTMLDoc(l.body_html)) + '"></iframe>';
+  }
+  var bodyText = l.body_text || l.snippet || "";
+  return mdHTML(bodyText);
+}
+var mailboxState = null;
+var mailboxSel = null;
+var mailboxBindings = [];
+function normAgentMailBinding(raw){
+  raw = raw || {};
+  return {
+    id: raw.id || "",
+    bot_uid: raw.bot_uid || "",
+    mail_address: raw.mail_address || "",
+    sync_status: raw.sync_status || "paused",
+    last_sync_at: raw.last_sync_at || "",
+    last_error: raw.last_error || ""
+  };
+}
+function mailboxBindingsHTML(){
+  var rows = mailboxBindings.map(function(b){
+    var status = b.sync_status === "active" ? "同步中" : b.sync_status === "error" ? "同步异常" : "等待服务端授权";
+    var meta = (b.bot_uid || "未指定 Bot") + " · " + status;
+    if (b.last_error) meta += " · " + b.last_error;
+    return '<div class="mail-bind-row" data-bind-id="' + esc(b.id) + '">'
+      + '<div style="min-width:0"><div class="mail-bind-addr">' + esc(b.mail_address || "未设置地址") + '</div>'
+      + '<div class="mail-bind-meta">' + esc(meta) + '</div></div>'
+      + '<button type="button" class="mail-bind-del" data-mail-bind-delete="' + esc(b.id) + '" title="解绑">解绑</button></div>';
+  }).join("");
+  if (!rows) rows = '<div class="mail-bind-meta">还没有绑定 Agent Mail。当前只登记地址；真实同步等服务端授权接入后开启。</div>';
+  return '<div class="mail-bind-panel"><div class="mail-bind-head">'
+    + '<div class="mail-bind-title">Agent Mail</div><button type="button" class="mail-bind-add" id="mailBindAdd">绑定</button></div>'
+    + rows + '</div>';
+}
+function openAgentMailBindingModal(){
+  var mo = $("#modal");
+  mo.className = "modal";
+  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">绑定 Agent Mail</div></div>'
+    + '<button class="modal-x" id="mx" type="button">×</button></div>'
+    + '<div class="modal-body">'
+    + '<label class="field"><span>Bot UID</span><input id="ambBot" autocomplete="off" spellcheck="false" placeholder="bot uid"></label>'
+    + '<label class="field"><span>Agent Mail 地址</span><input id="ambAddr" autocomplete="off" spellcheck="false" placeholder="name@agent.qq.com"></label>'
+    + '<div class="muted" style="font-size:12px;line-height:1.6;margin-top:8px">这里只登记绑定关系；本机 agently-cli Keychain token 不会写入服务端。</div>'
+    + '<div class="modal-foot"><button class="ff-cancel" id="ambCancel" type="button">取消</button><button class="ff-save" id="ambSave" type="button">绑定</button></div>'
+    + '</div>';
+  openModal();
+  $("#mx").onclick = closeModal;
+  $("#ambCancel").onclick = closeModal;
+  $("#ambSave").onclick = function(){
+    var bot = $("#ambBot").value.trim();
+    var addr = $("#ambAddr").value.trim();
+    if (!bot || !addr){ toast("Bot UID 和邮箱都要填"); return; }
+    $("#ambSave").disabled = true;
+    api("/mailbox/agent-mail-bindings", { method: "POST", body: { bot_uid: bot, mail_address: addr } }).then(function(json){
+      var item = normAgentMailBinding(json && (json.data || json));
+      var found = false;
+      mailboxBindings = mailboxBindings.map(function(b){
+        if (b.bot_uid === item.bot_uid){ found = true; return item; }
+        return b;
+      });
+      if (!found) mailboxBindings.unshift(item);
+      closeModal();
+      paintMailbox(renderToken);
+    }).catch(function(e){ $("#ambSave").disabled = false; errToast(e); });
+  };
+}
+function mailboxConvertProjectOptions(selected){
+  return '<option value="">默认项目</option>' + liveProjects().map(function(p){
+    return '<option value="' + esc(p.id) + '"' + (selected === p.id ? " selected" : "") + '>' + esc(p.name || p.id) + '</option>';
+  }).join("");
+}
+function openMailboxConvertModal(letter){
+  if (!letter) return;
+  if (letter.converted_matter_id){
+    location.hash = "#/matter/" + letter.converted_matter_id;
+    return;
+  }
+  if (!spaceReady()){
+    showConnect("转为 Matter 需要先选择一个空间");
+    return;
+  }
+  var mo = $("#modal");
+  mo.className = "modal";
+  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">转为 Matter</div></div>'
+    + '<button class="modal-x" id="mx" type="button">×</button></div>'
+    + '<div class="modal-body">'
+    + '<label class="field"><span>空间</span><input value="' + esc(spaceName() || auth.space) + '" disabled></label>'
+    + '<label class="field"><span>项目</span><select id="mailConvertProject">' + mailboxConvertProjectOptions("") + '</select></label>'
+    + '<label class="field"><span>状态</span><select id="mailConvertStatus"><option value="backlog">草稿</option><option value="open">待开始</option></select></label>'
+    + '<div class="modal-foot"><button class="ff-cancel" id="mailConvertCancel" type="button">取消</button><button class="ff-save" id="mailConvertSave" type="button">创建</button></div>'
+    + '</div>';
+  openModal();
+  $("#mx").onclick = closeModal;
+  $("#mailConvertCancel").onclick = closeModal;
+  getProjects().then(function(){
+    var sel = $("#mailConvertProject");
+    if (sel) sel.innerHTML = mailboxConvertProjectOptions(sel.value);
+  }).catch(function(){});
+  $("#mailConvertSave").onclick = function(){
+    var btn = $("#mailConvertSave");
+    btn.disabled = true;
+    var body = {
+      space_id: auth.space,
+      status: $("#mailConvertStatus").value || "backlog"
+    };
+    var projectID = $("#mailConvertProject").value;
+    if (projectID) body.project_id = projectID;
+    api("/mailbox/letters/" + encodeURIComponent(letter.id) + "/convert", { method: "POST", body: body }).then(function(json){
+      var res = json || {};
+      var matter = res.matter || (res.data && res.data.matter) || {};
+      var matterID = matter.id || (matter.matter && matter.matter.id) || "";
+      if (matterID){
+        letter.converted_matter_id = matterID;
+        if (!letter.metadata) letter.metadata = {};
+        letter.metadata.converted_matter_id = matterID;
+      }
+      closeModal();
+      toast("已创建 Matter");
+      if (matterID) location.hash = "#/matter/" + matterID;
+      else paintMailboxDetail(letter.id);
+    }).catch(function(e){
+      btn.disabled = false;
+      errToast(e);
+    });
+  };
+}
+function openMailboxReplyModal(letter){
+  if (!letter || letter.source_type !== "agent_mail"){
+    toast("这封信不能回复", { err: true });
+    return;
+  }
+  var mo = $("#modal");
+  mo.className = "modal";
+  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">回复 Agent Mail</div></div>'
+    + '<button class="modal-x" id="mx" type="button">×</button></div>'
+    + '<div class="modal-body">'
+    + '<label class="field"><span>回复内容</span><textarea id="mailReplyContent" rows="8" maxlength="10000" placeholder="写回复…"></textarea></label>'
+    + '<div class="muted" style="font-size:12px;line-height:1.6;margin-top:8px">需要服务端 Agent Mail 发送通道。未接入时不会发送。</div>'
+    + '<div class="modal-foot"><button class="ff-cancel" id="mailReplyCancel" type="button">取消</button><button class="ff-save" id="mailReplySend" type="button">发送</button></div>'
+    + '</div>';
+  openModal();
+  $("#mx").onclick = closeModal;
+  $("#mailReplyCancel").onclick = closeModal;
+  $("#mailReplyContent").focus();
+  $("#mailReplySend").onclick = function(){
+    var btn = $("#mailReplySend");
+    var content = $("#mailReplyContent").value.trim();
+    if (!content){ toast("回复内容不能为空"); return; }
+    btn.disabled = true;
+    api("/mailbox/letters/" + encodeURIComponent(letter.id) + "/reply", { method: "POST", body: { content: content } }).then(function(json){
+      var res = json || {};
+      var out = normLetter(res.letter || (res.data && res.data.letter) || {});
+      if (out.id){
+        mailboxState.rows = [out].concat(mailboxState.rows.filter(function(x){ return x.id !== out.id; }));
+        mailboxSel = out.id;
+      }
+      closeModal();
+      toast("已发送回复");
+      paintMailbox(renderToken);
+    }).catch(function(e){
+      btn.disabled = false;
+      errToast(e);
+    });
+  };
+}
+function renderMailbox(my){
+  setNav("mailbox");
+  setCrumbText("Mailbox");
+  hideInspector();
+  $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="inbox-split">'
+    + '<div class="inbox-left"><div class="inbox-left-head">' + skelRows(1, 36) + '</div><div class="inbox-left-list"></div></div>'
+    + '<div class="inbox-right"><div class="inbox-right-empty">加载中…</div></div>'
+    + '</div></div>';
+  return Promise.all([
+    api("/mailbox/letters", { params: { limit: 50 } }),
+    api("/mailbox/unread-count").catch(function(){ return { unread_count: 0 }; }),
+    api("/mailbox/agent-mail-bindings").catch(function(){ return { data: [] }; })
+  ]).then(function(res){
+    if (my !== renderToken) return;
+    mailboxState = { rows: listData(res[0]).map(normLetter), page: pageInfo(res[0]) };
+    var unread = res[1] && (res[1].unread_count || res[1].count || 0);
+    setNavBadge(unread);
+    mailboxBindings = listData(res[2]).map(normAgentMailBinding);
+    mailboxSel = null;
+    paintMailbox(my);
+  });
+}
+function paintMailbox(my){
+  if (!mailboxState) return;
+  var rows = mailboxState.rows;
+  var filterHTML = '<div class="ibx-filter-zone"><button class="ibx-filter-trigger" type="button" disabled>'
+    + '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>'
+    + '<span class="ibx-ft-label">全部信件</span></button></div>';
+  var listHTML = rows.map(function(l){ return letterRowHTML(l, mailboxSel); }).join("");
+  var empty = '<div class="inbox-right-empty" style="padding:40px;text-align:center">Mailbox 还没有信件</div>';
+  $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="inbox-split" style="position:relative">'
+    + '<div class="inbox-left" id="mailboxLeft"><div class="inbox-left-head">' + filterHTML + '</div>'
+    + mailboxBindingsHTML()
+    + '<div class="inbox-left-list">' + (listHTML || empty) + '</div></div>'
+    + '<div class="inbox-right" id="mailboxRight">'
+    + (mailboxSel ? "" : '<div class="inbox-right-empty">选择一封信查看详情</div>')
+    + '</div></div></div>';
+  $$(".mail-row[data-lid]").forEach(function(el){
+    el.addEventListener("click", function(){
+      mailboxSel = el.getAttribute("data-lid");
+      $$(".mail-row.active").forEach(function(a){ a.classList.remove("active"); });
+      el.classList.add("active");
+      paintMailboxDetail(mailboxSel);
+    });
+  });
+  var addBind = $("#mailBindAdd");
+  if (addBind) addBind.addEventListener("click", openAgentMailBindingModal);
+  $$("[data-mail-bind-delete]").forEach(function(btn){
+    btn.addEventListener("click", function(e){
+      e.stopPropagation();
+      var id = btn.getAttribute("data-mail-bind-delete");
+      if (!id) return;
+      btn.disabled = true;
+      api("/mailbox/agent-mail-bindings/" + encodeURIComponent(id), { method: "DELETE" }).then(function(){
+        mailboxBindings = mailboxBindings.filter(function(b){ return b.id !== id; });
+        paintMailbox(renderToken);
+      }).catch(function(err){ btn.disabled = false; errToast(err); });
+    });
+  });
+  if (mailboxSel) paintMailboxDetail(mailboxSel);
+  else if (rows.length){
+    mailboxSel = rows[0].id;
+    var first = $(".mail-row[data-lid]");
+    if (first) first.classList.add("active");
+    paintMailboxDetail(mailboxSel);
+  }
+}
+function paintMailboxDetail(id){
+  var right = $("#mailboxRight");
+  if (!right || !mailboxState) return;
+  var l = mailboxState.rows.find(function(x){ return x.id === id; });
+  if (!l){ right.innerHTML = '<div class="inbox-right-empty">信件不存在</div>'; return; }
+  var canReply = l.source_type === "agent_mail" && l.direction !== "outbound";
+  right.innerHTML = '<div class="content" id="detailScroll" style="overflow-y:auto;height:100%"><div class="content-inner">'
+    + '<h1 class="issue-title">' + esc(l.title) + "</h1>"
+    + '<div class="issue-sub"><span class="mode-tag">' + esc(l.source_type) + '</span>'
+    + '<span class="mode-tag">' + esc(l.direction === "outbound" ? "outbound" : "inbound") + '</span>'
+    + (l.thread_id ? '<span class="mode-tag">' + esc(l.thread_id) + '</span>' : '')
+    + (l.from_email ? '<span class="mode-tag">' + esc(l.from_email) + '</span>' : '')
+    + (l.created_at ? '<span class="mode-tag">' + esc(fmtFull(l.created_at)) + '</span>' : '')
+    + '</div>'
+    + '<div class="detail-block"><button class="sec-action" id="mailMarkRead" type="button">标为已读</button>'
+    + '<button class="sec-action" id="mailArchive" type="button" style="margin-left:8px">归档</button>'
+    + (canReply ? '<button class="sec-action" id="mailReply" type="button" style="margin-left:8px">回复</button>' : '')
+    + '<button class="sec-action" id="mailConvert" type="button" style="margin-left:8px">' + esc(l.converted_matter_id ? "打开 Matter" : "转为 Matter") + '</button></div>'
+    + '<div class="detail-block">'
+    + mailboxBodyHTML(l)
+    + '</div></div></div>';
+  var mark = $("#mailMarkRead");
+  if (mark) mark.addEventListener("click", function(){
+    mark.disabled = true;
+    api("/mailbox/letters/" + encodeURIComponent(id), { method: "PATCH", body: { action: "mark_read" } }).then(function(){
+      l.read_at = new Date().toISOString();
+      fetchMailboxBadge();
+      paintMailbox(renderToken);
+    }).catch(function(e){ mark.disabled = false; errToast(e); });
+  });
+  var archive = $("#mailArchive");
+  if (archive) archive.addEventListener("click", function(){
+    archive.disabled = true;
+    api("/mailbox/letters/" + encodeURIComponent(id), { method: "PATCH", body: { action: "archive" } }).then(function(){
+      mailboxState.rows = mailboxState.rows.filter(function(x){ return x.id !== id; });
+      mailboxSel = null;
+      fetchMailboxBadge();
+      paintMailbox(renderToken);
+    }).catch(function(e){ archive.disabled = false; errToast(e); });
+  });
+  var convert = $("#mailConvert");
+  if (convert) convert.addEventListener("click", function(){ openMailboxConvertModal(l); });
+  var reply = $("#mailReply");
+  if (reply) reply.addEventListener("click", function(){ openMailboxReplyModal(l); });
+}
+function renderMyMatters(my, tab){
+  if (tab) myMattersTab = tab;
+  setNav("mymatters");
+  setCrumbText("My Matters");
   $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="inbox-split">'
     + '<div class="inbox-left"><div class="inbox-left-head">' + skelRows(2, 48) + '</div><div class="inbox-left-list"></div></div>'
     + '<div class="inbox-right"><div class="inbox-right-empty">加载中…</div></div>'
     + '</div></div>';
-  var params = inboxParams(myInboxTab);
   return Promise.all([
-    api("/matters", { params: params }),
     loadMembers().catch(function(){ return []; }),
     getProjects().catch(function(){ return []; })
   ]).then(function(res){
     if (my !== renderToken) return;
-    myInboxState = { rows: listData(res[0]).map(normMatter), page: pageInfo(res[0]) };
-    myInboxSel = null;
-    paintMyInbox(my);
+    var params = myMattersParams(myMattersTab, myMattersTab === "agents" ? 200 : 50);
+    return api("/matters", { params: params }).then(function(json){
+      if (my !== renderToken) return;
+      myMattersState = { rows: myMattersRowsForTab(listData(json).map(normMatter), myMattersTab), page: pageInfo(json) };
+      myMattersSel = null;
+      paintMyMatters(my);
+    });
   });
 }
 var inboxLeftCollapsed = false;
 var inboxLeftWidth = null;
-function paintMyInbox(my){
-  if (!myInboxState) return;
-  var rows = sortRows(myInboxState.rows);
-  var curTabInfo = myInboxTabInfo(myInboxTab);
+function paintMyMatters(my){
+  if (!myMattersState) return;
+  var rows = sortRows(myMattersState.rows);
+  var curTabInfo = myMattersTabInfo(myMattersTab);
   var filterSVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>';
-  var dropItems = MY_INBOX_TABS.map(function(t){
-    return '<button class="ibx-drop-item' + (myInboxTab === t.k ? " active" : "") + '" data-mitab="' + t.k + '" type="button">' + t.label + "</button>";
+  var dropItems = MY_MATTERS_TABS.map(function(t){
+    return '<button class="ibx-drop-item' + (myMattersTab === t.k ? " active" : "") + '" data-mitab="' + t.k + '" type="button">' + t.label + "</button>";
   }).join("");
   var filterHTML = '<div class="ibx-filter-zone">'
     + '<button class="ibx-filter-trigger" id="ibxFilterTrigger" type="button">' + filterSVG + '<span class="ibx-ft-label">' + esc(curTabInfo.label) + '</span></button>'
-    + '<div class="ibx-drop" id="ibxDrop">' + dropItems + '</div></div>';
+    + '<div class="ibx-drop" id="ibxDrop">' + dropItems + '</div></div>' + matterViewSwitchHTML("list", myMattersTab) + myMattersFilterButtonHTML();
   var empty = rows.length ? "" : '<div class="inbox-right-empty" style="padding:40px;text-align:center">'
     + esc(curTabInfo.label) + " 没有事项</div>";
-  var listHTML = rows.map(function(m){ return mailRowHTML(m, myInboxSel); }).join("");
+  var listHTML = rows.map(function(m){ return mailRowHTML(m, myMattersSel); }).join("");
   var toggleSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg>';
   $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="inbox-split" style="position:relative">'
     + (inboxLeftCollapsed ? '<button class="ibx-toggle ibx-expand-float" id="ibxExpand" type="button" title="展开列表">' + toggleSVG + '</button>' : '')
@@ -3298,7 +3818,7 @@ function paintMyInbox(my){
     + '</div>'
     + '<div class="ibx-resize" id="ibxResize"></div>'
     + '<div class="inbox-right" id="inboxRight">'
-    + (myInboxSel ? '' : '<div class="inbox-right-empty">选择一个事项查看详情</div>')
+    + (myMattersSel ? '' : '<div class="inbox-right-empty">选择一个事项查看详情</div>')
     + '</div>'
     + '</div></div>';
   var ibxTrigger = $("#ibxFilterTrigger");
@@ -3312,9 +3832,10 @@ function paintMyInbox(my){
     el.addEventListener("click", function(e){
       e.stopPropagation();
       if (ibxDrop) ibxDrop.classList.remove("open");
-      location.hash = myInboxTabInfo(el.getAttribute("data-mitab")).hash;
+      location.hash = myMattersTabInfo(el.getAttribute("data-mitab")).hash;
     });
   });
+  bindMyMattersFilter();
   var ibxNewBtn = $("#ibxNew");
   if (ibxNewBtn) ibxNewBtn.addEventListener("click", function(){ openMatterModal({}); });
   var toggleSVGForBtn = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg>';
@@ -3363,10 +3884,10 @@ function paintMyInbox(my){
   $$(".mail-row[data-mid]").forEach(function(el){
     el.addEventListener("click", function(){
       var id = el.getAttribute("data-mid");
-      myInboxSel = id;
+      myMattersSel = id;
       $$(".mail-row.active").forEach(function(a){ a.classList.remove("active"); });
       el.classList.add("active");
-      loadInboxDetail(my, id);
+      loadMyMattersDetail(my, id);
     });
   });
   var ilList = $(".inbox-left-list");
@@ -3377,7 +3898,7 @@ function paintMyInbox(my){
     closeCtxMenu();
     var mid = row.getAttribute("data-mid");
     if (!mid) return;
-    var m = myInboxState && myInboxState.rows.find(function(r){ return r.id === mid; });
+    var m = myMattersState && myMattersState.rows.find(function(r){ return r.id === mid; });
     var mst = m ? m.status : "";
     var menu = document.createElement("div"); menu.className = "ctx-menu"; menu.id = "ctxMenu";
     var items = [];
@@ -3396,20 +3917,20 @@ function paintMyInbox(my){
       api("/matters/" + mid + "/status", { method: "PUT", body: { status: target } }).then(function(){
         toast(target === "archived" ? "已归档" : target === "cancelled" ? "已取消" : "已恢复");
         if (m) m.status = target;
-        paintMyInbox(my);
+        paintMyMatters(my);
       }).catch(errToast);
     });
     setTimeout(function(){ document.addEventListener("click", closeCtxMenu, { once: true }); }, 0);
   }, true);
-  if (myInboxSel) loadInboxDetail(my, myInboxSel);
+  if (myMattersSel) loadMyMattersDetail(my, myMattersSel);
   else if (rows.length){
-    myInboxSel = rows[0].id;
+    myMattersSel = rows[0].id;
     var first = $(".mail-row[data-mid]");
     if (first) first.classList.add("active");
-    loadInboxDetail(my, myInboxSel);
+    loadMyMattersDetail(my, myMattersSel);
   }
 }
-function loadInboxDetail(my, id){
+function loadMyMattersDetail(my, id){
   var right = $("#inboxRight");
   if (!right) return;
   right.innerHTML = '<div class="inbox-right-empty">加载中…</div>';
@@ -3421,7 +3942,7 @@ function loadInboxDetail(my, id){
     getProjects().catch(function(){ return []; }),
     loadMembers().catch(function(){ return []; })
   ]).then(function(res){
-    if (my !== renderToken || myInboxSel !== id) return;
+    if (my !== renderToken || myMattersSel !== id) return;
     var m = normMatter(res[0]);
     if (!m || !m.id){ right.innerHTML = '<div class="inbox-right-empty">事项已不存在</div>'; return; }
     cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null };
@@ -3467,7 +3988,7 @@ function loadInboxDetail(my, id){
   });
 }
 
-/* --- DEAD CODE: old full-page inbox (all routes now go to myinbox split-pane) ---
+/* --- DEAD CODE: old full-page inbox (all routes now go to My Matters split-pane) ---
 function renderInbox(my, tab){
   if (tab) inboxTab = tab;
   var info = tabInfo(inboxTab);
@@ -3644,7 +4165,7 @@ function saveBoardDisplayState(){
     }));
   } catch (_e) {}
 }
-/* --- DEAD CODE: old standalone board view (#/board redirects to #/inbox) ---
+/* --- DEAD CODE: old standalone board view (replaced by My Matters Board) ---
 function renderBoard(my){ ... }
 --- see git history for full code --- */
 function silentFor(m){
@@ -3658,7 +4179,8 @@ function silentFor(m){
 function boardFilterSourceRows(){
   return Array.isArray(boardFilterRows) ? boardFilterRows : boardAll;
 }
-function boardCardHTML(m){
+function boardCardHTML(m, opts){
+  opts = opts || {};
   var who = m.leader || m.assignees[0] || "";
   var others = m.assignees.filter(function(u){ return u !== who; }).length;
   var block = m.status === "blocked"
@@ -3670,12 +4192,74 @@ function boardCardHTML(m){
     + "</span>" : "";
   var src = boardShowSource && m.source_name ? '<div class="bc-src">' + CHAT_SVG + '<span class="sc-nm">' + esc(srcLabel(m.source_name)) + "</span></div>" : "";
   var foot = assignee || src ? '<div class="bc-people">' + assignee + src + "</div>" : "";
-  return '<div class="bcard" draggable="true" data-id="' + esc(m.id) + '" role="link" tabindex="0">'
+  var draggable = opts.draggable === false ? "" : ' draggable="true"';
+  return '<div class="bcard"' + draggable + ' data-id="' + esc(m.id) + '" role="link" tabindex="0">'
     + '<div class="bc-card-top"><span class="bc-card-id">' + esc(seqLabel(m)) + "</span>" + date + "</div>"
     + '<div class="bc-title" title="' + esc(m.title) + '">' + esc(m.title) + "</div>" + block
     + foot + "</div>";
 }
 var BOARD_STATUS_COLOR = { backlog: "--text-4", open: "--gray", in_progress: "--progress", review: "--amber", done: "--done", blocked: "--block" };
+function renderMyMattersBoard(my, tab){
+  if (tab) myMattersTab = tab;
+  setNav("mymatters");
+  setCrumbText("My Matters");
+  hideInspector();
+  loadBoardDisplayState();
+  $("#centerCol").innerHTML = '<div class="content board-content"><div class="content-inner wide inbox-page board-shell">'
+    + skelRows(5, 80) + "</div></div>";
+  return Promise.all([
+    loadMembers().catch(function(){ return []; }),
+    getProjects().catch(function(){ return []; })
+  ]).then(function(res){
+    if (my !== renderToken) return;
+    return api("/matters", { params: myMattersParams(myMattersTab, 200) });
+  }).then(function(json){
+    if (my !== renderToken || !json) return;
+    boardAll = myMattersRowsForTab(listData(json).map(normMatter), myMattersTab);
+    boardRows = sortRows(boardAll);
+    var cols = BOARD_COLS.map(function(c){
+      var cards = boardRows.filter(function(m){ return m.status === c.st; }).sort(function(a, b){
+        var sa = a.sort_order != null ? a.sort_order : Infinity;
+        var sb = b.sort_order != null ? b.sort_order : Infinity;
+        if (sa !== sb) return sa - sb;
+        return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+      });
+      return '<div class="board-col ' + c.cls + (cards.length ? "" : " is-empty") + '" data-status="' + c.st + '">'
+        + '<div class="board-col-h"><span class="bc-dot"></span>' + esc(stName(c.st)) + '<span class="bc-cnt">' + cards.length + "</span></div>"
+        + '<div class="board-cards">' + (cards.map(function(m){ return boardCardHTML(m, { draggable: false }); }).join("") || '<div class="board-empty">没有事项</div>') + "</div></div>";
+    }).join("");
+    var curTabInfo = myMattersTabInfo(myMattersTab);
+    var dropItems = MY_MATTERS_TABS.map(function(t){
+      return '<button class="ibx-drop-item' + (myMattersTab === t.k ? " active" : "") + '" data-mitab="' + t.k + '" type="button">' + t.label + "</button>";
+    }).join("");
+    var filterSVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>';
+    $("#centerCol").innerHTML = '<div class="content board-content"><div class="content-inner wide inbox-page board-shell" data-density="' + esc(boardDensity) + '" data-hide-empty="0">'
+      + '<div class="board-head"><div class="board-head-main"><div class="ibx-filter-zone">'
+      + '<button class="ibx-filter-trigger" id="ibxFilterTrigger" type="button">' + filterSVG + '<span class="ibx-ft-label">' + esc(curTabInfo.label) + '</span></button>'
+      + '<div class="ibx-drop" id="ibxDrop">' + dropItems + '</div></div></div>'
+      + '<div class="board-actions">' + matterViewSwitchHTML("board", myMattersTab) + myMattersFilterButtonHTML() + "</div></div>"
+      + '<div class="board-viewport" id="boardViewport"><div class="board-wrap">' + cols + "</div></div></div></div>";
+    var ibxTrigger = $("#ibxFilterTrigger");
+    var ibxDrop = $("#ibxDrop");
+    if (ibxTrigger) ibxTrigger.addEventListener("click", function(e){
+      e.stopPropagation();
+      ibxDrop.classList.toggle("open");
+    });
+    if (ibxDrop) document.addEventListener("click", function(){ ibxDrop.classList.remove("open"); }, { once: true });
+    $$("[data-mitab]").forEach(function(el){
+      el.addEventListener("click", function(e){
+        e.stopPropagation();
+        if (ibxDrop) ibxDrop.classList.remove("open");
+        var t = myMattersTabInfo(el.getAttribute("data-mitab"));
+        location.hash = t.k === "all" ? "#/matters/board" : (t.hash + "/board");
+      });
+    });
+    bindMyMattersFilter();
+    $$(".bcard[data-id]", $("#centerCol")).forEach(function(el){
+      el.addEventListener("click", function(){ location.hash = "#/matter/" + el.getAttribute("data-id"); });
+    });
+  });
+}
 function uniqBoardValues(getter){
   var seen = {};
   var out = [];
@@ -6205,7 +6789,7 @@ function contextPartSettled(part){
 function crumbDetail(m){
   var projLink = m.project_id
     ? '<a href="#/project/' + esc(m.project_id) + '" class="crumb-link">' + esc(projName(m.project_id) || "项目") + '</a><span class="crumb-sep">&gt;</span>'
-    : '<a href="#/inbox" class="crumb-link">收件箱</a><span class="crumb-sep">&gt;</span>';
+    : '<a href="#/matters" class="crumb-link">My Matters</a><span class="crumb-sep">&gt;</span>';
   $("#crumb").innerHTML = projLink
     + '<span class="crumb-current"><span class="cid" style="color:var(--text-3);font-weight:400;margin-right:4px">' + esc(seqLabel(m)) + '</span>' + esc(m.title) + "</span>";
   setTopSourceChip(m);
@@ -6262,7 +6846,7 @@ function briefHTML(m){
 function blockerBannerHTML(m){
   if (!m || m.status !== "blocked") return "";
   var reason = m.block_reason_text || "没写原因";
-  var action = authReady() && !isTerminalRow(m)
+  var action = spaceReady() && !isTerminalRow(m)
     ? '<div class="bn-side"><button class="bn-action" type="button" data-unblock-action data-pending-label="解除中">解除阻塞</button>'
       + '<div class="decision-status" role="status" aria-live="polite"></div></div>'
     : "";
@@ -6577,7 +7161,7 @@ function outputSpecPreview(m){
 }
 function emptyOutputHTML(m, es){
   var spec = outputSpecPreview(m);
-  var canWrite = authReady() && m.status !== "archived" && m.status !== "cancelled";
+  var canWrite = spaceReady() && m.status !== "archived" && m.status !== "cancelled";
   var contract = spec
     ? '<div class="er-contract"><span class="er-k">交付口径</span>' + esc(spec) + "</div>"
     : "";
@@ -6610,7 +7194,7 @@ function singleEntryHTML(e, extraCls){
     body = (e.content ? '<div class="r-text">' + mdHTML(e.content) + "</div>" : "")
       + (atts ? '<div class="attach-row">' + atts + "</div>" : "");
   }
-  var canAct = authReady() && !isTerminalRow(cur.m);
+  var canAct = spaceReady() && !isTerminalRow(cur.m);
   var isChild = !!e.parent_entry_id;
   var showNeedsRevision = canAct && !isChild && isBot(e.user_id) && cur.m.status === "review" && isMe(cur.m.creator_id);
   var actionMenu = canAct
@@ -6677,7 +7261,7 @@ function timelineBlockHTML(m){
   var reviewActions = "";
   var n = t.ok ? listData(t.v).length : 0;
   var hint = n ? '<span class="sec-count" title="选中正文里的一句话,可以批注">' + n + " 条 · 选中文字可批注</span>" : "";
-  var attachAction = authReady() && !isTerminalRow(m) ? '<button class="sec-action" type="button" data-output-attach>加附件</button>' : "";
+  var attachAction = spaceReady() && !isTerminalRow(m) ? '<button class="sec-action" type="button" data-output-attach>加附件</button>' : "";
   var right = (hint || attachAction) ? '<span class="sec-actions">' + hint + attachAction + "</span>" : "";
   return '<div class="detail-block" id="repliesBlock"><div class="sec"><span class="sec-l">产出</span>' + right + "</div>" + inner + reviewActions + "</div>";
 }
@@ -8949,9 +9533,9 @@ function buildNewMatterModal(opts){
       closeModal();
       cache.projCounts = {};
       toast((asDraft ? "已保存草稿" : "已发送") + " · " + (nm ? seqLabel(nm) : "") + (body.input_attachments ? " · " + body.input_attachments.length + " 份材料" : ""));
-      if (nm && nm.id && parseHash().view === "myinbox"){
-        myInboxSel = nm.id;
-        renderMyInbox(renderToken, myInboxTab);
+      if (nm && nm.id && parseHash().view === "mymatters"){
+        myMattersSel = nm.id;
+        renderMyMatters(renderToken, myMattersTab);
       } else if (nm && nm.id){
         location.hash = "#/matter/" + nm.id;
       } else { render(); }
@@ -9727,6 +10311,7 @@ function bindConnect(){
     var t = $("#ccToken").value.trim();
     var s = $("#ccSpace").value.trim();
     if (!t){ $("#ccErr").textContent = "token 得填(空间 ID 可留空,自动取你的第一个空间)"; return; }
+    var prevSpace = auth.space;
     try {
       localStorage.setItem("token", t);
       if (s) localStorage.setItem("currentSpaceId", s);
@@ -9735,11 +10320,12 @@ function bindConnect(){
     if (!auth.space){
       $("#ccErr").textContent = "正在向 Octo 查询你的空间…";
       discoverSpace().then(function(found){
-        if (found){ paintIdentity(); hideConnect(); toast("连上了"); render(); }
+        if (found){ resetMyMattersFilterOnSpaceChange(prevSpace); paintIdentity(); hideConnect(); toast("连上了"); render(); }
         else { $("#ccErr").textContent = "查不到空间:token 可能不对,或你不在任何空间里"; }
       });
       return;
     }
+    resetMyMattersFilterOnSpaceChange(prevSpace);
     paintIdentity();
     hideConnect();
     toast("连上了");
@@ -9747,7 +10333,9 @@ function bindConnect(){
   });
   window.addEventListener("storage", function(e){
     if (["token", "uid", "name", "currentSpaceId"].indexOf(e.key) >= 0){
+      var prevSpace = auth.space;
       loadAuth();
+      resetMyMattersFilterOnSpaceChange(prevSpace);
       paintIdentity();
       if (authReady()){ hideConnect(); render(); }
     }
@@ -9795,6 +10383,7 @@ function bindGlobal(){
     if (!t.closest("#statusField")) $$(".status-field.open").forEach(function(f){ setStatusMenuOpen(f, false); });
     if (!t.closest("#boardFilterPop") && !t.closest("#boardFilterBtn")) setBoardFilterOpen(false);
     if (!t.closest("#boardDisplayPop") && !t.closest("#boardDisplayBtn")) setBoardDisplayOpen(false);
+    if (!t.closest("#myMattersFilterPop") && !t.closest("#myMattersFilterBtn")) setMyMattersFilterOpen(false);
   });
   document.addEventListener("pointerdown", function(e){
     var t = e.target instanceof Element ? e.target : null;
@@ -9806,6 +10395,7 @@ function bindGlobal(){
     if (e.key === "Escape"){
       if (boardDisplayOpen){ setBoardDisplayOpen(false); return; }
       if (boardFilterOpen){ setBoardFilterOpen(false); return; }
+      if (myMattersFilterOpen){ setMyMattersFilterOpen(false); return; }
       if (fmState || dlState){ closeFloatMenu(); closeDlPop(); return; } // 先收浮层,再退弹窗
       closeAgentPop();
       hideAnnotAll();
@@ -9881,12 +10471,12 @@ function bindGlobal(){
     if (e.target === $("#modalScrim")) closeModal();
   });
   // rail / drawer
-  $("#railMatters").addEventListener("click", function(){ location.hash = "#/inbox"; });
+  $("#railMatters").addEventListener("click", function(){ location.hash = "#/matters"; });
   $("#railMe").addEventListener("click", function(){ showConnect(); });
   $("#railSettings").addEventListener("click", function(){ showConnect(); });
   var topNewBtn = $("#newMatterTop");
   if (topNewBtn) topNewBtn.addEventListener("click", function(){
-    if (!authReady()){ showConnect(); return; }
+    if (!spaceReady()){ showConnect(); return; }
     openMatterModal({});
   });
   var burger = $("#navBurger");
@@ -9909,12 +10499,12 @@ paintIdentity();
 bindConnect();
 bindGlobal();
 window.addEventListener("hashchange", function(){ render(); });
-if (!location.hash) history.replaceState(null, "", "#/inbox");
+if (!location.hash) history.replaceState(null, "", "#/matters");
 render();
 if (authReady()){
-  loadMembers();
+  if (spaceReady()) loadMembers();
   resolveUid();
-  if (parseHash().view !== "inbox") setTimeout(fetchReviewBadge, 1400);
+  setTimeout(fetchMailboxBadge, 1400);
 }
 if (auth.token && !auth.space){
   discoverSpace().then(function(found){

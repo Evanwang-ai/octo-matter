@@ -21,6 +21,9 @@ extract_svc.go:              LLM 抽取: 从自然语言提取 matter 字段
 timeline_svc.go:             Timeline 读写, 附件持久化, participant upsert
 activity_svc.go:             活动流记录
 outputs_svc.go:              产出物 CRUD
+mailbox_svc.go:              Mailbox user-level 信件动作 + 显式 user_id 系统信推送 + safe convert/reply contracts
+mailbox_sanitize.go:         Mailbox/Agent Mail HTML 白名单清洗 + plain text/snippet 生成
+mailbox_sync.go:             Agent Mail 同步骨架: 服务端凭证绑定扫描 + client 接口 + MailboxLetter upsert
 edge_svc.go:                 状态转换辅助 (可用边计算)
 access.go:                   可见性谓词 (CanAccessMatter, 含 bot-owner 展开)
 richtext.go:                 富文本处理
@@ -62,5 +65,12 @@ update_matter_test.go, v2_create_test.go, visibility_test.go
 - LLMToolCaller 可选; 缺 key 时降级返回 LLM_NOT_CONFIGURED
 - 所有 doorbell 在事务内入队, 禁止同步发送
 - sub-matter 创建: bot 协作者禁止, 只有 leader/creator/人类协作者
+- Mailbox 不枚举全量用户; 系统信 fanout 只接受显式 user_id 列表, 全量来源由 octo-server 提供
+- Mailbox body_html 入库前必须走 SanitizeEmailHTML; 外部邮件 HTML 不可信
+- Mailbox convert-to-Matter 必须先过 space create verifier; 未配置 verifier/creator 时拒绝创建
+- Mailbox reply 必须通过 AgentMailReplySender; 未配置 sender 时拒绝, 禁止在 service 内 shell out 本机 CLI
+- Agent Mail binding 用户侧只登记 user-owned bot + @agent.qq.com 地址; 默认 paused; internal activate 才能写已加密凭证并置 active
+- Agent Mail sync 只扫描 active 且 credentials_encrypted 非空的绑定
+- Agent Mail 真实 client 仍是 gate: 本地 agently-cli Keychain 授权不能当服务端凭证持久化
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

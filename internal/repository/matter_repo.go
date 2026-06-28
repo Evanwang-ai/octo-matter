@@ -15,9 +15,13 @@ import (
 type MatterFilter struct {
 	CallerUIDs        []string
 	Status            *string
+	Statuses          []string
 	AssigneeID        *string
 	CreatorID         *string
 	LeaderID          *string
+	LeaderIDs         []string
+	ParticipantID     *string
+	Mode              *string
 	ParentID          *string
 	TopLevelOnly      bool
 	ProjectID         *string
@@ -31,12 +35,15 @@ type MatterFilter struct {
 	ChannelID *string
 	// SeqNo resolves the human-facing M-<n> reference to the row (agents and
 	// deep links speak UUID; people speak seq).
-	SeqNo             *uint64
-	DeadlineBefore    *time.Time
-	DeadlineAfter     *time.Time
-	Query             *string
-	Cursor            *string
-	Limit             int
+	SeqNo          *uint64
+	DeadlineBefore *time.Time
+	DeadlineAfter  *time.Time
+	CreatedBefore  *time.Time
+	CreatedAfter   *time.Time
+	HasAttachments *bool
+	Query          *string
+	Cursor         *string
+	Limit          int
 }
 
 type MatterRepo struct {
@@ -166,7 +173,9 @@ func (r *MatterRepo) ListBySpace(ctx context.Context, spaceID string, filter Mat
 		)
 	}
 
-	if filter.Status != nil {
+	if len(filter.Statuses) > 0 {
+		q = q.Where("status IN ?", filter.Statuses)
+	} else if filter.Status != nil {
 		q = q.Where("status = ?", *filter.Status)
 	}
 	if filter.AssigneeID != nil {
@@ -175,8 +184,16 @@ func (r *MatterRepo) ListBySpace(ctx context.Context, spaceID string, filter Mat
 	if filter.CreatorID != nil {
 		q = q.Where("creator_id = ?", *filter.CreatorID)
 	}
-	if filter.LeaderID != nil {
+	if len(filter.LeaderIDs) > 0 {
+		q = q.Where("leader_uid IN ?", filter.LeaderIDs)
+	} else if filter.LeaderID != nil {
 		q = q.Where("leader_uid = ?", *filter.LeaderID)
+	}
+	if filter.ParticipantID != nil {
+		q = q.Where("EXISTS (SELECT 1 FROM matter_participants WHERE matter_participants.matter_id = matters.id AND matter_participants.user_id = ?)", *filter.ParticipantID)
+	}
+	if filter.Mode != nil {
+		q = q.Where("mode = ?", *filter.Mode)
 	}
 	if filter.ParentID != nil {
 		q = q.Where("parent_matter_id = ?", *filter.ParentID)
@@ -207,6 +224,19 @@ func (r *MatterRepo) ListBySpace(ctx context.Context, spaceID string, filter Mat
 	if filter.DeadlineAfter != nil {
 		q = q.Where("deadline > ?", *filter.DeadlineAfter)
 	}
+	if filter.CreatedBefore != nil {
+		q = q.Where("created_at < ?", *filter.CreatedBefore)
+	}
+	if filter.CreatedAfter != nil {
+		q = q.Where("created_at > ?", *filter.CreatedAfter)
+	}
+	if filter.HasAttachments != nil {
+		if *filter.HasAttachments {
+			q = q.Where("JSON_LENGTH(input_attachments) > 0")
+		} else {
+			q = q.Where("(input_attachments IS NULL OR JSON_LENGTH(input_attachments) = 0)")
+		}
+	}
 	if filter.Query != nil && *filter.Query != "" {
 		escaped := escapeLikePattern(*filter.Query)
 		q = q.Where("title LIKE ?", "%"+escaped+"%")
@@ -223,7 +253,7 @@ func (r *MatterRepo) ListBySpace(ctx context.Context, spaceID string, filter Mat
 	var matters []*model.Matter
 	_, err := q.OrderBy("created_at DESC").
 		OrderBy("id DESC").
-		Limit(uint64(limit + 1)).
+		Limit(uint64(limit+1)).
 		LoadContext(ctx, &matters)
 	if err != nil {
 		return nil, false, err

@@ -48,6 +48,7 @@ func SetupRouter(
 	v2H *V2Handler,
 	internalH *InternalHandler,
 	cardH *PreferenceCardHandler,
+	mailboxH *MailboxHandler,
 ) *gin.Engine {
 	r := gin.Default()
 	// RequestID first, then early language negotiation so even auth-stage
@@ -91,6 +92,25 @@ func SetupRouter(
 
 	api := r.Group("/api/v1")
 	api.Use(RequestTimeout(30*time.Second), MaxBodySize(maxBodySize), authMW, spaceMW)
+
+	if mailboxH != nil {
+		mailbox := r.Group("/api/v1/mailbox")
+		mailbox.Use(RequestTimeout(30*time.Second), MaxBodySize(maxBodySize), authMW, userOnlyMailbox())
+		{
+			mailbox.GET("/letters", mailboxH.List)
+			mailbox.GET("/letters/:id", mailboxH.Get)
+			mailbox.PATCH("/letters/:id", mailboxH.Update)
+			mailbox.POST("/letters/:id/convert", mailboxH.Convert)
+			mailbox.POST("/letters/:id/reply", mailboxH.Reply)
+			mailbox.POST("/letters/mark-all-read", mailboxH.MarkAllRead)
+			mailbox.DELETE("/letters/:id", mailboxH.Delete)
+			mailbox.POST("/letters/bulk", mailboxH.Bulk)
+			mailbox.GET("/unread-count", mailboxH.UnreadCount)
+			mailbox.GET("/agent-mail-bindings", mailboxH.ListBindings)
+			mailbox.POST("/agent-mail-bindings", mailboxH.CreateBinding)
+			mailbox.DELETE("/agent-mail-bindings/:id", mailboxH.DeleteBinding)
+		}
+	}
 
 	// Matters
 	matters := api.Group("/matters")
@@ -201,6 +221,8 @@ func SetupRouter(
 			internal.POST("/bot-tasks/claim", internalH.ClaimBotTasks)
 			internal.POST("/bot-tasks/:id/ack", internalH.AckBotTask)
 			internal.GET("/bot-tasks", internalH.ListBotTasks)
+			internal.POST("/mailbox/system-letter", internalH.PostSystemLetter)
+			internal.POST("/mailbox/agent-mail-bindings/activate", internalH.ActivateAgentMailBinding)
 		}
 	}
 

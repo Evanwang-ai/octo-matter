@@ -1,7 +1,7 @@
 # migrations/
 > L2 | 父级: /CLAUDE.md
 
-数据库迁移: 21 个 SQL 文件, 通过 embed.go 显式注册。新增迁移必须手动添加到 embed.go 文件列表。
+数据库迁移: 25 个 SQL 文件, 通过 embed.go 显式注册。新增迁移必须手动添加到 embed.go 文件列表。
 
 ## 成员清单
 
@@ -27,6 +27,10 @@ embed.go:                          //go:embed 显式文件列表, 新增迁移�
 019_project_outbox.sql:            项目级 outbox (结构性门铃)
 020_bot_resources.sql:             matter_bot_resources 表 (哪些 bot 可被调度, 主人主权)
 021_mode_config.sql:               mode_config JSON 字段 (协作模式配置)
+022_preference_card_fields.sql:    Preference Card 扩展字段
+023_timeline_parent_entry.sql:     timeline parent_entry_id
+024_mailbox_letters.sql:           user-level Mailbox 信件 (direction/thread_id reply 前置字段)
+025_agent_mail_bindings.sql:       per-bot Agent Mail 绑定 (credentials_encrypted 抽象字段)
 
 ## 关键约束
 

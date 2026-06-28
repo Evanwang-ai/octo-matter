@@ -2,6 +2,7 @@ package handler
 
 import (
 	"crypto/subtle"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
@@ -25,13 +26,14 @@ type InternalHandler struct {
 	activity *repository.ActivityRepo
 	botTasks *service.BotTaskService
 	v2       *service.V2Service
+	mailbox  *service.MailboxService
 	consume  func(ctx *gin.Context, matterID string, uids []string)
 }
 
-func NewInternalHandler(token string, matters *repository.MatterRepo, timeline *repository.TimelineRepo, activity *repository.ActivityRepo, botTasks *service.BotTaskService, v2 *service.V2Service) *InternalHandler {
+func NewInternalHandler(token string, matters *repository.MatterRepo, timeline *repository.TimelineRepo, activity *repository.ActivityRepo, botTasks *service.BotTaskService, v2 *service.V2Service, mailbox *service.MailboxService) *InternalHandler {
 	return &InternalHandler{
 		token: token, matters: matters, timeline: timeline,
-		activity: activity, botTasks: botTasks, v2: v2,
+		activity: activity, botTasks: botTasks, v2: v2, mailbox: mailbox,
 		consume: func(c *gin.Context, matterID string, uids []string) {
 			if v2 != nil {
 				v2.ConsumeDoorbells(c.Request.Context(), matterID, uids)
@@ -58,6 +60,61 @@ func (h *InternalHandler) Auth() gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+type internalSystemLetterReq struct {
+	UserIDs    []string `json:"user_ids" binding:"required,min=1,max=200"`
+	TemplateID string   `json:"template_id" binding:"required,max=200"`
+	Title      string   `json:"title" binding:"required,max=500"`
+	BodyHTML   string   `json:"body_html" binding:"max=65000"`
+}
+
+func (h *InternalHandler) PostSystemLetter(c *gin.Context) {
+	if h.mailbox == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"msg": "mailbox not configured"})
+		return
+	}
+	var req internalSystemLetterReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid request body"})
+		return
+	}
+	if err := h.mailbox.PushSystemLetterToUsers(c.Request.Context(), req.UserIDs, req.TemplateID, req.Title, req.BodyHTML); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"status": "ok"})
+}
+
+type internalAgentMailActivateReq struct {
+	UserID                     string  `json:"user_id" binding:"required,max=64"`
+	BotUID                     string  `json:"bot_uid" binding:"required,max=64"`
+	MailAddress                string  `json:"mail_address" binding:"required,max=256"`
+	CredentialsEncryptedBase64 string  `json:"credentials_encrypted_base64" binding:"required,max=6000"`
+	SyncCursor                 *string `json:"sync_cursor" binding:"omitempty,max=512"`
+}
+
+func (h *InternalHandler) ActivateAgentMailBinding(c *gin.Context) {
+	if h.mailbox == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"msg": "mailbox not configured"})
+		return
+	}
+	var req internalAgentMailActivateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid request body"})
+		return
+	}
+	creds, err := base64.StdEncoding.DecodeString(strings.TrimSpace(req.CredentialsEncryptedBase64))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid encrypted credentials"})
+		return
+	}
+	b, err := h.mailbox.ActivateAgentMailBinding(c.Request.Context(), req.UserID, req.BotUID, req.MailAddress, creds, req.SyncCursor)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, b)
 }
 
 // ---------------------------------------------------------------------------

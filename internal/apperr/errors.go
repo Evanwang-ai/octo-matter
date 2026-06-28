@@ -143,3 +143,12 @@ func Conflict(code, msgID string) *AppError {
 func NotConfigured(msgID string) *AppError {
 	return &AppError{code: "LLM_NOT_CONFIGURED", msgID: msgID, status: http.StatusServiceUnavailable}
 }
+
+// FeatureNotConfigured is for optional product surfaces that are deliberately
+// not wired in a deployment yet.
+func FeatureNotConfigured(msgID string) *AppError {
+	if msgID == "" {
+		msgID = i18n.KeyInvalidRequest
+	}
+	return &AppError{code: "FEATURE_NOT_CONFIGURED", msgID: msgID, status: http.StatusServiceUnavailable}
+}

@@ -1,0 +1,129 @@
+package handler
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/Mininglamp-OSS/octo-matter/internal/model"
+	"github.com/Mininglamp-OSS/octo-matter/internal/service"
+	"github.com/gin-gonic/gin"
+)
+
+type fakeInternalAgentMailBindingStore struct {
+	items []*model.AgentMailBinding
+}
+
+func (f *fakeInternalAgentMailBindingStore) ListByUser(context.Context, string) ([]*model.AgentMailBinding, error) {
+	return f.items, nil
+}
+
+func (f *fakeInternalAgentMailBindingStore) Upsert(_ context.Context, b *model.AgentMailBinding) error {
+	f.items = append(f.items, b)
+	return nil
+}
+
+func (f *fakeInternalAgentMailBindingStore) Delete(context.Context, string, string) error {
+	return nil
+}
+
+func TestMailboxRoutesDoNotRequireSpace(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	h := NewMailboxHandler(nil)
+	authMW := func(c *gin.Context) {
+		c.Set("uid", "user-1")
+		c.Set("role", "user")
+		c.Next()
+	}
+	mailbox := r.Group("/api/v1/mailbox")
+	mailbox.Use(authMW, userOnlyMailbox())
+	mailbox.GET("/letters", h.List)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/mailbox/letters", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected mailbox route without X-Space-Id to pass, got %d", w.Code)
+	}
+}
+
+func TestMailboxListRejectsInvalidDirection(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	h := NewMailboxHandler(nil)
+	authMW := func(c *gin.Context) {
+		c.Set("uid", "user-1")
+		c.Set("role", "user")
+		c.Next()
+	}
+	mailbox := r.Group("/api/v1/mailbox")
+	mailbox.Use(authMW, userOnlyMailbox())
+	mailbox.GET("/letters", h.List)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/mailbox/letters?direction=sideways", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid direction to be rejected, got %d", w.Code)
+	}
+}
+
+func TestMailboxRoutesRejectBotCaller(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	h := NewMailboxHandler(nil)
+	authMW := func(c *gin.Context) {
+		c.Set("uid", "bot-1")
+		c.Set("role", "bot")
+		c.Next()
+	}
+	mailbox := r.Group("/api/v1/mailbox")
+	mailbox.Use(authMW, userOnlyMailbox())
+	mailbox.GET("/unread-count", h.UnreadCount)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/mailbox/unread-count", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected bot caller to be rejected, got %d", w.Code)
+	}
+}
+
+func TestInternalAgentMailActivateStoresOpaqueCredential(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := &fakeInternalAgentMailBindingStore{}
+	mailboxSvc := service.NewMailboxService(nil, store)
+	h := NewInternalHandler("secret", nil, nil, nil, nil, nil, mailboxSvc)
+	r := gin.New()
+	internal := r.Group("/api/v1/internal", h.Auth())
+	internal.POST("/mailbox/agent-mail-bindings/activate", h.ActivateAgentMailBinding)
+
+	body := []byte(`{"user_id":"u1","bot_uid":"bot-a","mail_address":"bot@agent.qq.com","credentials_encrypted_base64":"` +
+		base64.StdEncoding.EncodeToString([]byte("encrypted")) + `","sync_cursor":"cursor-1"}`)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/internal/mailbox/agent-mail-bindings/activate", bytes.NewReader(body))
+	req.Header.Set("X-Internal-Token", "secret")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected activate to return 201, got %d body=%s", w.Code, w.Body.String())
+	}
+	if len(store.items) != 1 {
+		t.Fatalf("upsert count = %d, want 1", len(store.items))
+	}
+	b := store.items[0]
+	if b.SyncStatus != model.AgentMailSyncActive || string(b.CredentialsEncrypted) != "encrypted" {
+		t.Fatalf("unexpected activated binding: %+v creds=%q", b, string(b.CredentialsEncrypted))
+	}
+	if b.SyncCursor == nil || *b.SyncCursor != "cursor-1" {
+		t.Fatalf("cursor = %v, want cursor-1", b.SyncCursor)
+	}
+}

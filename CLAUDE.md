@@ -6,7 +6,7 @@ Go 1.25 + Gin + gocraft/dbr/v2 (MySQL 8) + google/uuid + go-playground/validator
 cmd/          - 入口与依赖装配 (2文件: main.go, timeline_tx.go)
 internal/     - 业务核心 (12子包: handler, service, repository, model, notification, auth, config, i18n, middleware, llm, octoim, apperr, webui)
 docs/         - Agent 操作手册 + API 契约 + 协作模式指南 (SKILL.md, v2-api.md, modes/)
-migrations/   - 数据库迁移 001-021 (显式嵌入, 新增必须手动注册 embed.go)
+migrations/   - 数据库迁移 001-025 (显式嵌入, 新增必须手动注册 embed.go)
 scripts/      - 冒烟测试与验证脚本 (v2-smoke.sh, v2-cli-cases.sh, v2-patrol.sh 等)
 </directory>
 
@@ -28,7 +28,7 @@ service/     业务逻辑, 权限守卫, 状态机
   ↓
 repository/  dbr 查询 (参数化; 禁止拼接 SQL)
   ↓
-MySQL 8      外键, 唯一索引, 21 个迁移文件
+MySQL 8      外键, 唯一索引, 25 个迁移文件
 ```
 
 异步路径:
@@ -46,7 +46,7 @@ OctoNotifier.SendDoorbell()  HTTP POST → octo-server /v1/internal/notify
 
 ## 核心不变量
 
-1. **空间隔离**: 每条查询必须 WHERE space_id (X-Space-Id header), 缺失=跨租户泄漏
+1. **空间隔离**: Space 级查询必须 WHERE space_id (X-Space-Id header), 缺失=跨租户泄漏；Mailbox 是 user-level 例外，必须 WHERE user_id 且拒绝 bot token
 2. **状态机**: 所有转换走 TransitionService.Apply, 禁止直接写 matters.status
 3. **事务性 Outbox**: doorbell 在转换同一事务内入队, Engine 负责投递/重试/死信
 4. **Epoch 围栏**: bot 写入携带 assignment_epoch, 过期→409 EPOCH_STALE(bot 必须停止)
@@ -109,6 +109,6 @@ scripts/v2-cli-cases.sh                     # CLI 集成测试
 - 禁止 GORM
 - handler 禁止跳过 service 层直接访问 repository
 - 新增迁移必须手动注册到 migrations/embed.go
-- push 用 matter-test remote, 不是 origin
+- push 用用户 fork remote, 不是 origin/upstream
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

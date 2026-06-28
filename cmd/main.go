@@ -68,6 +68,8 @@ func main() {
 	projectSourceRepo := repository.NewProjectSourceRepo(sess)
 	botTaskRepo := repository.NewBotTaskRepo(sess)
 	prefCardRepo := repository.NewPreferenceCardRepo(sess)
+	mailboxRepo := repository.NewMailboxRepo(sess)
+	agentMailBindingRepo := repository.NewAgentMailBindingRepo(sess)
 
 	// Notifier
 	notifier := notification.NewOctoNotifier(cfg.OctoIMURL, cfg.NotifyInternalToken, cfg.DefaultLanguage)
@@ -132,6 +134,8 @@ func main() {
 		feedbackRepo, outboxRepo, summaryRepo, activityRepo, agentCardRepo, prefCardRepo, botResourceRepo, txMgr, transitionSvc, matterSvc, v2LLM)
 	botTaskSvc := service.NewBotTaskService(botTaskRepo, matterRepo, timelineRepo, activityRepo, transitionSvc)
 	scheduleSvc := service.NewScheduleService(scheduleRepo, matterRepo, matterSvc, v2Svc, transitionSvc, cfg.ScheduleTick)
+	mailboxSvc := service.NewMailboxService(mailboxRepo, agentMailBindingRepo)
+	mailboxSvc.ConfigureMatterConversion(auth.NewSpaceCreateVerifier(cfg.OctoIMURL), matterSvc, v2Svc)
 
 	// Engine loops: transactional-outbox dispatcher + two-tier watchdog.
 	engineCtx, engineStop := context.WithCancel(context.Background())
@@ -157,7 +161,8 @@ func main() {
 	activityH := handler.NewActivityHandler(activitySvc)
 	outputsH := handler.NewOutputsHandler(outputsSvc)
 	v2H := handler.NewV2Handler(v2Svc, scheduleSvc, timelineSvc)
-	internalH := handler.NewInternalHandler(cfg.NotifyInternalToken, matterRepo, timelineRepo, activityRepo, botTaskSvc, v2Svc)
+	internalH := handler.NewInternalHandler(cfg.NotifyInternalToken, matterRepo, timelineRepo, activityRepo, botTaskSvc, v2Svc, mailboxSvc)
+	mailboxH := handler.NewMailboxHandler(mailboxSvc)
 
 	// Auth
 	authMW := auth.AuthMiddleware(auth.Config{OctoIMURL: cfg.OctoIMURL})
@@ -168,7 +173,7 @@ func main() {
 
 	// Router
 	cardH := handler.NewPreferenceCardHandler(prefCardRepo)
-	r := handler.SetupRouter(matterH, timelineH, activityH, outputsH, extractH, extractLimiter, authMW, spaceMW, readiness, v2H, internalH, cardH)
+	r := handler.SetupRouter(matterH, timelineH, activityH, outputsH, extractH, extractLimiter, authMW, spaceMW, readiness, v2H, internalH, cardH, mailboxH)
 
 	// Graceful shutdown
 	srv := &http.Server{Addr: ":" + cfg.ServerPort, Handler: r}

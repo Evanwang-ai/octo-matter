@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Mininglamp-OSS/octo-matter/internal/i18n"
 	"github.com/Mininglamp-OSS/octo-matter/internal/model"
@@ -274,6 +275,8 @@ func (h *MatterHandler) List(c *gin.Context) {
 	status := c.Query("status")
 	assigneeID := c.Query("assignee_id")
 	creatorID := c.Query("creator_id")
+	participantID := c.Query("participant_id")
+	mode := c.Query("mode")
 	query := c.Query("q")
 	sourceChannelID := c.Query("source_channel_id")
 	sourceChannelTypeStr := c.Query("source_channel_type")
@@ -286,7 +289,16 @@ func (h *MatterHandler) List(c *gin.Context) {
 	if cursor != "" {
 		filter.Cursor = &cursor
 	}
-	if status != "" {
+	statuses := nonemptyQueryArray(c, "status")
+	if len(statuses) > 1 {
+		for _, st := range statuses {
+			if !model.IsValidStatus(model.MatterStatus(st)) {
+				failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyStatusInvalid, nil)
+				return
+			}
+		}
+		filter.Statuses = statuses
+	} else if status != "" {
 		if !model.IsValidStatus(model.MatterStatus(status)) {
 			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyStatusInvalid, nil)
 			return
@@ -305,6 +317,19 @@ func (h *MatterHandler) List(c *gin.Context) {
 		}
 		filter.CreatorID = &creatorID
 	}
+	if participantID != "" {
+		if participantID == "me" {
+			participantID = uid(c)
+		}
+		filter.ParticipantID = &participantID
+	}
+	if mode != "" {
+		if !model.IsValidMode(mode) {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, nil)
+			return
+		}
+		filter.Mode = &mode
+	}
 	if query != "" {
 		filter.Query = &query
 	}
@@ -313,7 +338,15 @@ func (h *MatterHandler) List(c *gin.Context) {
 			filter.SeqNo = &n
 		}
 	}
-	if leaderID := c.Query("leader_id"); leaderID != "" {
+	leaderIDs := nonemptyQueryArray(c, "leader_id")
+	if len(leaderIDs) > 1 {
+		for i := range leaderIDs {
+			if leaderIDs[i] == "me" {
+				leaderIDs[i] = uid(c)
+			}
+		}
+		filter.LeaderIDs = leaderIDs
+	} else if leaderID := c.Query("leader_id"); leaderID != "" {
 		if leaderID == "me" {
 			leaderID = uid(c)
 		}
@@ -355,6 +388,30 @@ func (h *MatterHandler) List(c *gin.Context) {
 			filter.SourceChannelType = &u8
 		}
 	}
+	if createdFrom := c.DefaultQuery("created_from", c.Query("date_from")); createdFrom != "" {
+		t, err := time.Parse(time.RFC3339, createdFrom)
+		if err != nil {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, nil)
+			return
+		}
+		filter.CreatedAfter = &t
+	}
+	if createdTo := c.DefaultQuery("created_to", c.Query("date_to")); createdTo != "" {
+		t, err := time.Parse(time.RFC3339, createdTo)
+		if err != nil {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, nil)
+			return
+		}
+		filter.CreatedBefore = &t
+	}
+	if hasAttachments := c.Query("has_attachments"); hasAttachments != "" {
+		v, err := strconv.ParseBool(hasAttachments)
+		if err != nil {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, nil)
+			return
+		}
+		filter.HasAttachments = &v
+	}
 
 	result, err := h.svc.ListMatters(c.Request.Context(), spaceID(c), filter, callerToken(c))
 	if err != nil {
@@ -362,6 +419,21 @@ func (h *MatterHandler) List(c *gin.Context) {
 		return
 	}
 	paginated(c, result.Items, result.HasMore, result.NextCursor)
+}
+
+func nonemptyQueryArray(c *gin.Context, key string) []string {
+	vals := c.QueryArray(key)
+	out := make([]string, 0, len(vals))
+	seen := map[string]bool{}
+	for _, v := range vals {
+		v = strings.TrimSpace(v)
+		if v == "" || seen[v] {
+			continue
+		}
+		seen[v] = true
+		out = append(out, v)
+	}
+	return out
 }
 
 func (h *MatterHandler) Get(c *gin.Context) {

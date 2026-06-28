@@ -13,7 +13,9 @@ Everything below is additive.
 
 - User: `token: <im token>` header → octo-server `POST /v1/auth/verify`
 - Bot:  `Authorization: Bearer <bot token>` → `POST /v1/auth/verify-bot`
-- All `/api/v1/*` calls additionally require `X-Space-Id`.
+- Space-level `/api/v1/*` calls additionally require `X-Space-Id`.
+- User-level `/api/v1/mailbox/*` calls require only user auth; they must not
+  accept bot tokens and do not require `X-Space-Id`.
 - Internal endpoints use `X-Internal-Token` (constant-time compare, fail closed).
 
 When served behind nginx the service root is `/matter/`. The embedded UI
@@ -99,8 +101,13 @@ create sub-matters (tree-as-permission rule).
 `assignment_epoch`+1, activity `reassigned`, doorbell to old+new leader),
 `mode`, `project_id`, `expected_duration_minutes`.
 
-`GET /api/v1/matters` new filters: `parent_id=<uuid>`, `top_level=1`,
-`project_id=<uuid>`, `leader_id=<uid>`. Default behaviour unchanged.
+`GET /api/v1/matters` filters: `parent_id=<uuid>`, `top_level=1`,
+`project_id=<uuid>`, `leader_id=<uid>`, repeated `leader_id=<uid>` for My
+Agents, repeated `status=<status>` for multi-status views,
+`participant_id=<uid|me>`, `mode=<solo|split|swarm|roundtable|pipeline|critic>`,
+`created_from=<RFC3339>` / `created_to=<RFC3339>` (aliases:
+`date_from` / `date_to`), and `has_attachments=true|false`. Default behaviour
+unchanged.
 
 ## New matter endpoints
 
@@ -303,8 +310,12 @@ octo-server with the same `token` header:
 
 `GET /` and `GET /ui` / `GET /ui/` serve the restored Matter workspace
 (single-page, hash routes
-`#/inbox  #/mine  #/initiated  #/review-me  #/board  #/projects
-#/automation  #/matter/:id  #/project/:id`).
+`#/mailbox  #/matters  #/matters/assigned  #/matters/created
+#/matters/agents  #/matters/board  #/projects  #/automation
+#/matter/:id  #/project/:id`).
+My Matters List/Board share the same `/api/v1/matters` filter contract; the
+UI passes repeated query keys for multi-select status and owned-agent leader
+filters.
 Behind nginx, `GET /matter` redirects to `/matter/ui` with the original
 host/port preserved, while `/matter/` and `/matter/ui` serve the SPA directly.
 Same-origin auth reuse: reads `localStorage` keys `token`, `uid`, `name`,
@@ -312,6 +323,76 @@ Same-origin auth reuse: reads `localStorage` keys `token`, `uid`, `name`,
 auto-discovers the space via `/api/v1/space/my`. Manual form otherwise.
 `?embed=1` (used by the octo-web sidebar iframe) hides the UI's own leftmost
 icon rail — the host app already provides global navigation.
+
+## Mailbox API (user-level)
+
+Mailbox is deliberately outside the Space middleware chain. It is scoped by
+the authenticated user, not by `space_id`, and rejects bot-token callers.
+Mailbox HTML is treated as untrusted input: system-letter ingest runs the same
+allowlisted sanitizer planned for Agent Mail, stores `body_text` / `snippet`,
+and the embedded UI renders `body_html` inside a strict `sandbox=""` iframe
+with no referrer.
+
+```
+GET    /api/v1/mailbox/letters?status=&source_type=&direction=&cursor=&limit=
+GET    /api/v1/mailbox/letters/:id
+PATCH  /api/v1/mailbox/letters/:id        {"action":"mark_read|archive"}
+POST   /api/v1/mailbox/letters/:id/convert {"space_id":"...","project_id":"...","leader_uid":"...","status":"backlog|open","assignee_ids":["..."]}
+POST   /api/v1/mailbox/letters/:id/reply  {"content":"..."}
+POST   /api/v1/mailbox/letters/mark-all-read
+DELETE /api/v1/mailbox/letters/:id
+POST   /api/v1/mailbox/letters/bulk       {"ids":["..."],"action":"mark_read|archive|delete"}
+GET    /api/v1/mailbox/unread-count
+GET    /api/v1/mailbox/agent-mail-bindings
+POST   /api/v1/mailbox/agent-mail-bindings {"bot_uid":"...","mail_address":"name@agent.qq.com"}
+DELETE /api/v1/mailbox/agent-mail-bindings/:id
+```
+
+System letters are pushed through the internal token surface with an explicit
+target list; Matter does not enumerate all users:
+
+```
+POST /api/v1/internal/mailbox/system-letter
+{"user_ids":["..."],"template_id":"onboarding-v1","title":"...","body_html":"..."}
+
+POST /api/v1/internal/mailbox/agent-mail-bindings/activate
+{"user_id":"...","bot_uid":"...","mail_address":"name@agent.qq.com","credentials_encrypted_base64":"...","sync_cursor":"..."}
+```
+
+Agent Mail bindings currently record user-owned bot UID + `@agent.qq.com`
+address only. `sync_status` stays `paused` until a real service-side OAuth/token
+credential path is implemented; the local agently-cli Keychain token must not be
+persisted here. The sync core is testable behind an `AgentMailClient` interface
+and only scans `active` bindings with non-empty `credentials_encrypted`; no
+production provider is wired yet.
+Deleting a binding is a soft delete: it hides the binding from user lists and
+pauses sync, while preserving the uniqueness/audit record needed to prevent a
+deleted address from being silently rebound to another user.
+The internal activation endpoint is the future OAuth/token callback seam: it
+accepts only an already-encrypted credential blob, base64 encoded for transport,
+and flips the binding to `active`. It is guarded by `X-Internal-Token`, not a
+user route.
+
+Mailbox letters carry `direction` (`inbound`/`outbound`) and optional
+`thread_id`. Reply has a stable API/service contract: it calls an
+`AgentMailReplySender` interface and writes the successful send as an outbound
+letter in the same mailbox thread. No production sender is wired yet; until a
+service-side non-interactive Agent Mail send API exists, reply returns
+`FEATURE_NOT_CONFIGURED`. The embedded UI exposes the reply action for inbound
+Agent Mail letters and surfaces that error without creating a local outbound
+record.
+
+Convert-to-Matter uses an explicit space-create verifier before it can create
+anything. The mailbox route is user-level and does not run `spaceMW`; the
+default wiring reuses the same octo-server `/v1/space/:id` token check as
+`SpaceMiddleware`, then runs the normal v2 prepare/create/after-create path and
+writes `converted_matter_id` back into letter metadata. If verifier/creator
+wiring is absent, the service returns `FEATURE_NOT_CONFIGURED` instead of
+falling through to an unsafe create path.
+The embedded UI exposes this from Mailbox detail for the currently selected
+Space, with optional project and `backlog|open` status.
+Repeated convert calls for a letter that already has `converted_matter_id`
+return `409 MAILBOX_ALREADY_CONVERTED`.
 
 Local verification:
 
@@ -423,4 +504,3 @@ GET    /api/v1/matters/:id/bots        列出 matter 的可调度 bot
 - 创建表单协作选择器: 只显示人类(标签"协作（人）")。
 - 创建表单新增"保存草稿"按钮(status=backlog),"发送"按钮(status=open)。
 - backlog 在看板/收件箱显示为"草稿"。
-
