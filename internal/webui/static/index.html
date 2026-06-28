@@ -102,8 +102,14 @@
   .rail-btn svg { width: 20px; height: 20px; stroke-width: 1.75; }
   .rail-btn:hover { background: var(--fill-2); color: rgba(28,28,35,.6); }
   .rail-btn.active { background: var(--fill-2); color: var(--text); }
+  .rail-btn { position: relative; }
+  .rail-badge { position: absolute; top: 4px; right: 8px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #ff3b30; color: #fff; font-size: 10px; font-weight: 600; line-height: 16px; text-align: center; }
+  .rail-badge:empty { display: none; }
   .rail-spacer { flex: 1; }
   body.embed .rail { display: none !important; }
+  body.navless .modnav,
+  body.navless .nav-scrim { display: none !important; }
+  body.navless .work { flex: 1 1 auto; }
 
   /* ============ ZONE 2 · module nav ============ */
   .modnav {
@@ -450,7 +456,7 @@
   .content.board-content { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
   .board-shell {
     height: 100%; min-height: 0; display: flex; flex-direction: column;
-    padding-top: 26px; padding-bottom: 18px;
+    padding-top: 0; padding-bottom: 18px;
   }
   .board-head {
     display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
@@ -584,7 +590,7 @@
   .board-wrap { height: 100%; min-width: 100%; display: flex; gap: 14px; align-items: stretch; overflow: visible; padding-right: 4px; }
   .board-shell[data-density="compact"] .board-wrap { gap: 10px; }
   .board-col {
-    min-width: 240px; max-width: 380px; flex: 1 1 0; min-height: 0; height: 100%;
+    min-width: 0; flex: 1 1 0; min-height: 0; height: 100%;
     display: flex; flex-direction: column; overflow: hidden;
     background: var(--surface-panel); border: 1px solid var(--hairline-soft); border-radius: 10px;
   }
@@ -923,6 +929,36 @@
   .pcard-auth { color: var(--done); border-color: var(--done-border); }
   .pcard-auth:hover { background: var(--done-bg); }
   .pcard-discard { color: var(--text-3); margin-left: 4px; }
+  /* ---- matters list (Linear-style) ---- */
+  .matters-list-page { max-width: 100%; padding: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+  .matters-list-head { padding: 16px 24px 0; flex: 0 0 auto; }
+  .matters-list-head h1 { font-size: 20px; font-weight: 600; margin: 0 0 12px; color: var(--text); }
+  .matters-head-row { display: flex; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--hairline-soft); flex-wrap: wrap; }
+  .matters-head-left { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+  .matters-head-left button { background: none; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; color: var(--text-3); cursor: pointer; font-weight: 500; }
+  .matters-head-left button:hover { background: var(--fill-1); color: var(--text); }
+  .matters-head-left button.active { background: rgba(28,28,35,.06); color: var(--text); font-weight: 600; }
+  .matters-head-right { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+  .matters-list-body { flex: 1; overflow-y: auto; }
+  .matters-row { display: flex; align-items: center; gap: 10px; padding: 8px 24px; border-bottom: 1px solid var(--hairline-soft); cursor: pointer; min-height: 44px; }
+  .matters-row:hover { background: var(--fill-1); }
+  .matters-row .mr-status { flex: 0 0 18px; display: flex; align-items: center; justify-content: center; }
+  .matters-row .mr-status svg { width: 18px; height: 18px; }
+  .matters-row .mr-id { flex: 0 0 auto; font-size: 12px; color: var(--text-4); font-weight: 500; min-width: 50px; }
+  .matters-row .mr-title { flex: 1; min-width: 0; font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .matters-row .mr-project { flex: 0 0 auto; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-3); }
+  .matters-row .mr-assignee { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-3); }
+  .matters-row .mr-time { flex: 0 0 auto; font-size: 12px; color: var(--text-4); min-width: 70px; text-align: right; }
+  .matters-list-group { padding: 8px 24px 4px; font-size: 12px; font-weight: 600; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+  .matters-list-group .mlg-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .matters-list-group .mlg-count { font-weight: 400; color: var(--text-4); }
+  .matters-list-empty { padding: 60px 24px; text-align: center; color: var(--text-3); font-size: 14px; }
+  @media (max-width: 768px) {
+    .matters-list-head { padding: 12px 14px 0; }
+    .matters-row { padding: 8px 14px; gap: 8px; }
+    .matters-row .mr-project, .matters-row .mr-assignee { display: none; }
+    .matters-list-group { padding: 8px 14px 4px; }
+  }
   /* ---- inbox split-pane ---- */
   .inbox-split { display: flex; height: 100%; overflow: hidden; }
   .inbox-workbench { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--panel); }
@@ -2362,6 +2398,7 @@
 
   /* ============ responsive ============ */
   .nav-burger { display: none; }
+  body.navless .nav-burger { display: none !important; }
   @media (max-width: 1180px) {
     .props { width: 300px; flex: 0 0 300px; }
   }
@@ -2470,14 +2507,15 @@
   <div class="app">
     <nav class="rail">
       <div class="avatar-top" id="railMe" title="当前身份(点开改连接)">·</div>
-      <div class="rail-btn active" id="railInbox" title="收件箱" aria-label="收件箱"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16v11A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="M4 13h4.4l1.4 2h4.4l1.4-2H20"/><path d="M8 4h8"/></svg></div>
+      <div class="rail-btn active" id="railInbox" title="收件箱" aria-label="收件箱"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5.5h14M5 10h14M5 14.5h14M5 19h14"/><circle cx="3" cy="5.5" r="1"/><circle cx="3" cy="10" r="1"/><circle cx="3" cy="14.5" r="1"/><circle cx="3" cy="19" r="1"/></svg></div>
+      <div class="rail-btn" id="railMailbox" title="邮件" aria-label="邮件"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l8-4 8 4v10l-8 4-8-4z"/><path d="M4 8l8 4 8-4"/><path d="M12 12v10"/></svg><span class="rail-badge" id="railMailboxBadge"></span></div>
       <div class="rail-spacer"></div>
       <div class="rail-btn" id="railSettings" title="连接设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.5M12 19v2.5M21.5 12H19M5 12H2.5M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8M18.7 18.7l-1.8-1.8M7.1 7.1L5.3 5.3"/></svg></div>
     </nav>
 
     <nav class="modnav" id="modnav">
       <div class="modnav-h">
-        <div class="mh-title">收件箱</div>
+        <div class="mh-title">事项</div>
         <div class="mh-spacer"></div>
       </div>
       <div class="modnav-scroll"><div class="nav-list" id="navList"></div></div>
@@ -2979,12 +3017,7 @@ function liveProjects(){
 function scopeLabel(p){ return p && p.scope === "private" ? "私有项目" : "共享项目"; }
 
 /* ---------------- shell / nav ---------------- */
-var NAV_ITEMS = [
-  { key: "matters", hash: "#/matters", label: "全部事项",
-    ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h10M5 9.5h10M5 14.5h10"/><circle cx="3" cy="4.5" r=".8"/><circle cx="3" cy="9.5" r=".8"/><circle cx="3" cy="14.5" r=".8"/></svg>' },
-  { key: "mailbox", hash: "#/mailbox", label: "邮件",
-    ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l7-3.5L17 7v8l-7 3.5L3 15z"/><path d="M3 7l7 3.5L17 7"/><path d="M10 10.5V18"/></svg>',
-    badge: true },
+var NAV_ITEMS_BASE = [
   { key: "projects", hash: "#/projects", label: "项目",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5h3l1.6 1.8h5.4A1.5 1.5 0 0 1 16 8.3V15a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 3 15z"/></svg>' },
   { key: "automation", hash: "#/automation", label: "自动化",
@@ -2992,6 +3025,7 @@ var NAV_ITEMS = [
   { key: "cards", hash: "#/cards", label: "Preference",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M7 8h6M7 11h4"/></svg>' }
 ];
+var NAV_ITEMS = NAV_ITEMS_BASE.slice();
 function buildNav(){
   $("#navList").innerHTML = NAV_ITEMS.map(function(n){
     return '<div class="nav-item" data-nav="' + n.key + '" data-hash="' + n.hash + '" role="link" tabindex="0">'
@@ -3008,6 +3042,14 @@ function buildNav(){
 }
 function setNav(key){
   $$(".nav-item").forEach(function(n){ n.classList.toggle("active", n.getAttribute("data-nav") === key); });
+  var ri = $("#railInbox"), rm = $("#railMailbox");
+  if (ri) ri.classList.toggle("active", key !== "mailbox");
+  if (rm) rm.classList.toggle("active", key === "mailbox");
+}
+function setShellMode(route){
+  var navless = route && (route.view === "mymatters" || route.view === "mailbox" || route.view === "matter");
+  document.body.classList.toggle("navless", !!navless);
+  if (navless) closeDrawer();
 }
 function setCrumbText(label){
   $("#crumb").innerHTML = '<span class="title-plain">' + esc(label) + "</span>";
@@ -3035,7 +3077,7 @@ function closeDrawer(){
   $("#navScrim").classList.remove("open");
 }
 function setNavBadge(n){
-  var b = $("#navBadge_mailbox");
+  var b = $("#railMailboxBadge");
   if (!b) return;
   b.textContent = n ? (n > 99 ? "99+" : String(n)) : "";
 }
@@ -3172,6 +3214,7 @@ function render(){
   closeDlPop();
   hideAnnotAll();
   var r = parseHash();
+  setShellMode(r);
   var p;
   if (!authReady()){
     setNav(r.view === "matter" || r.view === "project" ? null : r.view);
@@ -3185,9 +3228,9 @@ function render(){
   if (!spaceReady() && r.view !== "mailbox"){
     setNav(r.view === "matter" || r.view === "project" ? null : r.view);
     hideInspector();
-    setCrumbText("收件箱");
+    setCrumbText("全部事项");
     $("#centerCol").innerHTML = '<div class="content"><div class="content-inner">'
-      + '<div class="empty-state"><div class="es-t">还没选空间</div><div class="es-s">邮件可以直接打开；事项视图需要先选一个空间</div></div></div></div>';
+      + '<div class="empty-state"><div class="es-t">还没选空间</div><div class="es-s">事项视图需要先选一个空间</div></div></div></div>';
     showConnect();
     return Promise.resolve();
   }
@@ -3802,164 +3845,56 @@ function renderMyMatters(my, tab){
   if (tab) myMattersTab = tab;
   setNav("matters");
   setCrumbText("收件箱");
-  $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="inbox-workbench">'
-    + '<div class="inbox-toolbar">' + skelRows(1, 34) + '</div><div class="inbox-split">'
-    + '<div class="inbox-left"><div class="inbox-left-list"></div></div><div class="inbox-right"><div class="inbox-right-empty">加载中…</div></div>'
-    + '</div></div></div>';
+  hideInspector();
+  $("#centerCol").innerHTML = '<div class="content"><div class="matters-list-page">'
+    + '<div class="matters-list-head">' + skelRows(2, 28) + '</div>'
+    + '<div class="matters-list-body">' + skelRows(8, 44) + '</div></div></div>';
   return Promise.all([
     loadMembers().catch(function(){ return []; }),
     getProjects().catch(function(){ return []; })
   ]).then(function(res){
     if (my !== renderToken) return;
-    var params = myMattersParams(myMattersTab, myMattersTab === "agents" ? 200 : 50);
+    var params = myMattersParams(myMattersTab, myMattersTab === "agents" ? 200 : 100);
     return api("/matters", { params: params }).then(function(json){
       if (my !== renderToken) return;
       myMattersState = { rows: myMattersRowsForTab(listData(json).map(normMatter), myMattersTab), page: pageInfo(json) };
-      myMattersSel = null;
-      paintMyMatters(my);
+      paintMyMattersList(my);
     });
   });
 }
-var inboxLeftCollapsed = false;
-var inboxLeftWidth = null;
-function paintMyMatters(my){
+function paintMyMattersList(my){
   if (!myMattersState) return;
   var rows = sortRows(myMattersState.rows);
-  var curTabInfo = myMattersTabInfo(myMattersTab);
-  var filterSVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>';
-  var dropItems = MY_MATTERS_TABS.map(function(t){
-    return '<button class="ibx-drop-item' + (myMattersTab === t.k ? " active" : "") + '" data-mitab="' + t.k + '" type="button">' + t.label + "</button>";
+  var tabsHTML = MY_MATTERS_TABS.map(function(t){
+    return '<button class="' + (myMattersTab === t.k ? "active" : "") + '" data-mitab="' + t.k + '" type="button">' + t.label + '</button>';
   }).join("");
-  var filterHTML = '<div class="ibx-filter-zone">'
-    + '<button class="ibx-filter-trigger" id="ibxFilterTrigger" type="button">' + filterSVG + '<span class="ibx-ft-label">' + esc(curTabInfo.label) + '</span></button>'
-    + '<div class="ibx-drop" id="ibxDrop">' + dropItems + '</div></div>' + matterViewSwitchHTML("list", myMattersTab) + myMattersFilterButtonHTML();
-  var empty = rows.length ? "" : '<div class="inbox-right-empty" style="padding:40px;text-align:center">'
-    + esc(curTabInfo.label) + " 没有事项</div>";
-  var listHTML = rows.map(function(m){ return mailRowHTML(m, myMattersSel); }).join("");
-  var toggleSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg>';
-  $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="inbox-workbench">'
-    + '<div class="inbox-toolbar"><div class="inbox-toolbar-main">' + filterHTML + '</div>'
-    + '<div class="inbox-toolbar-actions">'
-    + '<button class="ibx-newbtn" id="ibxNew" type="button" title="新建事项"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg></button>'
-    + '<button class="ibx-toggle" id="ibxCollapse" type="button" title="收起列表">' + toggleSVG + '</button></div></div>'
-    + '<div class="inbox-split" style="position:relative">'
-    + (inboxLeftCollapsed ? '<button class="ibx-toggle ibx-expand-float" id="ibxExpand" type="button" title="展开列表">' + toggleSVG + '</button>' : '')
-    + '<div class="inbox-left' + (inboxLeftCollapsed ? " collapsed" : "") + '" id="inboxLeft"' + (inboxLeftWidth && !inboxLeftCollapsed ? ' style="width:' + inboxLeftWidth + 'px"' : '') + '>'
-    + '<div class="inbox-left-list">' + (listHTML || empty) + '</div>'
-    + '</div>'
-    + '<div class="ibx-resize" id="ibxResize"></div>'
-    + '<div class="inbox-right" id="inboxRight">'
-    + (myMattersSel ? '' : '<div class="inbox-right-empty">选择一个事项查看详情</div>')
-    + '</div>'
-    + '</div></div></div>';
-  var ibxTrigger = $("#ibxFilterTrigger");
-  var ibxDrop = $("#ibxDrop");
-  if (ibxTrigger) ibxTrigger.addEventListener("click", function(e){
-    e.stopPropagation();
-    ibxDrop.classList.toggle("open");
-  });
-  if (ibxDrop) document.addEventListener("click", function(){ ibxDrop.classList.remove("open"); }, { once: true });
+  var listHtml = rows.map(function(m){ return rowHTML(m, { noExpand: false }); }).join("");
+  var body = rows.length
+    ? '<div class="inbox-table-head" aria-hidden="true"><span>状态</span><span>事项</span><span>项目</span><span>编号</span><span>领队</span><span>创建</span></div><div class="mlist">' + listHtml + '</div>'
+    : '<div class="empty-state"><div class="es-t">' + esc(myMattersTabInfo(myMattersTab).label) + ' 没有事项</div></div>';
+  $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
+    + '<div class="list-head"><div class="list-title">全部事项</div><div class="list-head-actions">'
+    + '<div class="matters-head-left">' + tabsHTML + '</div>'
+    + myMattersFilterButtonHTML()
+    + matterViewSwitchHTML("list", myMattersTab)
+    + '<button class="new-btn" id="ibxNew" type="button">+ 新建</button>'
+    + '</div></div>'
+    + '<div class="list-sub">' + rows.length + ' 个事项</div>'
+    + body
+    + '</div></div>';
   $$("[data-mitab]").forEach(function(el){
-    el.addEventListener("click", function(e){
-      e.stopPropagation();
-      if (ibxDrop) ibxDrop.classList.remove("open");
+    el.addEventListener("click", function(){
       location.hash = myMattersTabInfo(el.getAttribute("data-mitab")).hash;
     });
   });
   bindMyMattersFilter();
   var ibxNewBtn = $("#ibxNew");
   if (ibxNewBtn) ibxNewBtn.addEventListener("click", function(){ openMatterModal({}); });
-  var toggleSVGForBtn = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg>';
-  var collapseEl = $("#ibxCollapse");
-  if (collapseEl) collapseEl.addEventListener("click", function(){
-    inboxLeftCollapsed = true;
-    var left = $("#inboxLeft");
-    if (left) left.classList.add("collapsed");
-    var split = left && left.parentElement;
-    if (split && !$("#ibxExpand")){
-      var eb = document.createElement("button");
-      eb.className = "ibx-toggle ibx-expand-float"; eb.id = "ibxExpand"; eb.type = "button"; eb.title = "展开列表";
-      eb.innerHTML = toggleSVGForBtn;
-      eb.addEventListener("click", function(){
-        inboxLeftCollapsed = false;
-        if (left) left.classList.remove("collapsed");
-        if (inboxLeftWidth) left.style.width = inboxLeftWidth + "px";
-        eb.remove();
-      });
-      split.insertBefore(eb, split.firstChild);
-    }
-  });
-  var expandEl = $("#ibxExpand");
-  if (expandEl) expandEl.addEventListener("click", function(){
-    inboxLeftCollapsed = false;
-    var left = $("#inboxLeft");
-    if (left){ left.classList.remove("collapsed"); if (inboxLeftWidth) left.style.width = inboxLeftWidth + "px"; }
-    expandEl.remove();
-  });
-  var resizeEl = $("#ibxResize");
-  if (resizeEl) resizeEl.addEventListener("mousedown", function(e){
-    e.preventDefault();
-    var left = $("#inboxLeft");
-    if (!left) return;
-    var startX = e.clientX, startW = left.offsetWidth;
-    left.style.transition = "none";
-    var onMove = function(ev){
-      var w = Math.max(200, Math.min(600, startW + ev.clientX - startX));
-      left.style.width = w + "px";
-      inboxLeftWidth = w;
-    };
-    var onUp = function(){ left.style.transition = ""; document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  });
-  $$(".mail-row[data-mid]").forEach(function(el){
+  $$(".mrow[data-id]", $("#centerCol")).forEach(function(el){
     el.addEventListener("click", function(){
-      var id = el.getAttribute("data-mid");
-      myMattersSel = id;
-      $$(".mail-row.active").forEach(function(a){ a.classList.remove("active"); });
-      el.classList.add("active");
-      loadMyMattersDetail(my, id);
+      location.hash = "#/matter/" + el.getAttribute("data-id");
     });
   });
-  var ilList = $(".inbox-left-list");
-  if (ilList) ilList.addEventListener("contextmenu", function(e){
-    var row = e.target.closest(".mail-row[data-mid]");
-    if (!row) return;
-    e.preventDefault();
-    closeCtxMenu();
-    var mid = row.getAttribute("data-mid");
-    if (!mid) return;
-    var m = myMattersState && myMattersState.rows.find(function(r){ return r.id === mid; });
-    var mst = m ? m.status : "";
-    var menu = document.createElement("div"); menu.className = "ctx-menu"; menu.id = "ctxMenu";
-    var items = [];
-    if (mst !== "archived") items.push('<button data-ctx="archive">归档</button>');
-    if (mst === "archived") items.push('<button data-ctx="unarchive">取消归档</button>');
-    if (mst !== "cancelled" && mst !== "done" && mst !== "archived") items.push('<button data-ctx="cancel" class="danger">取消事项</button>');
-    if (!items.length) return;
-    menu.innerHTML = items.join('<div class="ctx-sep"></div>');
-    menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + "px";
-    menu.style.top = Math.min(e.clientY, window.innerHeight - items.length * 40 - 20) + "px";
-    document.body.appendChild(menu);
-    menu.addEventListener("click", function(ce){
-      var btn = ce.target.closest("[data-ctx]"); if (!btn) return;
-      var act = btn.getAttribute("data-ctx"); closeCtxMenu();
-      var target = act === "archive" ? "archived" : act === "unarchive" ? "done" : "cancelled";
-      api("/matters/" + mid + "/status", { method: "PUT", body: { status: target } }).then(function(){
-        toast(target === "archived" ? "已归档" : target === "cancelled" ? "已取消" : "已恢复");
-        if (m) m.status = target;
-        paintMyMatters(my);
-      }).catch(errToast);
-    });
-    setTimeout(function(){ document.addEventListener("click", closeCtxMenu, { once: true }); }, 0);
-  }, true);
-  if (myMattersSel) loadMyMattersDetail(my, myMattersSel);
-  else if (rows.length){
-    myMattersSel = rows[0].id;
-    var first = $(".mail-row[data-mid]");
-    if (first) first.classList.add("active");
-    loadMyMattersDetail(my, myMattersSel);
-  }
 }
 function loadMyMattersDetail(my, id){
   var right = $("#inboxRight");
@@ -4236,7 +4171,7 @@ function renderMyMattersBoard(my, tab){
   setCrumbText("收件箱");
   hideInspector();
   loadBoardDisplayState();
-  $("#centerCol").innerHTML = '<div class="content board-content"><div class="content-inner wide inbox-page board-shell">'
+  $("#centerCol").innerHTML = '<div class="content board-content"><div class="content-inner wide board-shell">'
     + skelRows(5, 80) + "</div></div>";
   return Promise.all([
     loadMembers().catch(function(){ return []; }),
@@ -4259,33 +4194,27 @@ function renderMyMattersBoard(my, tab){
         + '<div class="board-col-h"><span class="bc-dot"></span>' + esc(stName(c.st)) + '<span class="bc-cnt">' + cards.length + "</span></div>"
         + '<div class="board-cards">' + (cards.map(function(m){ return boardCardHTML(m, { draggable: false }); }).join("") || '<div class="board-empty">没有事项</div>') + "</div></div>";
     }).join("");
-    var curTabInfo = myMattersTabInfo(myMattersTab);
-    var dropItems = MY_MATTERS_TABS.map(function(t){
-      return '<button class="ibx-drop-item' + (myMattersTab === t.k ? " active" : "") + '" data-mitab="' + t.k + '" type="button">' + t.label + "</button>";
+    var tabsHTML = MY_MATTERS_TABS.map(function(t){
+      return '<button class="' + (myMattersTab === t.k ? "active" : "") + '" data-mitab="' + t.k + '" type="button">' + t.label + '</button>';
     }).join("");
-    var filterSVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>';
-    $("#centerCol").innerHTML = '<div class="content board-content"><div class="content-inner wide inbox-page board-shell" data-density="' + esc(boardDensity) + '" data-hide-empty="0">'
-      + '<div class="board-head"><div class="board-head-main"><div class="ibx-filter-zone">'
-      + '<button class="ibx-filter-trigger" id="ibxFilterTrigger" type="button">' + filterSVG + '<span class="ibx-ft-label">' + esc(curTabInfo.label) + '</span></button>'
-      + '<div class="ibx-drop" id="ibxDrop">' + dropItems + '</div></div></div>'
-      + '<div class="board-actions">' + matterViewSwitchHTML("board", myMattersTab) + myMattersFilterButtonHTML() + "</div></div>"
+    $("#centerCol").innerHTML = '<div class="content board-content"><div class="content-inner wide board-shell" data-density="' + esc(boardDensity) + '" data-hide-empty="0">'
+      + '<div class="list-head"><div class="list-title">全部事项</div><div class="list-head-actions">'
+      + '<div class="matters-head-left">' + tabsHTML + '</div>'
+      + myMattersFilterButtonHTML()
+      + matterViewSwitchHTML("board", myMattersTab)
+      + '<button class="new-btn" id="ibxNewBoard" type="button">+ 新建</button>'
+      + '</div></div>'
+      + '<div class="list-sub">' + boardRows.length + ' 个事项</div>'
       + '<div class="board-viewport" id="boardViewport"><div class="board-wrap">' + cols + "</div></div></div></div>";
-    var ibxTrigger = $("#ibxFilterTrigger");
-    var ibxDrop = $("#ibxDrop");
-    if (ibxTrigger) ibxTrigger.addEventListener("click", function(e){
-      e.stopPropagation();
-      ibxDrop.classList.toggle("open");
-    });
-    if (ibxDrop) document.addEventListener("click", function(){ ibxDrop.classList.remove("open"); }, { once: true });
     $$("[data-mitab]").forEach(function(el){
-      el.addEventListener("click", function(e){
-        e.stopPropagation();
-        if (ibxDrop) ibxDrop.classList.remove("open");
+      el.addEventListener("click", function(){
         var t = myMattersTabInfo(el.getAttribute("data-mitab"));
         location.hash = t.k === "all" ? "#/matters/board" : (t.hash + "/board");
       });
     });
     bindMyMattersFilter();
+    var ibxNewBoard = $("#ibxNewBoard");
+    if (ibxNewBoard) ibxNewBoard.addEventListener("click", function(){ openMatterModal({}); });
     $$(".bcard[data-id]", $("#centerCol")).forEach(function(el){
       el.addEventListener("click", function(){ location.hash = "#/matter/" + el.getAttribute("data-id"); });
     });
@@ -10503,6 +10432,8 @@ function bindGlobal(){
   });
   // rail / drawer
   $("#railInbox").addEventListener("click", function(){ location.hash = "#/matters"; });
+  var railMb = $("#railMailbox");
+  if (railMb) railMb.addEventListener("click", function(){ location.hash = "#/mailbox"; });
   $("#railMe").addEventListener("click", function(){ showConnect(); });
   $("#railSettings").addEventListener("click", function(){ showConnect(); });
   var topNewBtn = $("#newMatterTop");
@@ -10530,7 +10461,14 @@ paintIdentity();
 bindConnect();
 bindGlobal();
 window.addEventListener("hashchange", function(){ render(); });
-if (!location.hash) history.replaceState(null, "", "#/matters");
+// Check if host app requested a specific navigation target (e.g. mailbox rail click)
+var pendingNav = localStorage.getItem("matter_navigate_to");
+if (pendingNav) {
+  localStorage.removeItem("matter_navigate_to");
+  location.hash = pendingNav;
+} else if (!location.hash) {
+  history.replaceState(null, "", "#/matters");
+}
 render();
 if (authReady()){
   if (spaceReady()) loadMembers();
