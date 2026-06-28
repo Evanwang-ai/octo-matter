@@ -86,7 +86,7 @@ func TestMailboxUpdateRejectsInvalidAction(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			r := gin.New()
-			h := NewMailboxHandler(nil)
+			h := NewMailboxHandler(service.NewMailboxService(nil))
 			authMW := func(c *gin.Context) {
 				c.Set("uid", "user-1")
 				c.Set("role", "user")
@@ -111,7 +111,7 @@ func TestMailboxUpdateRejectsInvalidAction(t *testing.T) {
 func TestMailboxConvertRejectsInvalidAssigneeIDs(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	h := NewMailboxHandler(nil)
+	h := NewMailboxHandler(service.NewMailboxService(nil))
 	authMW := func(c *gin.Context) {
 		c.Set("uid", "user-1")
 		c.Set("role", "user")
@@ -144,7 +144,7 @@ func TestMailboxBulkRejectsInvalidRequest(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			r := gin.New()
-			h := NewMailboxHandler(nil)
+			h := NewMailboxHandler(service.NewMailboxService(nil))
 			authMW := func(c *gin.Context) {
 				c.Set("uid", "user-1")
 				c.Set("role", "user")
@@ -163,6 +163,28 @@ func TestMailboxBulkRejectsInvalidRequest(t *testing.T) {
 				t.Fatalf("expected invalid bulk request to be rejected, got %d body=%s", w.Code, w.Body.String())
 			}
 		})
+	}
+}
+
+func TestMailboxMutationRequiresConfiguredService(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	h := NewMailboxHandler(nil)
+	authMW := func(c *gin.Context) {
+		c.Set("uid", "user-1")
+		c.Set("role", "user")
+		c.Next()
+	}
+	mailbox := r.Group("/api/v1/mailbox")
+	mailbox.Use(authMW, userOnlyMailbox())
+	mailbox.GET("/letters/:id", h.Get)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/mailbox/letters/letter-1", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected unconfigured mailbox service to return 503, got %d body=%s", w.Code, w.Body.String())
 	}
 }
 

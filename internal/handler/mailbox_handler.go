@@ -37,6 +37,14 @@ func NewMailboxHandler(svc mailboxService) *MailboxHandler {
 	return &MailboxHandler{svc: svc}
 }
 
+func (h *MailboxHandler) requireService(c *gin.Context) bool {
+	if h.svc != nil {
+		return true
+	}
+	failKey(c, http.StatusServiceUnavailable, "FEATURE_NOT_CONFIGURED", i18n.KeyInvalidRequest, nil)
+	return false
+}
+
 func (h *MailboxHandler) List(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	filter := repository.MailboxFilter{
@@ -73,6 +81,9 @@ func (h *MailboxHandler) List(c *gin.Context) {
 }
 
 func (h *MailboxHandler) Get(c *gin.Context) {
+	if !h.requireService(c) {
+		return
+	}
 	letter, err := h.svc.Get(c.Request.Context(), uid(c), c.Param("id"))
 	if err != nil {
 		respondErr(c, err)
@@ -86,6 +97,9 @@ type mailboxUpdateReq struct {
 }
 
 func (h *MailboxHandler) Update(c *gin.Context) {
+	if !h.requireService(c) {
+		return
+	}
 	var req mailboxUpdateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		bindJSONErr(c, err)
@@ -99,6 +113,9 @@ func (h *MailboxHandler) Update(c *gin.Context) {
 }
 
 func (h *MailboxHandler) MarkAllRead(c *gin.Context) {
+	if !h.requireService(c) {
+		return
+	}
 	if err := h.svc.MarkAllRead(c.Request.Context(), uid(c)); err != nil {
 		respondErr(c, err)
 		return
@@ -107,6 +124,9 @@ func (h *MailboxHandler) MarkAllRead(c *gin.Context) {
 }
 
 func (h *MailboxHandler) Delete(c *gin.Context) {
+	if !h.requireService(c) {
+		return
+	}
 	if err := h.svc.Delete(c.Request.Context(), uid(c), c.Param("id")); err != nil {
 		respondErr(c, err)
 		return
@@ -123,6 +143,9 @@ type mailboxConvertReq struct {
 }
 
 func (h *MailboxHandler) Convert(c *gin.Context) {
+	if !h.requireService(c) {
+		return
+	}
 	var req mailboxConvertReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		bindJSONErr(c, err)
@@ -148,6 +171,9 @@ type mailboxReplyReq struct {
 }
 
 func (h *MailboxHandler) Reply(c *gin.Context) {
+	if !h.requireService(c) {
+		return
+	}
 	var req mailboxReplyReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		bindJSONErr(c, err)
@@ -167,6 +193,9 @@ type mailboxBulkReq struct {
 }
 
 func (h *MailboxHandler) Bulk(c *gin.Context) {
+	if !h.requireService(c) {
+		return
+	}
 	var req mailboxBulkReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		bindJSONErr(c, err)
@@ -211,6 +240,9 @@ type mailboxBindReq struct {
 }
 
 func (h *MailboxHandler) CreateBinding(c *gin.Context) {
+	if !h.requireService(c) {
+		return
+	}
 	var req mailboxBindReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		bindJSONErr(c, err)
@@ -225,6 +257,9 @@ func (h *MailboxHandler) CreateBinding(c *gin.Context) {
 }
 
 func (h *MailboxHandler) DeleteBinding(c *gin.Context) {
+	if !h.requireService(c) {
+		return
+	}
 	if err := h.svc.DeleteAgentMailBinding(c.Request.Context(), uid(c), c.Param("id")); err != nil {
 		respondErr(c, err)
 		return
