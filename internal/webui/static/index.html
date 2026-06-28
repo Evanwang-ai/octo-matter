@@ -3117,14 +3117,18 @@ function parseHash(){
   if (h === "mailbox") return { view: "mailbox" };
   if (h === "mine") { location.hash = "#/matters/assigned"; return { view: "mymatters", tab: "assigned", mode: "list" }; }
   if (h === "initiated") { location.hash = "#/matters/created"; return { view: "mymatters", tab: "created", mode: "list" }; }
-  if (h === "review-me") { location.hash = "#/matters"; return { view: "mymatters", tab: "all", mode: "list" }; }
-  if (h === "archived") { location.hash = "#/matters"; return { view: "mymatters", tab: "all", mode: "list" }; }
+  if (h === "review-me") { applyLegacyMyMattersStatusFilter("review"); location.hash = "#/matters"; return { view: "mymatters", tab: "all", mode: "list" }; }
+  if (h === "archived") { applyLegacyMyMattersStatusFilter("archived"); location.hash = "#/matters"; return { view: "mymatters", tab: "all", mode: "list" }; }
   if (h === "inbox") { location.hash = "#/matters"; return { view: "mymatters", tab: "all", mode: "list" }; }
   if (h === "matters/board") return { view: "mymatters", tab: "all", mode: "board" };
   if (h.indexOf("matters/") === 0 && /\/board$/.test(h)) return { view: "mymatters", tab: h.slice(8, -6) || "all", mode: "board" };
   if (h.indexOf("matters/") === 0) return { view: "mymatters", tab: h.slice(8) || "all", mode: "list" };
   if (h === "matters") return { view: "mymatters", tab: "all", mode: "list" };
   return { view: "mymatters", tab: "all", mode: "list" };
+}
+function applyLegacyMyMattersStatusFilter(status){
+  myMattersFilter = { statuses: [status], project_id: "", mode: "", created: "", has_attachments: "" };
+  myMattersFilterOpen = false;
 }
 function matterViewSwitchHTML(active, tab){
   tab = tab && tab !== "all" ? tab : "";
