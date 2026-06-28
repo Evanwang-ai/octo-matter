@@ -12,6 +12,37 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func TestMatterListRejectsInvalidNumericFilters(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []string{
+		"/api/v1/matters?seq=abc",
+		"/api/v1/matters?source_channel_type=999",
+	}
+	for _, path := range cases {
+		t.Run(path, func(t *testing.T) {
+			r := gin.New()
+			h := &MatterHandler{}
+			r.GET("/api/v1/matters", func(c *gin.Context) {
+				c.Set("uid", "user-1")
+				c.Set("role", "user")
+				c.Set("space_id", "space-1")
+				h.List(c)
+			})
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d body=%s", w.Code, w.Body.String())
+			}
+			if !strings.Contains(w.Body.String(), "VALIDATION_ERROR") {
+				t.Fatalf("expected validation error body, got %s", w.Body.String())
+			}
+		})
+	}
+}
+
 // TestCreateMatterReq_BindsSourceMsgIDs guards the manual-create path: clients
 // pass the LLM-filtered source_msgs alongside source_channel_id when re-issuing
 // a matter creation request. The DTO must surface the field so the handler can

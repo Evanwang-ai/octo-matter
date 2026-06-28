@@ -334,9 +334,12 @@ func (h *MatterHandler) List(c *gin.Context) {
 		filter.Query = &query
 	}
 	if seqStr := c.DefaultQuery("seq", c.Query("seq_no")); seqStr != "" {
-		if n, perr := strconv.ParseUint(seqStr, 10, 64); perr == nil {
-			filter.SeqNo = &n
+		n, perr := strconv.ParseUint(seqStr, 10, 64)
+		if perr != nil {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, nil)
+			return
 		}
+		filter.SeqNo = &n
 	}
 	leaderIDs := nonemptyQueryArray(c, "leader_id")
 	if len(leaderIDs) > 1 {
@@ -383,10 +386,13 @@ func (h *MatterHandler) List(c *gin.Context) {
 		filter.ChannelID = &channelID
 	}
 	if sourceChannelTypeStr != "" {
-		if v, err := strconv.ParseUint(sourceChannelTypeStr, 10, 8); err == nil {
-			u8 := uint8(v)
-			filter.SourceChannelType = &u8
+		v, err := strconv.ParseUint(sourceChannelTypeStr, 10, 8)
+		if err != nil {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, nil)
+			return
 		}
+		u8 := uint8(v)
+		filter.SourceChannelType = &u8
 	}
 	if createdFrom := c.DefaultQuery("created_from", c.Query("date_from")); createdFrom != "" {
 		t, err := time.Parse(time.RFC3339, createdFrom)
