@@ -11,11 +11,13 @@ import (
 )
 
 type fakeAgentMailReplySender struct {
-	req  AgentMailReplyRequest
-	sent *AgentMailSentMessage
+	called bool
+	req    AgentMailReplyRequest
+	sent   *AgentMailSentMessage
 }
 
 func (f *fakeAgentMailReplySender) Reply(_ context.Context, req AgentMailReplyRequest) (*AgentMailSentMessage, error) {
+	f.called = true
 	f.req = req
 	return f.sent, nil
 }
@@ -112,6 +114,62 @@ func TestReplyToLetterRejectsSystemLetter(t *testing.T) {
 	app, ok := apperr.AsAppError(err)
 	if !ok || app.Code() != "VALIDATION_ERROR" {
 		t.Fatalf("error = %v, want validation error", err)
+	}
+	if len(store.upserted) != 0 {
+		t.Fatalf("unexpected outbound write")
+	}
+}
+
+func TestReplyToLetterRejectsMissingAgentMailMetadataBeforeSending(t *testing.T) {
+	store := &fakeMailboxConvertStore{letter: &model.MailboxLetter{
+		ID:         "letter-1",
+		UserID:     "u1",
+		SourceType: model.MailboxSourceAgentMail,
+		Title:      "Hello",
+		Metadata:   model.MailboxJSON(`{"bot_uid":"bot-a"}`),
+	}}
+	sender := &fakeAgentMailReplySender{sent: &AgentMailSentMessage{ID: "out-1"}}
+	svc := NewMailboxService(store)
+	svc.ConfigureAgentMailReplySender(sender)
+
+	_, err := svc.ReplyToLetter(context.Background(), "u1", "letter-1", "thanks")
+	if err == nil {
+		t.Fatalf("expected missing mail metadata to fail")
+	}
+	app, ok := apperr.AsAppError(err)
+	if !ok || app.Code() != "VALIDATION_ERROR" {
+		t.Fatalf("error = %v, want validation error", err)
+	}
+	if sender.called {
+		t.Fatalf("sender called for invalid metadata")
+	}
+	if len(store.upserted) != 0 {
+		t.Fatalf("unexpected outbound write")
+	}
+}
+
+func TestReplyToLetterRejectsInvalidAgentMailAddressBeforeSending(t *testing.T) {
+	store := &fakeMailboxConvertStore{letter: &model.MailboxLetter{
+		ID:         "letter-1",
+		UserID:     "u1",
+		SourceType: model.MailboxSourceAgentMail,
+		Title:      "Hello",
+		Metadata:   model.MailboxJSON(`{"bot_uid":"bot-a","mail_address":"bot@example.com"}`),
+	}}
+	sender := &fakeAgentMailReplySender{sent: &AgentMailSentMessage{ID: "out-1"}}
+	svc := NewMailboxService(store)
+	svc.ConfigureAgentMailReplySender(sender)
+
+	_, err := svc.ReplyToLetter(context.Background(), "u1", "letter-1", "thanks")
+	if err == nil {
+		t.Fatalf("expected invalid mail metadata to fail")
+	}
+	app, ok := apperr.AsAppError(err)
+	if !ok || app.Code() != "VALIDATION_ERROR" {
+		t.Fatalf("error = %v, want validation error", err)
+	}
+	if sender.called {
+		t.Fatalf("sender called for invalid metadata")
 	}
 	if len(store.upserted) != 0 {
 		t.Fatalf("unexpected outbound write")

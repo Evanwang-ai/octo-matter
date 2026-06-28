@@ -177,7 +177,7 @@ func (s *MailboxService) BindAgentMail(ctx context.Context, userID string, owned
 	if !containsString(ownedBotUIDs, botUID) {
 		return nil, apperr.Forbidden(i18n.KeyForbidden)
 	}
-	if _, err := mail.ParseAddress(mailAddress); err != nil || !strings.HasSuffix(mailAddress, "@agent.qq.com") {
+	if !isValidAgentMailAddress(mailAddress) {
 		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
 	}
 	b := &model.AgentMailBinding{
@@ -202,7 +202,7 @@ func (s *MailboxService) ActivateAgentMailBinding(ctx context.Context, userID, b
 	if userID == "" || botUID == "" || mailAddress == "" || len(credentialsEncrypted) == 0 || len(credentialsEncrypted) > 4096 {
 		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
 	}
-	if _, err := mail.ParseAddress(mailAddress); err != nil || !strings.HasSuffix(mailAddress, "@agent.qq.com") {
+	if !isValidAgentMailAddress(mailAddress) {
 		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
 	}
 	if syncCursor != nil {
@@ -337,10 +337,15 @@ func (s *MailboxService) ReplyToLetter(ctx context.Context, userID, letterID, co
 		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
 	}
 	meta := mailboxMetadataMap(letter.Metadata)
+	botUID := strings.TrimSpace(metadataString(meta, "bot_uid"))
+	mailAddress := strings.ToLower(strings.TrimSpace(metadataString(meta, "mail_address")))
+	if botUID == "" || !isValidAgentMailAddress(mailAddress) {
+		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
 	req := AgentMailReplyRequest{
 		UserID:       userID,
-		BotUID:       metadataString(meta, "bot_uid"),
-		MailAddress:  metadataString(meta, "mail_address"),
+		BotUID:       botUID,
+		MailAddress:  mailAddress,
 		LetterID:     letter.ID,
 		SourceRef:    mailboxLetterSourceID(letter),
 		ThreadID:     optionalValue(letter.ThreadID),
@@ -503,4 +508,13 @@ func containsString(items []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func isValidAgentMailAddress(mailAddress string) bool {
+	mailAddress = strings.ToLower(strings.TrimSpace(mailAddress))
+	if mailAddress == "" || !strings.HasSuffix(mailAddress, "@agent.qq.com") {
+		return false
+	}
+	parsed, err := mail.ParseAddress(mailAddress)
+	return err == nil && strings.EqualFold(strings.TrimSpace(parsed.Address), mailAddress)
 }
