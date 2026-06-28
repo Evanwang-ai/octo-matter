@@ -107,7 +107,9 @@ Agents, repeated `status=<status>` for multi-status views,
 `participant_id=<uid|me>`, `mode=<solo|split|swarm|roundtable|pipeline|critic>`,
 `created_from=<RFC3339>` / `created_to=<RFC3339>` (aliases:
 `date_from` / `date_to`), and `has_attachments=true|false`. Default behaviour
-unchanged.
+unchanged. Repeated `status` / `leader_id` filters trim and drop empty values,
+dedupe repeated values, and still map `leader_id=me` to the caller UID; invalid
+status values are rejected after empty-value cleanup.
 
 ## New matter endpoints
 
@@ -316,6 +318,10 @@ octo-server with the same `token` header:
 My Matters List/Board share the same `/api/v1/matters` filter contract; the
 UI passes repeated query keys for multi-select status and owned-agent leader
 filters.
+Legacy bookmarks are redirected in-place: `#/inbox` → `#/matters`,
+`#/mine` → `#/matters/assigned`, `#/initiated` → `#/matters/created`,
+`#/board` → `#/matters/board`; `#/review-me` and `#/archived` redirect to
+`#/matters` while preserving the equivalent My Matters status filter.
 Behind nginx, `GET /matter` redirects to `/matter/ui` with the original
 host/port preserved, while `/matter/` and `/matter/ui` serve the SPA directly.
 Same-origin auth reuse: reads `localStorage` keys `token`, `uid`, `name`,
