@@ -164,6 +164,26 @@ func TestMailboxRoutesRejectBotCaller(t *testing.T) {
 	}
 }
 
+func TestInternalSystemLetterRejectsInvalidUserIDs(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mailboxSvc := service.NewMailboxService(nil)
+	h := NewInternalHandler("secret", nil, nil, nil, nil, nil, mailboxSvc)
+	r := gin.New()
+	internal := r.Group("/api/v1/internal", h.Auth())
+	internal.POST("/mailbox/system-letter", h.PostSystemLetter)
+
+	body := []byte(`{"user_ids":[""],"template_id":"welcome","title":"Welcome","body_html":"<p>hi</p>"}`)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/internal/mailbox/system-letter", bytes.NewReader(body))
+	req.Header.Set("X-Internal-Token", "secret")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid user_ids to be rejected, got %d body=%s", w.Code, w.Body.String())
+	}
+}
+
 func TestInternalAgentMailActivateStoresOpaqueCredential(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := &fakeInternalAgentMailBindingStore{}

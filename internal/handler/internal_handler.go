@@ -63,7 +63,7 @@ func (h *InternalHandler) Auth() gin.HandlerFunc {
 }
 
 type internalSystemLetterReq struct {
-	UserIDs    []string `json:"user_ids" binding:"required,min=1,max=200"`
+	UserIDs    []string `json:"user_ids" binding:"required,min=1,max=200,dive,required,max=64"`
 	TemplateID string   `json:"template_id" binding:"required,max=200"`
 	Title      string   `json:"title" binding:"required,max=500"`
 	BodyHTML   string   `json:"body_html" binding:"max=65000"`
