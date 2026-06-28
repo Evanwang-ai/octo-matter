@@ -359,6 +359,11 @@ POST /api/v1/internal/mailbox/agent-mail-bindings/activate
 {"user_id":"...","bot_uid":"...","mail_address":"name@agent.qq.com","credentials_encrypted_base64":"...","sync_cursor":"..."}
 ```
 
+Mailbox letter ingest is idempotent on `(user_id, source_type, source_ref)` and
+may refresh title/body/metadata from the source, but it must not clear
+`deleted_at`: a user-deleted letter stays hidden across later system pushes or
+Agent Mail resyncs.
+
 Agent Mail bindings currently record user-owned bot UID + `@agent.qq.com`
 address only. `sync_status` stays `paused` until a real service-side OAuth/token
 credential path is implemented; the local agently-cli Keychain token must not be

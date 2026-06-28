@@ -172,7 +172,7 @@ func (r *MailboxRepo) Upsert(ctx context.Context, letter *model.MailboxLetter) e
 			direction = VALUES(direction), thread_id = VALUES(thread_id),
 			title = VALUES(title), snippet = VALUES(snippet), body_text = VALUES(body_text),
 			body_html = VALUES(body_html), from_name = VALUES(from_name), from_email = VALUES(from_email),
-			metadata = VALUES(metadata), deleted_at = NULL, updated_at = VALUES(updated_at)`,
+			metadata = VALUES(metadata), updated_at = VALUES(updated_at)`,
 		letter.ID, letter.UserID, letter.SourceType, letter.SourceRef, letter.Direction, letter.ThreadID, letter.Title, letter.Snippet, letter.BodyText, letter.BodyHTML,
 		letter.FromName, letter.FromEmail, letter.Metadata, letter.ReadAt, letter.ArchivedAt, letter.DeletedAt, letter.CreatedAt, letter.UpdatedAt,
 	).ExecContext(ctx)
