@@ -88,11 +88,23 @@ func (r *AgentMailBindingRepo) Upsert(ctx context.Context, b *model.AgentMailBin
 				WHEN mail_address = VALUES(mail_address) THEN COALESCE(VALUES(credentials_encrypted), credentials_encrypted)
 				ELSE VALUES(credentials_encrypted)
 			END,
+			sync_cursor = CASE
+				WHEN VALUES(credentials_encrypted) IS NULL AND mail_address = VALUES(mail_address) THEN sync_cursor
+				ELSE VALUES(sync_cursor)
+			END,
+			sync_status = CASE
+				WHEN VALUES(credentials_encrypted) IS NULL AND mail_address = VALUES(mail_address) THEN sync_status
+				ELSE VALUES(sync_status)
+			END,
+			last_error = CASE
+				WHEN VALUES(credentials_encrypted) IS NULL AND mail_address = VALUES(mail_address) THEN last_error
+				ELSE NULL
+			END,
+			retry_count = CASE
+				WHEN VALUES(credentials_encrypted) IS NULL AND mail_address = VALUES(mail_address) THEN retry_count
+				ELSE 0
+			END,
 			mail_address = VALUES(mail_address),
-			sync_cursor = VALUES(sync_cursor),
-			sync_status = VALUES(sync_status),
-			last_error = NULL,
-			retry_count = 0,
 			deleted_at = NULL,
 			updated_at = VALUES(updated_at)`,
 		b.ID, b.UserID, b.BotUID, b.MailAddress, b.CredentialsEncrypted, b.SyncCursor,
