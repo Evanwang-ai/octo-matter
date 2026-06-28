@@ -85,7 +85,7 @@ func (r *AgentMailBindingRepo) Upsert(ctx context.Context, b *model.AgentMailBin
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
 			mail_address = VALUES(mail_address),
-			credentials_encrypted = VALUES(credentials_encrypted),
+			credentials_encrypted = COALESCE(VALUES(credentials_encrypted), credentials_encrypted),
 			sync_cursor = VALUES(sync_cursor),
 			sync_status = VALUES(sync_status),
 			last_error = NULL,
@@ -103,6 +103,10 @@ func (r *AgentMailBindingRepo) Delete(ctx context.Context, userID, id string) er
 	res, err := r.runner.Update("agent_mail_bindings").
 		Set("deleted_at", now).
 		Set("sync_status", model.AgentMailSyncPaused).
+		Set("credentials_encrypted", nil).
+		Set("sync_cursor", nil).
+		Set("last_error", nil).
+		Set("retry_count", 0).
 		Set("updated_at", now).
 		Where("id = ? AND user_id = ? AND deleted_at IS NULL", id, userID).
 		ExecContext(ctx)
