@@ -62,6 +62,10 @@ func (r *AgentMailBindingRepo) Upsert(ctx context.Context, b *model.AgentMailBin
 	if err == nil && (existing.UserID != b.UserID || existing.BotUID != b.BotUID) {
 		return apperr.ErrInvalidInput
 	}
+	if err == nil {
+		b.ID = existing.ID
+		b.CreatedAt = existing.CreatedAt
+	}
 	if b.ID == "" {
 		b.ID = uuid.New().String()
 	}
