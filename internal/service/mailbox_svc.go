@@ -402,6 +402,9 @@ func (s *MailboxService) ReplyToLetter(ctx context.Context, userID, letterID, co
 }
 
 func (s *MailboxService) PushSystemLetterToUser(ctx context.Context, userID, templateID, title, bodyHTML string) error {
+	if s.repo == nil {
+		return apperr.FeatureNotConfigured(i18n.KeyInvalidRequest)
+	}
 	userID = strings.TrimSpace(userID)
 	templateID = strings.TrimSpace(templateID)
 	title = strings.TrimSpace(title)
@@ -482,12 +485,36 @@ func replyTitle(title string) string {
 }
 
 func (s *MailboxService) PushSystemLetterToUsers(ctx context.Context, userIDs []string, templateID, title, bodyHTML string) error {
-	for _, userID := range userIDs {
+	normalized, err := normalizeSystemLetterUserIDs(userIDs)
+	if err != nil {
+		return err
+	}
+	for _, userID := range normalized {
 		if err := s.PushSystemLetterToUser(ctx, userID, templateID, title, bodyHTML); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func normalizeSystemLetterUserIDs(userIDs []string) ([]string, error) {
+	out := make([]string, 0, len(userIDs))
+	seen := map[string]bool{}
+	for _, userID := range userIDs {
+		userID = strings.TrimSpace(userID)
+		if userID == "" || len(userID) > 64 {
+			return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
+		}
+		if seen[userID] {
+			continue
+		}
+		seen[userID] = true
+		out = append(out, userID)
+	}
+	if len(out) == 0 {
+		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
+	}
+	return out, nil
 }
 
 func stringPtr(s string) *string {
