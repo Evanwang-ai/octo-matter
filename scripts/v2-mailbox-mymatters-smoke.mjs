@@ -233,6 +233,12 @@ async function checkRoute(browser, auth, viewportSpec, route) {
     hash: location.hash,
     title: document.title,
     text: document.body.innerText.slice(0, 2000),
+    bodyNavless: document.body.classList.contains("navless"),
+    navDisplay: (() => {
+      const nav = document.querySelector("#modnav");
+      return nav ? getComputedStyle(nav).display : "";
+    })(),
+    navText: document.querySelector("#modnav")?.innerText || "",
     scrollWidth: document.documentElement.scrollWidth,
     innerWidth: window.innerWidth
   }));
@@ -248,7 +254,14 @@ async function checkRoute(browser, auth, viewportSpec, route) {
     overflow: Math.max(0, metrics.scrollWidth - metrics.innerWidth),
     hash: metrics.hash,
     hasExpectedText: route.expectedText ? metrics.text.includes(route.expectedText) : true,
-    hasForbiddenText: route.forbiddenText ? metrics.text.includes(route.forbiddenText) : false
+    hasForbiddenText: route.forbiddenText ? metrics.text.includes(route.forbiddenText) : false,
+    hasMatterSidebar: route.expectMatterSidebar
+      ? metrics.navDisplay !== "none"
+        && ["全部事项", "项目", "Preference"].every((label) => metrics.navText.includes(label))
+      : true,
+    mailboxNavless: route.expectMailboxNavless
+      ? metrics.bodyNavless && metrics.navDisplay === "none"
+      : true
   };
 }
 
@@ -279,12 +292,12 @@ try {
     { name: "mobile", viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 2 }
   ];
   const routes = [
-    { name: "matters-list", hash: "#/matters", expectedText: matter.title, forbiddenText: "读取失败" },
-    { name: "matters-board", hash: "#/matters/board", expectedText: matter.title, forbiddenText: "读取失败" },
-    { name: "mailbox", hash: "#/mailbox", expectedText: mailboxFixture?.status === "created" ? mailboxFixture.title : "邮件", forbiddenText: "读取失败" },
-    { name: "legacy-board", hash: "#/board", expectedHash: "#/matters/board", expectedText: matter.title, forbiddenText: "读取失败" },
-    { name: "legacy-review", hash: "#/review-me", expectedHash: "#/matters", expectedText: "收件箱", forbiddenText: "读取失败" },
-    { name: "legacy-archived", hash: "#/archived", expectedHash: "#/matters", expectedText: "收件箱", forbiddenText: "读取失败" }
+    { name: "matters-list", hash: "#/matters", expectedText: matter.title, forbiddenText: "读取失败", expectMatterSidebar: true },
+    { name: "matters-board", hash: "#/matters/board", expectedText: matter.title, forbiddenText: "读取失败", expectMatterSidebar: true },
+    { name: "mailbox", hash: "#/mailbox", expectedText: mailboxFixture?.status === "created" ? mailboxFixture.title : "邮件", forbiddenText: "读取失败", expectMailboxNavless: true },
+    { name: "legacy-board", hash: "#/board", expectedHash: "#/matters/board", expectedText: matter.title, forbiddenText: "读取失败", expectMatterSidebar: true },
+    { name: "legacy-review", hash: "#/review-me", expectedHash: "#/matters", expectedText: "收件箱", forbiddenText: "读取失败", expectMatterSidebar: true },
+    { name: "legacy-archived", hash: "#/archived", expectedHash: "#/matters", expectedText: "收件箱", forbiddenText: "读取失败", expectMatterSidebar: true }
   ];
   for (const viewport of viewports) {
     for (const route of routes) {
@@ -310,6 +323,8 @@ for (const row of results) {
   if (row.overflow > 0) failures.push(`${row.viewport}/${row.name}: horizontal overflow ${row.overflow}`);
   if (!row.hasExpectedText) failures.push(`${row.viewport}/${row.name}: expected text missing`);
   if (row.hasForbiddenText) failures.push(`${row.viewport}/${row.name}: error state visible`);
+  if (!row.hasMatterSidebar) failures.push(`${row.viewport}/${row.name}: matter sidebar missing expected entries`);
+  if (!row.mailboxNavless) failures.push(`${row.viewport}/${row.name}: mailbox should hide matter sidebar`);
 }
 if (runError) failures.push(`run error: ${runError.message}`);
 if (REQUIRE_MAILBOX_FIXTURE && mailboxFixture?.status !== "created") failures.push("mailbox system-letter fixture was required but not created");
