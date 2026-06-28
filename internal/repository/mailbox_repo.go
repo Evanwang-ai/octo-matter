@@ -35,7 +35,7 @@ func (r *MailboxRepo) ListByUser(ctx context.Context, userID string, filter Mail
 	q := r.runner.Select("*").From("mailbox_letters").
 		Where("user_id = ? AND deleted_at IS NULL", userID)
 	if filter.Status == "unread" {
-		q = q.Where("read_at IS NULL")
+		q = q.Where("read_at IS NULL AND archived_at IS NULL")
 	} else if filter.Status == "archived" {
 		q = q.Where("archived_at IS NOT NULL")
 	} else {
