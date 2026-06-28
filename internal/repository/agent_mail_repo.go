@@ -51,20 +51,22 @@ func (r *AgentMailBindingRepo) ListActiveForSync(ctx context.Context, limit int)
 
 func (r *AgentMailBindingRepo) Upsert(ctx context.Context, b *model.AgentMailBinding) error {
 	now := time.Now()
-	var existing model.AgentMailBinding
-	err := r.runner.Select("*").
+	existingRows := make([]*model.AgentMailBinding, 0)
+	_, err := r.runner.Select("*").
 		From("agent_mail_bindings").
-		Where("mail_address = ?", b.MailAddress).
-		LoadOneContext(ctx, &existing)
+		Where("mail_address = ? OR (user_id = ? AND bot_uid = ?)", b.MailAddress, b.UserID, b.BotUID).
+		LoadContext(ctx, &existingRows)
 	if err != nil && !errors.Is(err, dbr.ErrNotFound) {
 		return err
 	}
-	if err == nil && (existing.UserID != b.UserID || existing.BotUID != b.BotUID) {
-		return apperr.ErrInvalidInput
-	}
-	if err == nil {
-		b.ID = existing.ID
-		b.CreatedAt = existing.CreatedAt
+	for _, existing := range existingRows {
+		if existing.MailAddress == b.MailAddress && (existing.UserID != b.UserID || existing.BotUID != b.BotUID) {
+			return apperr.ErrInvalidInput
+		}
+		if existing.UserID == b.UserID && existing.BotUID == b.BotUID {
+			b.ID = existing.ID
+			b.CreatedAt = existing.CreatedAt
+		}
 	}
 	if b.ID == "" {
 		b.ID = uuid.New().String()

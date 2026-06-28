@@ -27,3 +27,6 @@ CREATE TABLE mailbox_letters (
   INDEX idx_user_source_type (user_id, source_type, created_at),
   INDEX idx_user_thread (user_id, source_type, thread_id, created_at)
 );
+
+-- +migrate Down
+DROP TABLE IF EXISTS mailbox_letters;
