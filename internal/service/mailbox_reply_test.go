@@ -23,7 +23,17 @@ func (f *fakeAgentMailReplySender) Reply(_ context.Context, req AgentMailReplyRe
 }
 
 func TestReplyToLetterRequiresConfiguredSender(t *testing.T) {
-	svc := NewMailboxService(&fakeMailboxConvertStore{})
+	order := []string{}
+	store := &fakeMailboxConvertStore{
+		letter: &model.MailboxLetter{
+			ID:         "letter-1",
+			UserID:     "u1",
+			SourceType: model.MailboxSourceAgentMail,
+			Metadata:   model.MailboxJSON(`{"bot_uid":"bot-a","mail_address":"bot@agent.qq.com"}`),
+		},
+		order: &order,
+	}
+	svc := NewMailboxService(store)
 
 	_, err := svc.ReplyToLetter(context.Background(), "u1", "letter-1", "hello")
 	if err == nil {
@@ -32,6 +42,12 @@ func TestReplyToLetterRequiresConfiguredSender(t *testing.T) {
 	app, ok := apperr.AsAppError(err)
 	if !ok || app.Code() != "FEATURE_NOT_CONFIGURED" {
 		t.Fatalf("error = %v, want FEATURE_NOT_CONFIGURED", err)
+	}
+	if len(order) != 0 {
+		t.Fatalf("sender gate should fail before reading or writing mailbox data, got order %s", strings.Join(order, ","))
+	}
+	if len(store.upserted) != 0 {
+		t.Fatalf("sender gate wrote outbound letter")
 	}
 }
 
