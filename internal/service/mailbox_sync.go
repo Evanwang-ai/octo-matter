@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -76,8 +77,23 @@ func (s *AgentMailSyncService) SyncOnce(ctx context.Context, limit int) (int, er
 }
 
 func (s *AgentMailSyncService) syncBinding(ctx context.Context, binding *model.AgentMailBinding) (int, error) {
+	if binding == nil {
+		return 0, nil
+	}
+	if !isSyncableAgentMailBinding(binding) {
+		err := errors.New("invalid agent mail binding")
+		if strings.TrimSpace(binding.ID) != "" {
+			_ = s.bindings.MarkSyncError(ctx, binding.ID, truncateSyncError(err.Error()))
+		}
+		return 0, err
+	}
 	batch, err := s.client.ListMessages(ctx, binding)
 	if err != nil {
+		_ = s.bindings.MarkSyncError(ctx, binding.ID, truncateSyncError(err.Error()))
+		return 0, err
+	}
+	if batch == nil {
+		err := errors.New("empty agent mail batch")
 		_ = s.bindings.MarkSyncError(ctx, binding.ID, truncateSyncError(err.Error()))
 		return 0, err
 	}
@@ -100,7 +116,7 @@ func (s *AgentMailSyncService) syncBinding(ctx context.Context, binding *model.A
 }
 
 func buildAgentMailLetter(binding *model.AgentMailBinding, msg AgentMailMessage) (*model.MailboxLetter, bool) {
-	if binding == nil {
+	if !isSyncableAgentMailBinding(binding) {
 		return nil, false
 	}
 	sourceRef := strings.TrimSpace(msg.RFCMessageID)
@@ -151,6 +167,16 @@ func buildAgentMailLetter(binding *model.AgentMailBinding, msg AgentMailMessage)
 		letter.CreatedAt = *msg.ReceivedAt
 	}
 	return letter, true
+}
+
+func isSyncableAgentMailBinding(binding *model.AgentMailBinding) bool {
+	if binding == nil {
+		return false
+	}
+	return strings.TrimSpace(binding.ID) != "" &&
+		strings.TrimSpace(binding.UserID) != "" &&
+		strings.TrimSpace(binding.BotUID) != "" &&
+		isValidAgentMailAddress(binding.MailAddress)
 }
 
 func agentMailTimeString(t *time.Time) string {

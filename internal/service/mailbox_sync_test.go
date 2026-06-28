@@ -48,11 +48,13 @@ func (f *fakeMailboxLetterWriter) Upsert(_ context.Context, letter *model.Mailbo
 }
 
 type fakeAgentMailClient struct {
-	batch *AgentMailMessageBatch
-	err   error
+	called bool
+	batch  *AgentMailMessageBatch
+	err    error
 }
 
 func (f *fakeAgentMailClient) ListMessages(context.Context, *model.AgentMailBinding) (*AgentMailMessageBatch, error) {
+	f.called = true
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -133,7 +135,12 @@ func TestAgentMailSyncStoresSanitizedMessages(t *testing.T) {
 
 func TestAgentMailSyncMarksClientError(t *testing.T) {
 	bindings := &fakeAgentMailSyncBindingStore{items: []*model.AgentMailBinding{{
-		ID: "bind-1",
+		ID:                   "bind-1",
+		UserID:               "u1",
+		BotUID:               "bot-a",
+		MailAddress:          "bot@agent.qq.com",
+		CredentialsEncrypted: []byte("opaque"),
+		SyncStatus:           model.AgentMailSyncActive,
 	}}}
 	letters := &fakeMailboxLetterWriter{}
 	client := &fakeAgentMailClient{err: errors.New("temporary upstream failure")}
@@ -147,6 +154,59 @@ func TestAgentMailSyncMarksClientError(t *testing.T) {
 		t.Fatalf("unexpected writes: count=%d writes=%d", count, len(letters.items))
 	}
 	if bindings.errorID != "bind-1" || bindings.errorMessage != "temporary upstream failure" {
+		t.Fatalf("unexpected error mark: id=%q msg=%q", bindings.errorID, bindings.errorMessage)
+	}
+}
+
+func TestAgentMailSyncRejectsInvalidBindingBeforeClientCall(t *testing.T) {
+	bindings := &fakeAgentMailSyncBindingStore{items: []*model.AgentMailBinding{{
+		ID:                   "bind-1",
+		UserID:               "u1",
+		BotUID:               "bot-a",
+		MailAddress:          "bot@example.com",
+		CredentialsEncrypted: []byte("opaque"),
+		SyncStatus:           model.AgentMailSyncActive,
+	}}}
+	letters := &fakeMailboxLetterWriter{}
+	client := &fakeAgentMailClient{batch: &AgentMailMessageBatch{}}
+
+	svc := NewAgentMailSyncService(bindings, letters, client)
+	count, err := svc.SyncOnce(context.Background(), 10)
+	if err == nil {
+		t.Fatalf("expected invalid binding to fail")
+	}
+	if count != 0 || len(letters.items) != 0 {
+		t.Fatalf("unexpected writes: count=%d writes=%d", count, len(letters.items))
+	}
+	if client.called {
+		t.Fatalf("client called for invalid binding")
+	}
+	if bindings.errorID != "bind-1" || bindings.errorMessage != "invalid agent mail binding" {
+		t.Fatalf("unexpected error mark: id=%q msg=%q", bindings.errorID, bindings.errorMessage)
+	}
+}
+
+func TestAgentMailSyncMarksNilBatchError(t *testing.T) {
+	bindings := &fakeAgentMailSyncBindingStore{items: []*model.AgentMailBinding{{
+		ID:                   "bind-1",
+		UserID:               "u1",
+		BotUID:               "bot-a",
+		MailAddress:          "bot@agent.qq.com",
+		CredentialsEncrypted: []byte("opaque"),
+		SyncStatus:           model.AgentMailSyncActive,
+	}}}
+	letters := &fakeMailboxLetterWriter{}
+	client := &fakeAgentMailClient{}
+
+	svc := NewAgentMailSyncService(bindings, letters, client)
+	count, err := svc.SyncOnce(context.Background(), 10)
+	if err == nil {
+		t.Fatalf("expected nil batch to fail")
+	}
+	if count != 0 || len(letters.items) != 0 {
+		t.Fatalf("unexpected writes: count=%d writes=%d", count, len(letters.items))
+	}
+	if bindings.errorID != "bind-1" || bindings.errorMessage != "empty agent mail batch" {
 		t.Fatalf("unexpected error mark: id=%q msg=%q", bindings.errorID, bindings.errorMessage)
 	}
 }
