@@ -2639,7 +2639,7 @@ function mdHTML(src){
   var t = esc(src);
   if (!t) return "";
   t = t.replace(/```([\s\S]*?)```/g, function(_, code){
-    return "<pre class=\"md-pre\">" + code.replace(/^\n+|\n+$/g, "") + "</pre>";
+    return "<pre class=\"md-pre\">" + code.replace(/^\n+|\n+$/g, "").replace(/\n/g, "\x00") + "</pre>";
   });
   var lines = t.split("\n");
   var out = [], list = null, tbl = null;
@@ -2683,7 +2683,7 @@ function mdHTML(src){
   });
   closeList();
   flushTable();
-  return '<div class="md">' + out.join("") + "</div>";
+  return '<div class="md">' + out.join("").replace(/\x00/g, "\n") + "</div>";
 }
 
 /* ---------------- auth ---------------- */
@@ -3387,6 +3387,7 @@ function fetchReviewBadge(){
 var myInboxTab = "all";
 var myInboxState = null;
 var myInboxSel = null;
+var inboxDetailCache = {};
 function myInboxTabInfo(k){ return MY_INBOX_TABS.find(function(t){ return t.k === k; }) || MY_INBOX_TABS[0]; }
 function mailRowSender(m){
   if (myInboxTab === "review") return m.leader || m.creator_id || "";
@@ -4198,10 +4199,43 @@ function paintMyInbox(my){
     loadInboxDetail(my, myInboxSel);
   }
 }
+function inboxDetailHTML(m){
+  return '<div class="content" id="detailScroll" style="overflow-y:auto;height:100%"><div class="content-inner">'
+    + '<h1 class="issue-title">' + esc(m.title) + "</h1>"
+    + '<div class="issue-sub">' + pillHTML(m.status)
+    + (m.schedule_id ? '<span class="mode-tag" title="schedule_id: ' + esc(m.schedule_id) + '">自动化建的</span>' : "")
+    + "</div>"
+    + blockerBannerHTML(m)
+    + reviewBannerHTML(m)
+    + briefHTML(m)
+    + (m.parent_matter_id ? '<div class="detail-block" id="parentLinkBox">' + parentLinkHTML() + "</div>" : "")
+    + subsBlockHTML(m)
+    + recentTrailBlockHTML()
+    + timelineBlockHTML(m)
+    + "</div></div>"
+    + '<div class="composer-wrap"><div class="composer-inner" style="position:relative"><div class="composer">'
+    + '<textarea class="composer-input" id="composerInput" rows="1" placeholder="说一句 — 会记进这单的动态"></textarea>'
+    + '<div class="composer-tools">'
+    + '<button class="composer-icon" id="cmpMention" type="button" title="@ 提及"><svg viewBox="0 0 24 24"><path d="M16 12a4 4 0 1 1-2.2-3.58"/><path d="M16 8v5a2.2 2.2 0 0 0 4.4 0v-1a8.4 8.4 0 1 0-3.1 6.5"/></svg></button>'
+    + '<div class="mention-picker" id="mentionPicker"><input class="mp-search" id="mpSearch" placeholder="搜索成员或 Bot…"><div class="mp-list" id="mpList"></div></div>'
+    + '<button class="composer-icon" id="cmpAttach" type="button" title="加附件"><svg viewBox="0 0 24 24"><path d="M8.5 12.5 14 7a3.2 3.2 0 0 1 4.5 4.5l-7.4 7.4a5 5 0 0 1-7.1-7.1l7.6-7.6"/></svg></button>'
+    + '<input type="file" id="cmpFile" multiple style="display:none">'
+    + "</div>"
+    + '<button class="composer-send" id="composerSend" type="button">发送</button>'
+    + "</div></div></div>";
+}
+function renderInboxDetailContent(right, m){
+  right.innerHTML = inboxDetailHTML(m);
+}
 function loadInboxDetail(my, id){
   var right = $("#inboxRight");
   if (!right) return;
-  right.innerHTML = '<div class="inbox-right-empty">加载中…</div>';
+  if (inboxDetailCache[id]) {
+    cur = inboxDetailCache[id];
+    renderInboxDetailContent(right, cur.m);
+  } else {
+    right.innerHTML = '<div class="inbox-right-empty">加载中…</div>';
+  }
   Promise.all([
     api("/matters/" + id),
     settle(api("/matters/" + id + "/tree")),
@@ -4214,29 +4248,8 @@ function loadInboxDetail(my, id){
     var m = normMatter(res[0]);
     if (!m || !m.id){ right.innerHTML = '<div class="inbox-right-empty">事项已不存在</div>'; return; }
     cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null };
-    right.innerHTML = '<div class="content" id="detailScroll" style="overflow-y:auto;height:100%"><div class="content-inner">'
-      + '<h1 class="issue-title">' + esc(m.title) + "</h1>"
-      + '<div class="issue-sub">' + pillHTML(m.status)
-      + (m.schedule_id ? '<span class="mode-tag" title="schedule_id: ' + esc(m.schedule_id) + '">自动化建的</span>' : "")
-      + "</div>"
-      + blockerBannerHTML(m)
-      + reviewBannerHTML(m)
-      + briefHTML(m)
-      + (m.parent_matter_id ? '<div class="detail-block" id="parentLinkBox">' + parentLinkHTML() + "</div>" : "")
-      + subsBlockHTML(m)
-      + recentTrailBlockHTML()
-      + timelineBlockHTML(m)
-      + "</div></div>"
-      + '<div class="composer-wrap"><div class="composer-inner" style="position:relative"><div class="composer">'
-      + '<textarea class="composer-input" id="composerInput" rows="1" placeholder="说一句 — 会记进这单的动态"></textarea>'
-      + '<div class="composer-tools">'
-      + '<button class="composer-icon" id="cmpMention" type="button" title="@ 提及"><svg viewBox="0 0 24 24"><path d="M16 12a4 4 0 1 1-2.2-3.58"/><path d="M16 8v5a2.2 2.2 0 0 0 4.4 0v-1a8.4 8.4 0 1 0-3.1 6.5"/></svg></button>'
-      + '<div class="mention-picker" id="mentionPicker"><input class="mp-search" id="mpSearch" placeholder="搜索成员或 Bot…"><div class="mp-list" id="mpList"></div></div>'
-      + '<button class="composer-icon" id="cmpAttach" type="button" title="加附件"><svg viewBox="0 0 24 24"><path d="M8.5 12.5 14 7a3.2 3.2 0 0 1 4.5 4.5l-7.4 7.4a5 5 0 0 1-7.1-7.1l7.6-7.6"/></svg></button>'
-      + '<input type="file" id="cmpFile" multiple style="display:none">'
-      + "</div>"
-      + '<button class="composer-send" id="composerSend" type="button">发送</button>'
-      + "</div></div></div>";
+    inboxDetailCache[id] = cur;
+    right.innerHTML = inboxDetailHTML(m);
     paintInspector();
     showInspector();
     bindDetail(my);
