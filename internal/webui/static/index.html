@@ -3350,11 +3350,6 @@ var inboxSearch = "";
 var inboxState = null; // { rows, page, params, key }
 var expandedRows = {};
 var projShowArchived = false;
-var INBOX_TABS = [
-  { k: "all", hash: "#/matters", label: "全部", title: "全部事项" },
-  { k: "initiated", hash: "#/initiated", label: "我发起的", title: "我发起的" },
-  { k: "archived", hash: "#/archived", label: "已归档", title: "已归档" }
-];
 var MY_INBOX_TABS = [
   { k: "all", label: "全部事项", title: "全部事项" },
   { k: "review", label: "待确认", title: "待确认" },
@@ -3362,32 +3357,12 @@ var MY_INBOX_TABS = [
   { k: "initiated", label: "我发起的", title: "我发起的" },
   { k: "archived", label: "已归档", title: "已归档" }
 ];
-function tabInfo(k){
-  return INBOX_TABS.find(function(t){ return t.k === k; }) || INBOX_TABS[0];
-}
 function inboxParams(tab){
   if (tab === "mine") return { top_level: 1, leader_id: auth.uid || "me", limit: 50 };
   if (tab === "initiated") return { top_level: 1, creator_id: "me", limit: 50 };
   if (tab === "review") return { status: "review", limit: 50 };
   if (tab === "archived") return { status: "archived", limit: 50 };
   return { top_level: 1, limit: 50 };
-}
-/* 四个 tab 的计数:各拉一页(≤50)数出来 —— 没有计数接口,超过一页就显示 50+ */
-function fetchTabCounts(){
-  if (cache.tabCounts && Date.now() - cache.tabCounts.at < 60e3) return Promise.resolve(cache.tabCounts.counts);
-  return Promise.all(INBOX_TABS.map(function(t){
-    return api("/matters", { params: inboxParams(t.k) }).then(function(json){
-      return { n: listData(json).length, more: !!pageInfo(json).has_more };
-    }).catch(function(){ return null; });
-  })).then(function(res){
-    var counts = {};
-    INBOX_TABS.forEach(function(t, i){ if (res[i]) counts[t.k] = res[i]; });
-    cache.tabCounts = { at: Date.now(), counts: counts };
-    var rv = counts.review;
-    if (rv) cache.reviewBadge = { at: Date.now(), count: rv };
-    setNavBadge(rv ? rv.n : 0);
-    return counts;
-  });
 }
 function fetchReviewBadge(){
   if (cache.reviewBadge && Date.now() - cache.reviewBadge.at < 60e3){
@@ -3400,14 +3375,6 @@ function fetchReviewBadge(){
     setNavBadge(count.n);
     return count;
   }).catch(function(){});
-}
-function tabCountHTML(t, active, liveN){
-  var c = (cache.tabCounts && cache.tabCounts.counts[t.k]) || null;
-  var n = c ? c.n : (active ? liveN : null);
-  if (n === null || n === undefined) return "";
-  var txt = (c && c.more) ? "50+" : String(n);
-  if (t.k === "review" && n > 0) return '<span class="tab-badge">' + txt + "</span>";
-  return '<span class="inbox-filter-count">' + txt + "</span>";
 }
 /* ---- 收件箱(个人待办 · split-pane 邮件式) ---- */
 var myInboxTab = "all";
@@ -4281,35 +4248,6 @@ function loadInboxDetail(my, id){
   });
 }
 
-/* --- DEAD CODE: old full-page inbox (all routes now go to myinbox split-pane) ---
-function renderInbox(my, tab){
-  if (tab) inboxTab = tab;
-  var info = tabInfo(inboxTab);
-  setNav("inbox");
-  hideInspector();
-  setCrumbText("事项");
-  $("#centerCol").innerHTML = listSkeleton("事项");
-  var params = inboxParams(inboxTab);
-  return Promise.all([
-    api("/matters", { params: params }),
-    loadMembers().catch(function(){ return []; }),
-    getProjects().catch(function(){ return []; })
-  ]).then(function(res){
-    if (my !== renderToken) return;
-    inboxState = { rows: listData(res[0]).map(normMatter), page: pageInfo(res[0]), params: params, key: inboxTab };
-    paintInbox(my);
-    fetchTabCounts().then(function(){
-      if (my !== renderToken) return;
-      $$(".inbox-filter").forEach(function(el){
-        var t = tabInfo(el.getAttribute("data-tab"));
-        var active = inboxTab === t.k;
-        var slot = $(".tab-cnt-slot", el);
-        if (slot) slot.innerHTML = tabCountHTML(t, active, inboxState ? inboxState.rows.length : 0);
-      });
-    });
-  });
-}
---- end renderInbox */
 function sortRows(rows){
   return rows.slice().sort(function(a, b){
     var t = (isTerminalRow(a) ? 1 : 0) - (isTerminalRow(b) ? 1 : 0);
@@ -4369,10 +4307,6 @@ function rowsWithChildren(rows, q){
   });
   return html;
 }
-/* --- DEAD CODE: old full-page inbox list view ---
-function paintInbox(my){ ... }
-function inboxEmpty(tab){ ... }
---- see git history (commit 145d7ad) for full code --- */
 function bindSrcChips(root){
   $$(".src-chip[data-src]", root).forEach(function(el){
     el.addEventListener("click", function(e){
@@ -4381,10 +4315,6 @@ function bindSrcChips(root){
     });
   });
 }
-/* --- DEAD CODE: old full-page inbox event bindings + context menu ---
-function bindInbox(my){ ... }
-function doCtxStatus(id, status, my){ ... }
---- see git history (commit 145d7ad) for full code --- */
 function closeCtxMenu(){ var m = $("#ctxMenu"); if (m) m.remove(); }
 function toggleExpand(id, btn){
   if (expandedRows[id]){ delete expandedRows[id]; repaintList(); return; }
@@ -4462,9 +4392,6 @@ function saveBoardDisplayState(){
     }));
   } catch (_e) {}
 }
-/* --- DEAD CODE: old standalone board view (#/board redirects to #/inbox) ---
-function renderBoard(my){ ... }
---- see git history for full code --- */
 function silentFor(m){
   var ref = m.last_activity_at || m.updated_at;
   if (!ref) return "";
@@ -4717,258 +4644,6 @@ function bindMatterFilterControls(repaint){
     });
   });
 }
-/* --- DEAD CODE: old standalone board view rendering + binding + drag-drop ---
-function paintBoard(my){
-  boardFilterRows = boardAll;
-  boardRows = boardAll.filter(function(m){
-    return boardMatchesFilters(m, "");
-  });
-  var cols = BOARD_COLS.map(function(c){
-    var cards = boardRows.filter(function(m){ return m.status === c.st; }).sort(function(a, b){
-      var sa = a.sort_order != null ? a.sort_order : Infinity;
-      var sb = b.sort_order != null ? b.sort_order : Infinity;
-      if (sa !== sb) return sa - sb;
-      return new Date(a.created_at || 0) - new Date(b.created_at || 0);
-    });
-    return '<div class="board-col ' + c.cls + (cards.length ? "" : " is-empty") + '" data-status="' + c.st + '">'
-      + '<div class="board-col-h"><span class="bc-dot"></span>' + esc(stName(c.st)) + '<span class="bc-cnt">' + cards.length + "</span>"
-      + '<button class="bc-add" type="button" data-addcol="' + c.st + '" title="新建事项">+</button></div>'
-      + '<div class="board-cards">' + (cards.map(boardCardHTML).join("") || '<div class="board-empty">没有事项</div>') + "</div></div>";
-  }).join("");
-  var activeN = boardActiveFilters().length;
-  var displayN = boardDisplayCount();
-  var hideEmptyAttr = boardHideEmpty && boardRows.length ? "1" : "0";
-  var noResults = activeN && !boardRows.length
-    ? '<div class="board-no-results"><span><b>没有匹配事项</b> · 换个条件,或清空当前筛选。</span><button type="button" id="boardNoResultsClear">清空筛选</button></div>'
-    : "";
-  $("#centerCol").innerHTML = '<div class="content board-content"><div class="content-inner wide inbox-page board-shell" data-density="' + esc(boardDensity) + '" data-hide-empty="' + hideEmptyAttr + '">'
-    + '<div class="board-head"><div class="board-head-main"></div>'
-    + '<div class="board-actions">'
-    + matterViewSwitchHTML("board")
-    + '<button type="button" class="board-filter-trigger' + (activeN ? " has-filters" : "") + (boardFilterOpen ? " open" : "") + '" id="boardFilterBtn" aria-haspopup="menu" aria-expanded="' + (boardFilterOpen ? "true" : "false") + '" aria-label="筛选事项">' + FILTER_SVG + '<span>筛选</span><span class="bf-count">' + activeN + "</span></button>"
-    + boardFilterPopoverHTML()
-    + '<button type="button" class="board-filter-trigger board-display-trigger' + (displayN ? " has-filters" : "") + (boardDisplayOpen ? " open" : "") + '" id="boardDisplayBtn" aria-haspopup="menu" aria-expanded="' + (boardDisplayOpen ? "true" : "false") + '" aria-label="显示设置">' + DISPLAY_SVG + '<span>显示</span><span class="bf-count">' + displayN + "</span></button>"
-    + boardDisplayPopoverHTML()
-    + "</div></div>"
-    + '<div class="board-active-filters">' + boardChipHTML() + "</div>"
-    + noResults
-    + '<div class="board-viewport" id="boardViewport"><div class="board-wrap">' + cols + "</div></div></div></div>";
-  bindBoard(my);
-}
-function bindBoard(my){
-  bindMatterFilterControls(function(){ paintBoard(my); });
-  var db = $("#boardDisplayBtn");
-  if (db) db.addEventListener("click", function(e){
-    e.stopPropagation();
-    setBoardFilterOpen(false);
-    setBoardDisplayOpen(!boardDisplayOpen);
-  });
-  var noResultsClear = $("#boardNoResultsClear");
-  if (noResultsClear) noResultsClear.addEventListener("click", function(e){
-    e.stopPropagation();
-    boardClearAllFilters();
-    boardFilterOpen = false;
-    paintBoard(my);
-  });
-  var displayReset = $("#boardDisplayReset");
-  if (displayReset) displayReset.addEventListener("click", function(e){
-    e.stopPropagation();
-    resetBoardDisplay();
-    boardDisplayOpen = true;
-    paintBoard(my);
-  });
-  $$("[data-board-density]").forEach(function(el){
-    el.addEventListener("click", function(e){
-      e.stopPropagation();
-      boardDensity = el.getAttribute("data-board-density") === "compact" ? "compact" : "comfortable";
-      saveBoardDisplayState();
-      boardDisplayOpen = true;
-      paintBoard(my);
-    });
-  });
-  $$("[data-board-toggle]").forEach(function(el){
-    el.addEventListener("click", function(e){
-      e.stopPropagation();
-      var key = el.getAttribute("data-board-toggle");
-      if (key === "hideEmpty") boardHideEmpty = !boardHideEmpty;
-      else if (key === "showDate") boardShowDate = !boardShowDate;
-      else if (key === "showAssignee") boardShowAssignee = !boardShowAssignee;
-      else if (key === "showSource") boardShowSource = !boardShowSource;
-      saveBoardDisplayState();
-      boardDisplayOpen = true;
-      paintBoard(my);
-    });
-  });
-  $$("[data-addcol]").forEach(function(el){
-    el.addEventListener("click", function(e){
-      e.stopPropagation();
-      openMatterModal({ projectId: boardProject || "" });
-    });
-  });
-  var boardDragId = "";
-  $$(".bcard").forEach(function(el){
-    el.addEventListener("click", function(){ location.hash = "#/matter/" + el.getAttribute("data-id"); });
-    el.addEventListener("dragstart", function(e){
-      boardDragId = el.getAttribute("data-id");
-      e.dataTransfer.setData("text/plain", boardDragId);
-      e.dataTransfer.effectAllowed = "move";
-      el.classList.add("dragging");
-    });
-    el.addEventListener("dragend", function(){
-      el.classList.remove("dragging");
-      boardDragId = "";
-      $$(".board-drop-line").forEach(function(l){ l.remove(); });
-      $$(".board-col.drop-over").forEach(function(c){ c.classList.remove("drop-over"); });
-    });
-  });
-  function nearestCardEdge(cardsEl, y){
-    var cards = $$(".bcard:not(.dragging)", cardsEl);
-    var best = { idx: cards.length, y: Infinity };
-    cards.forEach(function(c, i){
-      var r = c.getBoundingClientRect();
-      var mid = r.top + r.height / 2;
-      if (Math.abs(y - mid) < Math.abs(y - best.y)){ best = { idx: y < mid ? i : i + 1, y: mid }; }
-    });
-    return best.idx;
-  }
-  $$(".board-col").forEach(function(col){
-    var cardsEl = $(".board-cards", col);
-    col.addEventListener("dragover", function(e){
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      col.classList.add("drop-over");
-      $$(".board-drop-line").forEach(function(l){ l.remove(); });
-      if (!cardsEl) return;
-      var idx = nearestCardEdge(cardsEl, e.clientY);
-      var cards = $$(".bcard:not(.dragging)", cardsEl);
-      var line = document.createElement("div");
-      line.className = "board-drop-line";
-      if (idx < cards.length) cardsEl.insertBefore(line, cards[idx]);
-      else cardsEl.appendChild(line);
-    });
-    col.addEventListener("dragleave", function(e){
-      if (col.contains(e.relatedTarget)) return;
-      col.classList.remove("drop-over");
-      $$(".board-drop-line", col).forEach(function(l){ l.remove(); });
-    });
-    col.addEventListener("drop", function(e){
-      e.preventDefault();
-      col.classList.remove("drop-over");
-      $$(".board-drop-line").forEach(function(l){ l.remove(); });
-      var id = e.dataTransfer.getData("text/plain");
-      var targetStatus = col.getAttribute("data-status");
-      var idx = nearestCardEdge(cardsEl, e.clientY);
-      var colCards = boardRows.filter(function(m){ return m.status === targetStatus && m.id !== id; });
-      colCards.sort(function(a, b){
-        var sa = a.sort_order != null ? a.sort_order : Infinity;
-        var sb = b.sort_order != null ? b.sort_order : Infinity;
-        if (sa !== sb) return sa - sb;
-        return new Date(a.created_at || 0) - new Date(b.created_at || 0);
-      });
-      colCards.forEach(function(c, i){ if (c.sort_order == null) c.sort_order = (i + 1) * 1000; });
-      var before = idx > 0 ? colCards[idx - 1].sort_order : null;
-      var after = idx < colCards.length ? colCards[idx].sort_order : null;
-      var newOrder;
-      if (before == null && after == null) newOrder = 1000;
-      else if (before == null) newOrder = after - 1000;
-      else if (after == null) newOrder = before + 1000;
-      else newOrder = (before + after) / 2;
-      var m = boardAll.find(function(x){ return x.id === id; });
-      if (!m) return;
-      var statusChanged = m.status !== targetStatus;
-      m.sort_order = newOrder;
-      if (statusChanged){
-        dropCard(my, id, targetStatus);
-      }
-      api("/matters/" + id, { method: "PUT", body: { sort_order: newOrder } }).then(function(){
-        if (!statusChanged) paintBoard(my);
-      }).catch(function(){ paintBoard(my); });
-    });
-  });
-
-  var vp = $("#boardViewport");
-  if (vp){
-    var dragState = { active: false, startX: 0, scrollLeft: 0, velX: 0, lastX: 0, lastT: 0, rafId: 0 };
-    vp.addEventListener("mousedown", function(e){
-      if (e.target.closest(".bcard, .bc-add, button, a, [draggable]")) return;
-      dragState.active = true;
-      dragState.startX = e.clientX;
-      dragState.scrollLeft = vp.scrollLeft;
-      dragState.velX = 0; dragState.lastX = e.clientX; dragState.lastT = Date.now();
-      vp.classList.add("grabbing");
-      cancelAnimationFrame(dragState.rafId);
-    });
-    document.addEventListener("mousemove", function(e){
-      if (!dragState.active) return;
-      var dx = e.clientX - dragState.startX;
-      vp.scrollLeft = dragState.scrollLeft - dx;
-      var now = Date.now();
-      var dt = Math.max(1, now - dragState.lastT);
-      dragState.velX = (e.clientX - dragState.lastX) / dt * 16;
-      dragState.lastX = e.clientX; dragState.lastT = now;
-    });
-    document.addEventListener("mouseup", function(){
-      if (!dragState.active) return;
-      dragState.active = false;
-      vp.classList.remove("grabbing");
-      var vel = dragState.velX;
-      if (Math.abs(vel) > 0.5){
-        (function coast(){
-          vel *= 0.94;
-          if (Math.abs(vel) < 0.3) return;
-          vp.scrollLeft -= vel;
-          dragState.rafId = requestAnimationFrame(coast);
-        })();
-      }
-    });
-    vp.addEventListener("wheel", function(e){
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      if (e.deltaY === 0) return;
-      var cards = e.target.closest(".board-cards");
-      if (cards && cards.scrollHeight > cards.clientHeight) return;
-      e.preventDefault();
-      vp.scrollLeft += e.deltaY;
-    }, { passive: false });
-  }
-}
-function dropCard(my, id, target){
-  var m = boardAll.find(function(x){ return x.id === id; });
-  if (!m || !target || m.status === target) return;
-  var go = function(reason){
-    var prev = m.status;
-    m.status = target;           // 乐观挪卡
-    paintBoard(my);
-    var body = { status: target, expected_version: m.version };
-    if (reason) body.reason = reason;
-    api("/matters/" + m.id + "/status", { method: "PUT", body: body }).then(function(detail){
-      var fresh = normMatter(detail);
-      if (fresh && fresh.id){
-        var i = boardAll.indexOf(m);
-        if (i >= 0) boardAll[i] = fresh;
-      }
-      if (my === renderToken) paintBoard(my);
-      toast("已挪到「" + stName(target) + "」");
-    }).catch(function(err){
-      m.status = prev;           // 失败弹回
-      if (err.status === 409){
-        toast("被人改过了,已刷新", { err: true, title: err.code || "" });
-        renderBoard(++renderToken).catch(errToast);
-      } else {
-        errToast(err);
-        if (my === renderToken) paintBoard(my);
-      }
-    });
-  };
-  if (target === "blocked"){
-    askReason().then(function(reason){
-      if (reason === null){ paintBoard(my); return; }
-      go(reason);
-    });
-  } else {
-    go("");
-  }
-}
---- see git history for full code --- */
 
 /* ================= TIMELINE ================= */
 var tlZoom = "day"; // "day" | "week" | "month" | "quarter"
