@@ -4172,6 +4172,7 @@ function paintMyInbox(my){
       var btn = ce.target.closest("[data-ctx]"); if (!btn) return;
       var act = btn.getAttribute("data-ctx"); closeCtxMenu();
       var target = act === "archive" ? "archived" : act === "unarchive" ? "done" : "cancelled";
+      if (target === "cancelled" && !confirm("确定要取消这个事项吗？此操作不容易恢复。")) return;
       api("/matters/" + mid + "/status", { method: "PUT", body: { status: target } }).then(function(){
         toast(target === "archived" ? "已归档" : target === "cancelled" ? "已取消" : "已恢复");
         if (m) m.status = target;
@@ -5727,7 +5728,7 @@ function paintProjectDetail(my){
         return '<div class="board-col ' + c.cls + (cards.length ? "" : " is-empty") + '" data-status="' + c.st + '">'
           + '<div class="board-col-h"><span class="bc-dot"></span>' + esc(stName(c.st)) + '<span class="bc-cnt">' + cards.length + '</span>'
           + '<button class="bc-add" type="button" data-proj-addcol="' + c.st + '" title="新建事项">+</button></div>'
-          + '<div class="board-cards">' + (cards.map(boardCardHTML).join("") || '<div class="board-empty">没有事项</div>') + "</div></div>";
+          + '<div class="board-cards">' + (cards.map(function(m){ return boardCardHTML(m, { priority: true, props: { priority: true, assignee: true, startDate: true, project: false } }); }).join("") || '<div class="board-empty">没有事项</div>') + "</div></div>";
       }).join("");
       body = '<div class="board-shell" style="height:calc(100vh - 180px)"><div class="board-viewport"><div class="board-wrap">' + cols + "</div></div></div>";
     } else {
@@ -6144,6 +6145,7 @@ function paintProjectDetail(my){
           }
           var ids = checked.map(function(c){ return c.getAttribute("data-check"); });
           var target = act === "archive" ? "archived" : "cancelled";
+          if (target === "cancelled" && !confirm("确定要取消 " + ids.length + " 个事项吗？此操作不容易恢复。")) return;
           var done = 0;
           Promise.all(ids.map(function(id){
             return api("/matters/" + id + "/status", { method: "PUT", body: { status: target } }).then(function(){ done++; }).catch(function(){});
@@ -7726,8 +7728,8 @@ function findStrayDistillEntry(){
   for (var i = entries.length - 1; i >= 0; i--){
     var e = entries[i];
     if (e.user_id && isBot(e.user_id) && e.content &&
-        (e.content.indexOf("已沉淀") >= 0 || e.content.indexOf("[candidate]") >= 0 ||
-         /P-(?:new|\d+)/i.test(e.content))){
+        (e.content.indexOf("[candidate]") >= 0 ||
+         (e.content.indexOf("已沉淀") >= 0 && /P-(?:new|\d+)/i.test(e.content)))){
       return e;
     }
   }
@@ -7738,12 +7740,11 @@ function preferencePanelHTML(){
   var row = cur.summary;
   var hints = (cur.prefHints && cur.prefHints.ok) ? listData(cur.prefHints.v) : [];
   var strayEntry = !row ? findStrayDistillEntry() : null;
-  if (!row && !hints.length && !strayEntry && (!isMe(m.creator_id) || m.status !== "done")) return "";
   var status = row && row.status ? row.status : (hints.length ? "hint" : "empty");
   var title, sub, preview = "";
   if (!row){
     title = hints.length ? "召回 " + hints.length + " 条 Preference" : "暂无 Preference 记录";
-    sub = hints.length ? "按负责人和适用范围匹配,先作为开工前提醒" : (m.status === "done" ? "这单还没有可复用偏好" : "等待真实验收和圈点证据");
+    sub = hints.length ? "按负责人和适用范围匹配,先作为开工前提醒" : (m.status === "done" ? "这单还没有可复用偏好" : "验收完成后可提炼可复用偏好");
   } else if (row.status === "authorized"){
     title = "已授权给 " + (uname(row.target_bot_uid || "") || row.target_bot_uid || "Agent");
     sub = prefScopeLabel(m.id, row) + " · " + prefEvidenceLabel(row);
