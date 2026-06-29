@@ -30,6 +30,8 @@ static/index.html:  单文件 SPA (~10150 行), 全部 JS/CSS 内联, 无构建�
 - 字段注册: GROUPABLE_FIELDS(5), ORDERABLE_FIELDS(7), DISPLAY_PROPS(8) 集中定义
 - MyMatters toolbar: Display 按钮替代旧的 ordering popover + view-switch, onChange 同步 viewSpec → legacy vars, 面板保持打开支持连续修改
 - 动态分组: groupKeyForMatter()/groupLabel()/groupIcon()/groupOrder() 支持 status/project/leader/priority/none 五种分组
+- ProjectDetail: Display 面板替代旧模式下拉, per-project projViewSpec, hideProject=true, showContext=true
+- click-outside: singleton _dpCloseHandler + armDisplayPanelClose/clearDisplayPanelClose 避免闭包泄漏
 
 ## CSS token 体系
 
