@@ -10558,6 +10558,14 @@ paintIdentity();
 bindConnect();
 bindGlobal();
 window.addEventListener("hashchange", function(){ render(); });
+window.addEventListener("message", function(e){
+  if (e.source !== window.parent) return;
+  if (e.origin !== location.origin) return;
+  if (!e.data || e.data.type !== "octo:navigate") return;
+  var h = String(e.data.hash || "");
+  if (!h.match(/^#\/(matters|mailbox|matter\/|projects|cards|automation|timeline)/)) return;
+  location.hash = h;
+});
 if (!location.hash) history.replaceState(null, "", "#/matters");
 render();
 if (authReady()){
