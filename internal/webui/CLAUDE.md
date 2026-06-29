@@ -10,6 +10,8 @@ static/index.html:  单文件 SPA (~10150 行), 全部 JS/CSS 内联, 无构建�
 
 ## UI 架构
 
+- 术语: "回路"(Loop) = 原"事项"(Matter), UI 文本全部改为"回路", 代码标识符保持 matter
+- 终态: 只有 cancelled(已取消), 无 archived(已合并)。项目级 p.archived 独立保留
 - 导航: 全部回路(My Loops, List/Board) / 收件箱(split-pane) / 项目 / 自动化 / Preference
 - 认证: 复用 octo-web localStorage 裸键 (token/uid/name), embed 模式走 syncMatterAuth()
 - 路由: hash-based (#/matters, #/matters/board, #/mailbox, #/matter/:id, #/project/:id, #/cards, #/automation, #/timeline)
