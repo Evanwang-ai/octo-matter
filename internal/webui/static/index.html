@@ -4095,6 +4095,15 @@ function bindMyMatters(my){
     myMattersFilterOpen = false;
     var panel = $("#displayPanel");
     if (panel) panel.classList.toggle("open");
+    if (panel && panel.classList.contains("open")){
+      setTimeout(function(){
+        document.addEventListener("click", function closeDP(ev){
+          if (panel.contains(ev.target) || db.contains(ev.target)) return;
+          panel.classList.remove("open");
+          document.removeEventListener("click", closeDP);
+        });
+      }, 0);
+    }
   });
   bindDisplayPanel(myMattersViewSpec, function(){
     saveViewSpec("octo-view-v2:mymatters", myMattersViewSpec);
@@ -4104,6 +4113,8 @@ function bindMyMatters(my){
     myMattersProps = myMattersViewSpec.displayProps;
     saveMyMattersProps();
     paintMyMatters(my);
+    var reopened = $("#displayPanel");
+    if (reopened) reopened.classList.add("open");
   });
   var clear = $("#myFilterClear");
   if (clear) clear.addEventListener("click", function(e){
