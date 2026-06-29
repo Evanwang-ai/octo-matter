@@ -3485,43 +3485,6 @@ function fmtRelative(d){
 }
 
 /* ---- Mailbox source shell ---- */
-function renderMailbox(my, source){
-  source = source || "matters";
-  if (source === "agent-mail" || source === "agentmail"){
-    setNav("mailbox");
-    hideInspector();
-    setCrumbText("");
-    $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
-      + '<div class="list-head"><div class="list-title">收件箱</div><div class="list-head-actions">'
-      + mailboxSourceSwitchHTML("agent-mail") + "</div></div>"
-      + '<div class="empty-state"><div class="es-t">Agent Mail 还没接入</div><div class="es-s">Agent Mail 是收件箱里的一个 source。当前阶段先保留入口,服务端同步和回复后置。</div></div>'
-      + "</div></div>";
-    return Promise.resolve();
-  }
-  if (source === "system"){
-    setNav("mailbox");
-    hideInspector();
-    setCrumbText("");
-    $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
-      + '<div class="list-head"><div class="list-title">收件箱</div><div class="list-head-actions">'
-      + mailboxSourceSwitchHTML("system") + "</div></div>"
-      + '<div class="empty-state"><div class="es-t">还没有系统信</div><div class="es-s">系统信 / onboarding 会作为收件箱 source 后续接入。</div></div>'
-      + "</div></div>";
-    return Promise.resolve();
-  }
-  return renderMyInbox(my, myInboxTab || "all");
-}
-function mailboxSourceSwitchHTML(active){
-  var items = [
-    { k: "matters", hash: "#/mailbox", label: "回路" },
-    { k: "agent-mail", hash: "#/mailbox/agent-mail", label: "Agent Mail" },
-    { k: "system", hash: "#/mailbox/system", label: "系统信" }
-  ];
-  return '<div class="matter-view-switch mailbox-source-switch" role="tablist" aria-label="收件箱来源">'
-    + items.map(function(it){
-      return '<a class="mvs-btn' + (active === it.k ? " active" : "") + '" href="' + it.hash + '" role="tab" aria-selected="' + (active === it.k) + '">' + esc(it.label) + "</a>";
-    }).join("") + "</div>";
-}
 
 /* ---- My Matters / 全部回路 global view ---- */
 var MY_MATTERS_TABS = [
@@ -3796,37 +3759,6 @@ function myMattersFilterPopHTML(){
     + '<div class="bf-section"><div class="bf-section-title">项目</div><div class="bf-options">' + projectHTML + '</div></div>'
     + '<div class="bf-section"><div class="bf-section-title">发起人</div><div class="bf-options">' + creatorHTML + '</div></div>'
     + '</div>';
-}
-function myMattersOrderingPopHTML(){
-  var opts = [
-    { k: "manual", label: "手动" },
-    { k: "created", label: "创建日期" },
-    { k: "deadline", label: "截止日期" },
-    { k: "priority", label: "Priority" },
-    { k: "title", label: "标题" },
-    { k: "seq", label: "编号" }
-  ];
-  var propOpts = [
-    { k: "priority", label: "Priority" },
-    { k: "description", label: "Description" },
-    { k: "assignee", label: "Assignee" },
-    { k: "startDate", label: "Start date" },
-    { k: "dueDate", label: "Due date" },
-    { k: "project", label: "Project" }
-  ];
-  return '<div class="my-order-pop' + (myMattersOrderingOpen ? " open" : "") + '" id="myOrderPop">'
-    + '<div class="my-order-title">排序</div><div class="my-order-controls"><select class="my-order-select" id="myOrderField">'
-    + opts.map(function(o){
-      return '<option value="' + esc(o.k) + '"' + (myMattersOrdering === o.k ? " selected" : "") + ">" + esc(o.label) + "</option>";
-    }).join("")
-    + '</select><button type="button" class="my-order-dir" id="myOrderDir" title="' + (myMattersOrderDir === "asc" ? "正序" : "倒序") + '">' + (myMattersOrderDir === "asc" ? "↑" : "↓") + "</button></div>"
-    + '<div class="my-card-props"><div class="my-order-title">Card properties</div><div class="my-prop-list">'
-    + propOpts.map(function(o){
-      var on = myMattersProps[o.k] !== false;
-      return '<button type="button" class="my-prop-option' + (on ? " active" : "") + '" data-mm-prop="' + esc(o.k) + '">'
-        + '<span class="my-prop-check">✓</span><span>' + esc(o.label) + "</span></button>";
-    }).join("")
-    + "</div></div></div>";
 }
 function myMattersSelectedIds(rows){
   var visible = {};
@@ -4422,6 +4354,29 @@ function inboxDetailHTML(m){
 }
 function renderInboxDetailContent(right, m){
   right.innerHTML = inboxDetailHTML(m);
+}
+function loadInboxItemDetail(my, item){
+  if (!item) return;
+  var st = item.source_type || "matter";
+  if (st === "agent_mail") return loadAgentMailDetail(my, item);
+  if (st === "system") return loadSystemLetterDetail(my, item);
+  return loadInboxDetail(my, item.id || item);
+}
+function loadAgentMailDetail(my, item){
+  var right = $("#inboxRight");
+  if (!right) return;
+  cur = null; hideInspector();
+  right.innerHTML = '<div class="inbox-right-empty" style="text-align:center;padding:60px 20px">'
+    + '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px">Agent Mail</div>'
+    + '<div style="font-size:13px;color:var(--text-3)">邮件详情功能开发中。后续将支持 sandboxed HTML 渲染和回复。</div></div>';
+}
+function loadSystemLetterDetail(my, item){
+  var right = $("#inboxRight");
+  if (!right) return;
+  cur = null; hideInspector();
+  right.innerHTML = '<div class="inbox-right-empty" style="text-align:center;padding:60px 20px">'
+    + '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px">系统信</div>'
+    + '<div style="font-size:13px;color:var(--text-3)">系统信详情功能开发中。后续将支持富格式内容和操作按钮。</div></div>';
 }
 function loadInboxDetail(my, id){
   var right = $("#inboxRight");
