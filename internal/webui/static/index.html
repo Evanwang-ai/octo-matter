@@ -1086,7 +1086,7 @@
   .mail-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--hairline-soft); transition: background .1s; position: relative; }
   .mail-row:hover { background: var(--fill-1); }
   .mail-row.active { background: var(--accent-tint); }
-  .mail-row.unread .mail-title { font-weight: 700; }
+  .mail-row.unread .mail-row-subject { font-weight: 700; }
   .mail-row.unread::before { content: ""; position: absolute; left: 6px; top: 50%; transform: translateY(-50%); width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
   .mail-row-st { flex: 0 0 16px; width: 16px; height: 16px; }
   .mail-row-st svg { width: 16px; height: 16px; }
@@ -3404,7 +3404,7 @@ var myInboxState = null;
 var myInboxSel = null;
 var inboxDetailCache = {};
 var readIds = (function(){ try { return new Set(JSON.parse(localStorage.getItem("octo-read-ids") || "[]")); } catch(_e){ return new Set(); } })();
-function markRead(id){ if (!id || readIds.has(id)) return; readIds.add(id); try { localStorage.setItem("octo-read-ids", JSON.stringify(Array.from(readIds))); } catch(_e){} var row = document.querySelector('.mail-row[data-mid="' + id + '"]'); if (row) row.classList.remove("unread"); }
+function markRead(id){ if (!id || readIds.has(id)) return; readIds.add(id); if (readIds.size > 2000){ var it = readIds.values(); readIds.delete(it.next().value); } try { localStorage.setItem("octo-read-ids", JSON.stringify(Array.from(readIds))); } catch(_e){} var row = document.querySelector('.mail-row[data-mid="' + id + '"]'); if (row) row.classList.remove("unread"); }
 function isUnread(id){ return id && !readIds.has(id); }
 function myInboxTabInfo(k){ return MY_INBOX_TABS.find(function(t){ return t.k === k; }) || MY_INBOX_TABS[0]; }
 function mailRowSender(m){
