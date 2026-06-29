@@ -5914,17 +5914,7 @@ function paintProjectDetail(my){
   setTopSourceChip(null);
   var rows = sortRows(st.rows);
   var srcN = st.sources ? st.sources.length : null;
-  if (!st.viewMode) st.viewMode = "list";
-  var projModes = [
-    { k: "list", label: "列表", tab: "matters" },
-    { k: "board", label: "看板", tab: "matters" },
-    { k: "context", label: "上下文", tab: "context" }
-  ];
-  var curMode = st.tab === "context" ? "context" : st.viewMode;
-  var curModeLabel = (projModes.find(function(m){ return m.k === curMode; }) || projModes[0]).label;
-  var modeDropItems = projModes.map(function(m){
-    return '<button class="ibx-drop-item' + (curMode === m.k ? " active" : "") + '" data-pmode="' + m.k + '" type="button">' + m.label + "</button>";
-  }).join("");
+  if (!st.viewMode) st.viewMode = projViewSpec ? projViewSpec.layout : "list";
   var body;
   if (st.tab === "context"){
     var leaderRight = (p && p.default_leader_uid)
@@ -5966,11 +5956,8 @@ function paintProjectDetail(my){
         : '<div class="empty-state"><div class="es-t">这个项目还空着</div><div class="es-s">点「新建」,第一件事就归在这里</div></div>';
     }
   }
-  var filterSVG2 = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>';
   $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
     + '<div class="list-head"><div class="list-title">' + esc(name) + '</div><div class="list-head-actions">'
-    + '<div class="ibx-filter-zone"><button class="ibx-filter-trigger" id="projModeTrigger" type="button">' + filterSVG2 + '<span class="ibx-ft-label">' + esc(curModeLabel) + '</span></button>'
-    + '<div class="ibx-drop" id="projModeDrop">' + modeDropItems + '</div></div>'
     + '<div class="my-pop-zone"><button class="board-filter-trigger" id="projDisplayBtn" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" width="14" height="14"><path d="M6.5 2.5h7M2.5 2.5h1M6.5 8h7M2.5 8h1M6.5 13.5h7M2.5 13.5h1"/><circle cx="4.5" cy="2.5" r="1.5"/><circle cx="4.5" cy="8" r="1.5"/><circle cx="4.5" cy="13.5" r="1.5"/></svg><span>Display</span></button>'
     + displayPanelHTML(projViewSpec, { hideProject: true, showContext: true }) + '</div>'
     + '<button class="new-btn" id="projNewMatterBtn" type="button">+ 新建</button>'
@@ -5988,23 +5975,6 @@ function paintProjectDetail(my){
     var newContent = $(".content", $("#centerCol"));
     if (newContent) newContent.scrollTop = savedScrollTop;
   }
-  var projTrigger = $("#projModeTrigger");
-  var projDrop = $("#projModeDrop");
-  if (projTrigger) projTrigger.addEventListener("click", function(e){
-    e.stopPropagation();
-    projDrop.classList.toggle("open");
-  });
-  if (projDrop) document.addEventListener("click", function(){ projDrop.classList.remove("open"); }, { once: true });
-  $$("[data-pmode]").forEach(function(el){
-    el.addEventListener("click", function(e){
-      e.stopPropagation();
-      var mode = el.getAttribute("data-pmode");
-      if (mode === "context"){ st.tab = "context"; }
-      else { st.tab = "matters"; st.viewMode = mode; }
-      st.adding = false;
-      paintProjectDetail(my);
-    });
-  });
   var pdb = $("#projDisplayBtn");
   if (pdb) pdb.addEventListener("click", function(e){
     e.stopPropagation();
