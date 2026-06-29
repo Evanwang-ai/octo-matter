@@ -131,7 +131,7 @@
   .modnav-h .mh-add svg { width: 18px; height: 18px; }
   .modnav-scroll { flex: 1; overflow-y: auto; padding: 28px 12px 20px; }
   .nav-list { display: flex; flex-direction: column; gap: 8px; }
-  body.mailbox-mode .modnav { display: none; }
+  body.embed.mailbox-mode .modnav { display: none; }
   body.mailbox-mode .work { min-width: 0; }
   .nav-item {
     position: relative; display: flex; align-items: center; gap: 11px;
@@ -313,7 +313,7 @@
   .load-more:hover { color: var(--text-2); background: var(--fill-2); }
 
   /* ============ inbox list ============ */
-  .inbox-toolbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; flex-wrap: wrap; }
+  .inbox-toolbar, .cards-toolbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; flex-wrap: wrap; }
   .batch-bar {
     position: sticky; top: 0; z-index: 10;
     display: flex; align-items: center; gap: 10px; padding: 8px 14px;
@@ -3310,7 +3310,9 @@ function matterViewSwitchHTML(active){
     + '<a class="mvs-btn' + (active === "board" ? " active" : "") + '" href="#/matters/board" role="tab" aria-selected="' + (active === "board") + '">看板</a>'
     + "</div>";
 }
+var detailReferrer = null;
 function render(){
+  var prevR = parseHash.last || {};
   var my = ++renderToken;
   closeModal();
   closeAgentPop();
@@ -3318,6 +3320,10 @@ function render(){
   closeDlPop();
   hideAnnotAll();
   var r = parseHash();
+  parseHash.last = r;
+  if (r.view === "matter" && prevR.view === "mailbox") detailReferrer = "mailbox";
+  else if (r.view === "matter" && prevR.view) detailReferrer = prevR.view;
+  else if (r.view !== "matter") detailReferrer = null;
   setShellMode(r.view);
   var p;
   if (!authReady()){
@@ -5143,7 +5149,7 @@ function paintCards(my){
   var cards = cardsCache || [];
   if (!cards.length){
     $(".content-inner").innerHTML = '<div class="list-head"><div class="list-head-actions"></div></div>'
-      + '<div class="inbox-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索偏好（全文检索）" style="max-width:400px" aria-label="搜索偏好"></div></div>'
+      + '<div class="cards-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索偏好（全文检索）" style="max-width:400px" aria-label="搜索偏好"></div></div>'
       + '<div class="pref-list"><div class="empty-state"><div class="es-t">还没有 Preference</div><div class="es-s">完成 Matter 后,从验收反馈中自动提炼行为规则</div></div></div>';
     paintCardsBindSearch(my);
     return;
@@ -5183,7 +5189,7 @@ function paintCards(my){
   });
 
   $(".content-inner").innerHTML = '<div class="list-head"><div class="list-title">Preference</div><div class="list-head-actions"><button class="new-btn" id="newCardBtn" type="button">+ 新建</button></div></div>'
-    + '<div class="inbox-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索偏好（全文检索）" style="max-width:400px" aria-label="搜索偏好"></div></div>'
+    + '<div class="cards-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索偏好（全文检索）" style="max-width:400px" aria-label="搜索偏好"></div></div>'
     + '<div class="pref-list">' + html + '</div>';
 
   // Bind click handlers for expand/collapse + actions
@@ -6722,9 +6728,11 @@ function contextPartSettled(part){
   return { ok: false, e: apiError(200, code, code) };
 }
 function crumbDetail(m){
+  var backHash = detailReferrer === "mailbox" ? "#/mailbox" : "#/matters";
+  var backLabel = detailReferrer === "mailbox" ? "收件箱" : "全部事项";
   var projLink = m.project_id
     ? '<a href="#/project/' + esc(m.project_id) + '" class="crumb-link">' + esc(projName(m.project_id) || "项目") + '</a><span class="crumb-sep">&gt;</span>'
-    : '<a href="#/matters" class="crumb-link">全部事项</a><span class="crumb-sep">&gt;</span>';
+    : '<a href="' + backHash + '" class="crumb-link">' + backLabel + '</a><span class="crumb-sep">&gt;</span>';
   $("#crumb").innerHTML = projLink
     + '<span class="crumb-current"><span class="cid" style="color:var(--text-3);font-weight:400;margin-right:4px">' + esc(seqLabel(m)) + '</span>' + esc(m.title) + "</span>";
   setTopSourceChip(m);
@@ -7815,34 +7823,6 @@ function preferencePanelHTML(){
     + '<div class="panel-body">' + body + "</div></section>";
 }
 /* ---- simple inline markdown renderer (no external deps) ---- */
-function renderSimpleMarkdown(src){
-  var lines = src.split("\n");
-  var html = [];
-  var inCode = false, codeBuf = [];
-  for (var i = 0; i < lines.length; i++){
-    var ln = lines[i];
-    if (/^```/.test(ln)){
-      if (inCode){ html.push('<pre><code>' + esc(codeBuf.join("\n")) + '</code></pre>'); codeBuf = []; }
-      inCode = !inCode;
-      continue;
-    }
-    if (inCode){ codeBuf.push(ln); continue; }
-    if (/^#{1,3}\s/.test(ln)){
-      var lvl = ln.match(/^(#+)/)[1].length;
-      html.push('<h' + lvl + '>' + mdInline(ln.replace(/^#+\s*/, '')) + '</h' + lvl + '>');
-    } else if (/^[-*]\s/.test(ln)){
-      var items = [ln.replace(/^[-*]\s*/, '')];
-      while (i + 1 < lines.length && /^[-*]\s/.test(lines[i + 1])){ i++; items.push(lines[i].replace(/^[-*]\s*/, '')); }
-      html.push('<ul>' + items.map(function(t){ return '<li>' + mdInline(t) + '</li>'; }).join('') + '</ul>');
-    } else if (ln.trim() === ''){
-      html.push('');
-    } else {
-      html.push('<p>' + mdInline(ln) + '</p>');
-    }
-  }
-  if (inCode && codeBuf.length){ html.push('<pre><code>' + esc(codeBuf.join("\n")) + '</code></pre>'); }
-  return html.join("\n");
-}
 function isSafeHref(href){
   if (!href) return false;
   var lower = href.trim().toLowerCase();
@@ -7884,7 +7864,7 @@ function openAttachPreview(url, filename){
     body.style.padding = "20px 24px";
     body.innerHTML = '<div style="color:var(--fg,#333);font-size:14px;line-height:1.7">加载中...</div>';
     fetch(url).then(function(r){ return r.text(); }).then(function(text){
-      body.innerHTML = '<div class="md-preview" style="color:var(--fg,#333);font-size:14px;line-height:1.7">' + renderSimpleMarkdown(text) + '</div>';
+      body.innerHTML = '<div class="md-preview" style="color:var(--fg,#333);font-size:14px;line-height:1.7">' + mdHTML(text) + '</div>';
     }).catch(function(){
       body.innerHTML = '<div style="padding:20px;color:#c06030">加载失败</div>';
     });
