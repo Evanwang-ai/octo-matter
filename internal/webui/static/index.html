@@ -1099,6 +1099,9 @@
   .pref-list { display: flex; flex-direction: column; }
   .pref-row { display: flex; align-items: flex-start; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--hairline-soft); cursor: pointer; transition: background .1s; }
   .pref-row:hover { background: var(--fill-1); margin: 0 -16px; padding-left: 16px; padding-right: 16px; border-radius: 8px; }
+  .pref-chev { flex: 0 0 16px; width: 16px; height: 16px; margin-top: 2px; color: var(--text-4); transition: transform .15s; font-size: 12px; text-align: center; }
+  .pref-row.expanded .pref-chev { transform: rotate(90deg); }
+  .pref-expand { overflow: hidden; transition: max-height .2s ease, opacity .15s; }
   .pref-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .pref-rule { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--text); }
   .pref-evidence { font-size: 12px; color: var(--text-3); line-height: 1.45; }
@@ -5179,7 +5182,7 @@ function paintCards(my){
     html += '</div>';
   });
 
-  $(".content-inner").innerHTML = '<div class="list-head"><div class="list-head-actions"></div></div>'
+  $(".content-inner").innerHTML = '<div class="list-head"><div class="list-title">Preference</div><div class="list-head-actions"><button class="new-btn" id="newCardBtn" type="button">+ 新建</button></div></div>'
     + '<div class="inbox-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索偏好（全文检索）" style="max-width:400px" aria-label="搜索偏好"></div></div>'
     + '<div class="pref-list">' + html + '</div>';
 
@@ -5222,8 +5225,8 @@ function paintCards(my){
     if (row){
       var detail = row.querySelector(".pref-expand");
       if (detail){
-        var isOpen = detail.style.display !== "none";
-        detail.style.display = isOpen ? "none" : "block";
+        var isOpen = row.classList.toggle("expanded");
+        detail.style.display = isOpen ? "block" : "none";
         return;
       }
       // Build expand content on first click
@@ -5235,6 +5238,7 @@ function paintCards(my){
           + (c.avoid ? '<div style="font-size:12px;color:var(--amber);background:rgba(255,190,0,.06);border-left:3px solid var(--amber);border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:6px;line-height:1.5">不适用: ' + esc(c.avoid) + '</div>' : '')
           + '<div style="margin-top:6px"><button class="pref-act pref-edit-btn" data-edit-card="' + esc(c.id) + '" onclick="event.stopPropagation()" style="font-size:12px">编辑</button></div>'
           + '</div>';
+        row.classList.add("expanded");
         row.querySelector(".pref-main").insertAdjacentHTML("beforeend", expandHTML);
       }
     }
@@ -5255,6 +5259,7 @@ function paintCardRow(c){
     actions = '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" title="弃用">弃用</button>';
   }
   return '<div class="pref-row" data-card-id="' + esc(c.id) + '" role="button" tabindex="0">'
+    + '<span class="pref-chev">&#x25B8;</span>'
     + '<div class="pref-main">'
     + '<div class="pref-rule">' + esc(firstLine) + '</div>'
     + '<div class="pref-source-info" style="font-size:11.5px;color:var(--text-4);margin-top:2px">' + esc(srcInfo) + '</div>'
@@ -5284,6 +5289,8 @@ function paintCardsBindSearch(my){
       }, 300);
     });
   }
+  var ncb = $("#newCardBtn");
+  if (ncb) ncb.addEventListener("click", function(){ openNewCardModal(my); });
 }
 
 function cardFormHTML(c){
@@ -7736,6 +7743,7 @@ function findStrayDistillEntry(){
   return null;
 }
 function preferencePanelHTML(){
+  if (!cur || !cur.m) return "";
   var m = cur.m;
   var row = cur.summary;
   var hints = (cur.prefHints && cur.prefHints.ok) ? listData(cur.prefHints.v) : [];
