@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Octo · 事项</title>
+<title>Octo · 回路</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -2576,14 +2576,14 @@
   <div class="app">
     <nav class="rail">
       <div class="avatar-top" id="railMe" title="当前身份(点开改连接)">·</div>
-      <div class="rail-btn active" id="railMatters" title="事项"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 9.5l2 2 4-4M8 16h6"/></svg></div>
+      <div class="rail-btn active" id="railMatters" title="回路"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 9.5l2 2 4-4M8 16h6"/></svg></div>
       <div class="rail-spacer"></div>
       <div class="rail-btn" id="railSettings" title="连接设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.5M12 19v2.5M21.5 12H19M5 12H2.5M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8M18.7 18.7l-1.8-1.8M7.1 7.1L5.3 5.3"/></svg></div>
     </nav>
 
     <nav class="modnav" id="modnav">
       <div class="modnav-h">
-        <div class="mh-title">事项</div>
+        <div class="mh-title">回路</div>
         <div class="mh-spacer"></div>
       </div>
       <div class="modnav-scroll"><div class="nav-list" id="navList"></div></div>
@@ -2614,7 +2614,7 @@
   <div class="dl-pop" id="dlPop" role="dialog" aria-label="选截止时间"></div>
   <div class="connect-scrim" id="connectScrim">
     <div class="connect-card">
-      <div class="cc-logo">事项</div>
+      <div class="cc-logo">回路</div>
       <div class="cc-title">连接 Octo</div>
       <div class="cc-sub" id="connectHint">先在<b>同一域名</b>登录 Octo 主应用<span id="connectLoginLink">(<a href="/" target="_blank">打开登录页</a>)</span>,回来刷新这页就会自动连上。也可以手动粘贴 token(主应用里 F12 → Application → Local Storage → <code>token</code>)。</div>
       <div class="cc-field"><label for="ccToken">token</label><input id="ccToken" autocomplete="off" spellcheck="false"></div>
@@ -2846,7 +2846,7 @@ function api(path, opts){
     init.body = JSON.stringify(opts.body);
   }
   return fetch(url.toString(), init).catch(function(){
-    throw apiError(0, "NETWORK", "连不上事项服务,稍后再试");
+    throw apiError(0, "NETWORK", "连不上回路服务,稍后再试");
   }).then(function(res){
     if (res.status === 204) return null;
     return res.text().then(function(text){
@@ -3136,7 +3136,7 @@ function scopeLabel(p){ return p && p.scope === "private" ? "私有项目" : "�
 
 /* ---------------- shell / nav ---------------- */
 var NAV_ITEMS = [
-  { key: "mymatters", hash: "#/matters", label: "全部事项",
+  { key: "mymatters", hash: "#/matters", label: "全部回路",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h10M5 10h10M5 14h10"/><path d="M2.8 6h.1M2.8 10h.1M2.8 14h.1"/></svg>',
     badge: true },
   { key: "mailbox", hash: "#/mailbox", label: "收件箱",
@@ -3319,7 +3319,7 @@ function parseHash(){
   return { view: "mymatters", tab: "all", mode: "list" };
 }
 function matterViewSwitchHTML(active){
-  return '<div class="matter-view-switch" role="tablist" aria-label="事项视图">'
+  return '<div class="matter-view-switch" role="tablist" aria-label="回路视图">'
     + '<a class="mvs-btn' + (active === "list" ? " active" : "") + '" href="#/matters" role="tab" aria-selected="' + (active === "list") + '">列表</a>'
     + '<a class="mvs-btn' + (active === "board" ? " active" : "") + '" href="#/matters/board" role="tab" aria-selected="' + (active === "board") + '">看板</a>'
     + "</div>";
@@ -3343,7 +3343,7 @@ function render(){
   if (!authReady()){
     setNav(r.view === "matter" || r.view === "project" ? null : r.view);
     hideInspector();
-    setCrumbText("事项");
+    setCrumbText("回路");
     $("#centerCol").innerHTML = '<div class="content"><div class="content-inner">'
       + '<div class="empty-state"><div class="es-t">还没连上 Octo</div><div class="es-s">登录主应用,或在弹出的面板里填 token 和空间 ID</div></div></div></div>';
     showConnect();
@@ -3372,7 +3372,7 @@ var inboxState = null; // { rows, page, params, key }
 var expandedRows = {};
 var projShowArchived = false;
 var MY_INBOX_TABS = [
-  { k: "all", label: "全部事项", title: "全部事项" },
+  { k: "all", label: "全部回路", title: "全部回路" },
   { k: "review", label: "待确认", title: "待确认" },
   { k: "mine", label: "我负责的", title: "我负责的" },
   { k: "initiated", label: "我发起的", title: "我发起的" },
@@ -3480,7 +3480,7 @@ function renderMailbox(my, source){
 }
 function mailboxSourceSwitchHTML(active){
   var items = [
-    { k: "matters", hash: "#/mailbox", label: "事项" },
+    { k: "matters", hash: "#/mailbox", label: "回路" },
     { k: "agent-mail", hash: "#/mailbox/agent-mail", label: "Agent Mail" },
     { k: "system", hash: "#/mailbox/system", label: "系统信" }
   ];
@@ -3490,7 +3490,7 @@ function mailboxSourceSwitchHTML(active){
     }).join("") + "</div>";
 }
 
-/* ---- My Matters / 全部事项 global view ---- */
+/* ---- My Matters / 全部回路 global view ---- */
 var MY_MATTERS_TABS = [
   { k: "all", hash: "#/matters", label: "全部" },
   { k: "created", hash: "#/matters/created", label: "我发起的" },
@@ -3604,7 +3604,7 @@ function renderMyMatters(my, tab, mode){
   setNav("mymatters");
   hideInspector();
   setCrumbText("");
-  $("#centerCol").innerHTML = listSkeleton("全部事项");
+  $("#centerCol").innerHTML = listSkeleton("全部回路");
   return Promise.all([
     api("/matters", { params: myMattersParams(myMattersTab) }),
     loadMembers().catch(function(){ return []; }),
@@ -3626,7 +3626,7 @@ function myMattersToolbarHTML(mode, count){
     + '<span class="work-count">' + count + ' working</span>'
     + '<div class="my-pop-zone"><button class="board-filter-trigger' + (activeFilters ? " has-filters" : "") + '" id="myFilterBtn" type="button" aria-expanded="' + (myMattersFilterOpen ? "true" : "false") + '">' + FILTER_SVG + '<span>筛选</span>' + (activeFilters ? '<span class="bf-count">' + activeFilters + '</span>' : '') + '</button>' + myMattersFilterPopHTML() + '</div>'
     + '<div class="my-pop-zone"><button class="board-filter-trigger" id="myOrderBtn" type="button"><span>' + orderArrow + '</span><span>' + esc(orderLabel) + '</span></button>' + myMattersOrderingPopHTML() + '</div>'
-    + '<div class="matter-view-switch" role="tablist" aria-label="全部事项视图">'
+    + '<div class="matter-view-switch" role="tablist" aria-label="全部回路视图">'
     + '<a class="mvs-btn' + (mode === "list" ? " active" : "") + '" href="' + myMattersRouteHash(myMattersTab, "list") + '" role="tab">列表</a>'
     + '<a class="mvs-btn' + (mode === "board" ? " active" : "") + '" href="' + myMattersRouteHash(myMattersTab, "board") + '" role="tab">看板</a>'
     + '</div></div></div>';
@@ -3709,7 +3709,7 @@ function myMattersBatchBarHTML(rows){
     + '<button type="button" class="bb-cancel" id="myBatchClear">取消选择</button></div>';
 }
 function myMattersListHTML(rows){
-  if (!rows.length) return '<div class="empty-state"><div class="es-t">没有匹配事项</div><div class="es-s">调整筛选或排序后再看。</div></div>';
+  if (!rows.length) return '<div class="empty-state"><div class="es-t">没有匹配回路</div><div class="es-s">调整筛选或排序后再看。</div></div>';
   var html = myMattersBatchBarHTML(rows);
   MY_MATTERS_STATUS_ORDER.forEach(function(st){
     var group = rows.filter(function(m){ return m.status === st; });
@@ -3728,14 +3728,14 @@ function myMattersBoardHTML(rows){
     var cards = rows.filter(function(m){ return m.status === st; });
     return '<div class="board-col ' + ({backlog:"backlog",open:"todo",in_progress:"doing",review:"review",blocked:"block",done:"done"}[st] || "") + (cards.length ? "" : " is-empty") + '" data-status="' + st + '">'
       + '<div class="board-col-h"><span class="bc-dot"></span>' + esc(stName(st)) + '<span class="bc-cnt">' + cards.length + '</span></div>'
-      + '<div class="board-cards">' + (cards.map(function(m){ return boardCardHTML(m, { readonly: myMattersOrdering !== "manual", priority: true, props: myMattersProps }); }).join("") || '<div class="board-empty">没有事项</div>') + "</div></div>";
+      + '<div class="board-cards">' + (cards.map(function(m){ return boardCardHTML(m, { readonly: myMattersOrdering !== "manual", priority: true, props: myMattersProps }); }).join("") || '<div class="board-empty">没有回路</div>') + "</div></div>";
   }).join("");
   return '<div class="board-shell my-board-shell"><div class="board-viewport"><div class="board-wrap">' + cols + "</div></div></div>";
 }
 function paintMyMatters(my){
   var rows = myMattersFilteredRows();
   $("#centerCol").innerHTML = '<div class="content ' + (myMattersMode === "board" ? "board-content" : "mymatters-content") + '"><div class="content-inner wide inbox-page mymatters-page">'
-    + '<div class="list-head"><div class="list-title">全部事项</div></div>'
+    + '<div class="list-head"><div class="list-title">全部回路</div></div>'
     + myMattersToolbarHTML(myMattersMode, rows.length)
     + (myMattersMode === "board" ? myMattersBoardHTML(rows) : myMattersListHTML(rows))
     + "</div></div>";
@@ -4085,7 +4085,7 @@ function paintMyInbox(my){
     + '<button class="ibx-filter-trigger" id="ibxFilterTrigger" type="button">' + filterSVG + '<span class="ibx-ft-label">' + esc(curTabInfo.label) + '</span></button>'
     + '<div class="ibx-drop" id="ibxDrop">' + dropItems + '</div></div>';
   var empty = rows.length ? "" : '<div class="inbox-right-empty" style="padding:40px;text-align:center">'
-    + esc(curTabInfo.label) + " 没有事项</div>";
+    + esc(curTabInfo.label) + " 没有回路</div>";
   var listHTML = rows.map(function(m){ return mailRowHTML(m, myInboxSel); }).join("");
   var toggleSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg>';
   $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="mailbox-matters-shell">'
@@ -4094,13 +4094,13 @@ function paintMyInbox(my){
     + (inboxLeftCollapsed ? '<button class="ibx-toggle ibx-expand-float" id="ibxExpand" type="button" title="展开列表">' + toggleSVG + '</button>' : '')
     + '<div class="inbox-left' + (inboxLeftCollapsed ? " collapsed" : "") + '" id="inboxLeft"' + (inboxLeftWidth && !inboxLeftCollapsed ? ' style="width:' + inboxLeftWidth + 'px"' : '') + '>'
     + '<div class="inbox-left-head">' + filterHTML
-    + '<button class="ibx-newbtn" id="ibxNew" type="button" title="新建事项"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg></button>'
+    + '<button class="ibx-newbtn" id="ibxNew" type="button" title="新建回路"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg></button>'
     + '<button class="ibx-toggle" id="ibxCollapse" type="button" title="收起列表">' + toggleSVG + '</button></div>'
     + '<div class="inbox-left-list">' + (listHTML || empty) + '</div>'
     + '</div>'
     + '<div class="ibx-resize" id="ibxResize"></div>'
     + '<div class="inbox-right" id="inboxRight">'
-    + (myInboxSel ? '' : '<div class="inbox-right-empty">选择一个事项查看详情</div>')
+    + (myInboxSel ? '' : '<div class="inbox-right-empty">选择一个回路查看详情</div>')
     + '</div>'
     + '</div></div></div>';
   var ibxTrigger = $("#ibxFilterTrigger");
@@ -4186,7 +4186,7 @@ function paintMyInbox(my){
     var items = [];
     if (mst !== "archived") items.push('<button data-ctx="archive">归档</button>');
     if (mst === "archived") items.push('<button data-ctx="unarchive">取消归档</button>');
-    if (mst !== "cancelled" && mst !== "done" && mst !== "archived") items.push('<button data-ctx="cancel" class="danger">取消事项</button>');
+    if (mst !== "cancelled" && mst !== "done" && mst !== "archived") items.push('<button data-ctx="cancel" class="danger">取消回路</button>');
     if (!items.length) return;
     menu.innerHTML = items.join('<div class="ctx-sep"></div>');
     menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + "px";
@@ -4196,7 +4196,7 @@ function paintMyInbox(my){
       var btn = ce.target.closest("[data-ctx]"); if (!btn) return;
       var act = btn.getAttribute("data-ctx"); closeCtxMenu();
       var target = act === "archive" ? "archived" : act === "unarchive" ? "done" : "cancelled";
-      if (target === "cancelled" && !confirm("确定要取消这个事项吗？此操作不容易恢复。")) return;
+      if (target === "cancelled" && !confirm("确定要取消这个回路吗？此操作不容易恢复。")) return;
       api("/matters/" + mid + "/status", { method: "PUT", body: { status: target } }).then(function(){
         toast(target === "archived" ? "已归档" : target === "cancelled" ? "已取消" : "已恢复");
         if (m) m.status = target;
@@ -4260,7 +4260,7 @@ function loadInboxDetail(my, id){
   ]).then(function(res){
     if (my !== renderToken || myInboxSel !== id) return;
     var m = normMatter(res[0]);
-    if (!m || !m.id){ right.innerHTML = '<div class="inbox-right-empty">事项已不存在</div>'; return; }
+    if (!m || !m.id){ right.innerHTML = '<div class="inbox-right-empty">回路已不存在</div>'; return; }
     cur = { id: id, m: m, tree: res[1], timeline: res[2], acts: res[3], edges: { ok: false, loading: true }, prefHints: { ok: false, loading: true }, parent: null, summary: null };
     inboxDetailCache[id] = cur;
     right.innerHTML = inboxDetailHTML(m);
@@ -4297,7 +4297,7 @@ function matchSearch(m, q){
 function rowHTML(m, opts){
   opts = opts || {};
   var props = opts.props || {};
-  // 有子事项才画展开箭头(服务端 has_children 派生;小白原则:没有就不画)
+  // 有子回路才画展开箭头(服务端 has_children 派生;小白原则:没有就不画)
   var probed = cache.children[m.id];
   var canExpand = !opts.child && !opts.noExpand && !opts.flat && !m.parent_matter_id
     && (m.has_children === true || (probed && probed.length > 0));
@@ -4358,7 +4358,7 @@ function toggleExpand(id, btn){
     repaintList();
     api("/matters", { params: { parent_id: id, limit: 50 } }).then(function(json){
       cache.children[id] = listData(json).map(normMatter);
-      if (!cache.children[id].length) delete expandedRows[id]; // 没有子事项:安静收起,箭头随之消失
+      if (!cache.children[id].length) delete expandedRows[id]; // 没有子回路:安静收起,箭头随之消失
       repaintList();
     }).catch(function(e){
       delete expandedRows[id];
@@ -4578,8 +4578,8 @@ function boardFilterPopoverHTML(){
   body += boardSectionHTML("负责人", "leader_uid", sortedBoardItems(leaderIds, function(v){ return uname(v); }), function(v){ return av(v, "bf-avatar"); });
   body += boardSectionHTML("创建者", "creator_id", sortedBoardItems(creatorIds, function(v){ return uname(v); }), function(v){ return av(v, "bf-avatar"); });
   body += boardSectionHTML("来源", "source_name", sortedBoardItems(sources, function(v){ return srcLabel(v); }), function(){ return CHAT_SVG.replace('width="12" height="12"', 'width="16" height="16"'); });
-  return '<div class="board-filter-pop' + (boardFilterOpen ? " open" : "") + '" id="boardFilterPop" role="menu" aria-label="筛选事项">'
-    + '<div class="bf-pop-head"><div><div class="bf-pop-title">筛选事项</div><div class="bf-pop-sub">状态 / 项目 / 负责人 / 创建者 / 来源</div></div>'
+  return '<div class="board-filter-pop' + (boardFilterOpen ? " open" : "") + '" id="boardFilterPop" role="menu" aria-label="筛选回路">'
+    + '<div class="bf-pop-head"><div><div class="bf-pop-title">筛选回路</div><div class="bf-pop-sub">状态 / 项目 / 负责人 / 创建者 / 来源</div></div>'
     + '<button type="button" class="bf-clear" id="boardFilterClearAll">清空</button></div>' + body + "</div>";
 }
 function setBoardFilterOpen(open){
@@ -4614,7 +4614,7 @@ function boardDisplayPopoverHTML(){
     + '<button type="button" class="bd-segment' + (boardDensity === "compact" ? " is-active" : "") + '" data-board-density="compact">紧凑</button>'
     + "</div></div>"
     + '<div class="bf-section"><div class="bf-section-title">列</div><div class="bf-options">'
-    + boardDisplayToggleHTML("hideEmpty", "隐藏空列", "筛选后只保留有事项的状态列", boardHideEmpty)
+    + boardDisplayToggleHTML("hideEmpty", "隐藏空列", "筛选后只保留有回路的状态列", boardHideEmpty)
     + "</div></div>"
     + '<div class="bf-section"><div class="bf-section-title">Preference字段</div><div class="bf-options">'
     + boardDisplayToggleHTML("showDate", "显示日期", "保留Preference右上角时间信息", boardShowDate)
@@ -4689,7 +4689,7 @@ function renderTimeline(my){
   setCrumbText("");
   var activeN = boardActiveFilters().length;
   var filterControl = '<div class="board-actions" style="display:inline-flex">'
-    + '<button type="button" class="board-filter-trigger' + (activeN ? " has-filters" : "") + (boardFilterOpen ? " open" : "") + '" id="boardFilterBtn" aria-haspopup="menu" aria-expanded="' + (boardFilterOpen ? "true" : "false") + '" aria-label="筛选事项">' + FILTER_SVG + '<span>筛选</span><span class="bf-count">' + activeN + "</span></button>"
+    + '<button type="button" class="board-filter-trigger' + (activeN ? " has-filters" : "") + (boardFilterOpen ? " open" : "") + '" id="boardFilterBtn" aria-haspopup="menu" aria-expanded="' + (boardFilterOpen ? "true" : "false") + '" aria-label="筛选回路">' + FILTER_SVG + '<span>筛选</span><span class="bf-count">' + activeN + "</span></button>"
     + boardFilterPopoverHTML() + "</div>";
   $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden;display:flex;flex-direction:column">'
     + '<div class="tl-shell"><div class="tl-head"><div class="list-head">'
@@ -4708,7 +4708,7 @@ function renderTimeline(my){
     + '</div></div>'
     + '</div></div></div>'
     + '<div class="board-active-filters" style="padding:0 clamp(20px,4vw,56px)">' + boardChipHTML() + '</div>'
-    + '<div class="tl-body"><div class="tl-left"><div class="tl-left-head">事项</div></div>'
+    + '<div class="tl-body"><div class="tl-left"><div class="tl-left-head">回路</div></div>'
     + '<div class="tl-chart"><div class="tl-empty">加载中…</div></div></div></div></div>';
   return Promise.all([
     api("/matters", { params: { limit: 100 } }),
@@ -4790,8 +4790,8 @@ function paintTimeline(my){
   var pop = $("#boardFilterPop");
   if (pop) pop.outerHTML = boardFilterPopoverHTML();
   if (!rows.length){
-    $(".tl-chart").innerHTML = '<div class="tl-empty">' + (activeN ? '没有匹配事项' : '还没有事项') + '</div>';
-    $(".tl-left").innerHTML = '<div class="tl-left-head">事项</div>';
+    $(".tl-chart").innerHTML = '<div class="tl-empty">' + (activeN ? '没有匹配回路' : '还没有回路') + '</div>';
+    $(".tl-left").innerHTML = '<div class="tl-left-head">回路</div>';
     bindMatterFilterControls(function(){ paintTimeline(my); });
     return;
   }
@@ -4817,7 +4817,7 @@ function paintTimeline(my){
   var totalW = totalDays * dayW;
   var dayPos = function(d){ return Math.round(((d instanceof Date ? d : new Date(d)) - rangeStart) / 864e5) * dayW; };
 
-  var leftHTML = '<div class="tl-left-head">事项</div>';
+  var leftHTML = '<div class="tl-left-head">回路</div>';
   var gridHTML = '';
   var vlinesHTML = '';
   var ST_DOT_COLOR = { backlog: "var(--text-4)", open: "var(--gray)", in_progress: "var(--progress)", review: "var(--amber)", done: "var(--done)", blocked: "var(--block)", cancelled: "#c2c6cf" };
@@ -5116,7 +5116,7 @@ function paintTimeline(my){
 var cardsCache = null;
 var cardsFullCache = null;
 var CARD_STATUS_LABEL = { draft: "草稿", authorized: "已授权", hit: "命中", miss: "未命中", discarded: "已弃" };
-var CARD_SCOPE_LABEL = { matter: "事项", project: "项目", bot: "Bot", space: "空间", global: "全局" };
+var CARD_SCOPE_LABEL = { matter: "回路", project: "项目", bot: "Bot", space: "空间", global: "全局" };
 var CARD_STATUS_CLS = { draft: "gray", authorized: "done", hit: "progress", miss: "block", discarded: "cancel" };
 
 function renderCards(my){
@@ -5170,7 +5170,7 @@ function cardScopeGroup(c){
   return 3; // matter-specific
 }
 function cardScopeGroupLabel(group){
-  return ["普适标准", "项目级", "Bot 级", "事项级"][group] || "其他";
+  return ["普适标准", "项目级", "Bot 级", "回路级"][group] || "其他";
 }
 function paintCards(my){
   var cards = cardsCache || [];
@@ -5416,7 +5416,7 @@ function projCount(id){
 function fillProjCounts(root){
   $$("[data-count-for]", root).forEach(function(el){
     projCount(el.getAttribute("data-count-for")).then(function(c){
-      el.textContent = (c.more ? "99+" : c.n) + " 个事项";
+      el.textContent = (c.more ? "99+" : c.n) + " 个回路";
       el.style.visibility = "visible";
     }).catch(function(){ el.textContent = ""; });
   });
@@ -5450,14 +5450,14 @@ function renderProjects(my){
         + '<span class="pr-more"><button class="pc-more" type="button" data-menu="' + esc(p.id) + '" title="⋯">⋯</button></span>'
         + "</div>";
     }).join("");
-    var thead = '<div class="proj-thead"><span>名称</span><span>领队</span><span>事项</span><span>范围</span><span>创建</span><span></span></div>';
+    var thead = '<div class="proj-thead"><span>名称</span><span>领队</span><span>回路</span><span>范围</span><span>创建</span><span></span></div>';
     $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
       + '<div class="list-head"><div class="list-head-actions">'
       + '<button class="new-btn" id="newProjBtn" type="button">+ 新建项目</button></div></div>'
       + '<div class="list-sub">' + liveN + " 个项目"
       + (archN ? ' · <a class="sub-link" id="toggleArch" role="button" tabindex="0">' + (projShowArchived ? "收起已归档" : "显示已归档 " + archN) + "</a>" : "") + "</div>"
       + (shown.length ? thead + '<div class="proj-list">' + rows + "</div>"
-        : '<div class="empty-state"><div class="es-t">还没有项目</div><div class="es-s">建一个文件夹,新事项就能归进去</div></div>')
+        : '<div class="empty-state"><div class="es-t">还没有项目</div><div class="es-s">建一个文件夹,新回路就能归进去</div></div>')
       + "</div></div>";
     $("#newProjBtn").addEventListener("click", function(){ openProjectModal(null); });
     var ta = $("#toggleArch");
@@ -5568,7 +5568,7 @@ function openProjectModal(p){
   };
 }
 
-/* ---- 项目详情:事项 / 上下文 两个 tab ---- */
+/* ---- 项目详情:回路 / 上下文 两个 tab ---- */
 var projState = null; // { id, project, rows, page, sources, srcErr, tab, adding }
 function renderProjectDetail(my, id){
   setNav("projects");
@@ -5767,8 +5767,8 @@ function paintProjectDetail(my){
         });
         return '<div class="board-col ' + c.cls + (cards.length ? "" : " is-empty") + '" data-status="' + c.st + '">'
           + '<div class="board-col-h"><span class="bc-dot"></span>' + esc(stName(c.st)) + '<span class="bc-cnt">' + cards.length + '</span>'
-          + '<button class="bc-add" type="button" data-proj-addcol="' + c.st + '" title="新建事项">+</button></div>'
-          + '<div class="board-cards">' + (cards.map(function(m){ return boardCardHTML(m, { priority: true, props: { priority: true, assignee: true, startDate: true, project: false } }); }).join("") || '<div class="board-empty">没有事项</div>') + "</div></div>";
+          + '<button class="bc-add" type="button" data-proj-addcol="' + c.st + '" title="新建回路">+</button></div>'
+          + '<div class="board-cards">' + (cards.map(function(m){ return boardCardHTML(m, { priority: true, props: { priority: true, assignee: true, startDate: true, project: false } }); }).join("") || '<div class="board-empty">没有回路</div>') + "</div></div>";
       }).join("");
       body = '<div class="board-shell" style="height:calc(100vh - 180px)"><div class="board-viewport"><div class="board-wrap">' + cols + "</div></div></div>";
     } else {
@@ -5782,7 +5782,7 @@ function paintProjectDetail(my){
         return r;
       }).join("");
       body = rows.length
-        ? '<div class="inbox-table-head" aria-hidden="true"><span>状态</span><span>事项</span><span>项目</span><span>编号</span><span>领队</span><span>创建</span></div><div class="mlist">' + listHtml + "</div>"
+        ? '<div class="inbox-table-head" aria-hidden="true"><span>状态</span><span>回路</span><span>项目</span><span>编号</span><span>领队</span><span>创建</span></div><div class="mlist">' + listHtml + "</div>"
         : '<div class="empty-state"><div class="es-t">这个项目还空着</div><div class="es-s">点「新建」,第一件事就归在这里</div></div>';
     }
   }
@@ -5794,7 +5794,7 @@ function paintProjectDetail(my){
     + '<button class="new-btn" id="projNewMatterBtn" type="button">+ 新建</button>'
     + (p ? '<button class="pc-more" id="projMoreBtn" type="button" aria-label="项目操作" title="分享 / 重命名 / 归档">⋯</button>' : "")
     + "</div></div>"
-    + '<div class="list-sub">' + rows.length + " 个事项 · " + scopeLabel(p) + (p && p.archived ? " · 已归档" : "") + "</div>"
+    + '<div class="list-sub">' + rows.length + " 个回路 · " + scopeLabel(p) + (p && p.archived ? " · 已归档" : "") + "</div>"
     + body
     + "</div></div>";
   // Restore board scroll position
@@ -6174,7 +6174,7 @@ function paintProjectDetail(my){
       }
       existing.innerHTML = '已选 <span class="bb-count">' + checked.length + '</span> 项'
         + '<button type="button" data-pbatch="archive">归档</button>'
-        + '<button type="button" data-pbatch="cancel" style="color:var(--block)">取消事项</button>'
+        + '<button type="button" data-pbatch="cancel" style="color:var(--block)">取消回路</button>'
         + '<button type="button" class="bb-cancel" data-pbatch="clear">取消选择</button>';
       $$("[data-pbatch]", existing).forEach(function(btn){
         btn.addEventListener("click", function(){
@@ -6185,7 +6185,7 @@ function paintProjectDetail(my){
           }
           var ids = checked.map(function(c){ return c.getAttribute("data-check"); });
           var target = act === "archive" ? "archived" : "cancelled";
-          if (target === "cancelled" && !confirm("确定要取消 " + ids.length + " 个事项吗？此操作不容易恢复。")) return;
+          if (target === "cancelled" && !confirm("确定要取消 " + ids.length + " 个回路吗？此操作不容易恢复。")) return;
           var done = 0;
           Promise.all(ids.map(function(id){
             return api("/matters/" + id + "/status", { method: "PUT", body: { status: target } }).then(function(){ done++; }).catch(function(){});
@@ -6209,7 +6209,7 @@ function paintProjectDetail(my){
       var items = [];
       if (mst !== "archived") items.push('<button data-ctx="archive">归档</button>');
       if (mst === "archived") items.push('<button data-ctx="unarchive">取消归档</button>');
-      if (mst !== "cancelled" && mst !== "done" && mst !== "archived") items.push('<button data-ctx="cancel" class="danger">取消事项</button>');
+      if (mst !== "cancelled" && mst !== "done" && mst !== "archived") items.push('<button data-ctx="cancel" class="danger">取消回路</button>');
       if (!items.length) return;
       menu.innerHTML = items.join('<div class="ctx-sep"></div>');
       menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + "px";
@@ -6350,7 +6350,7 @@ function renderAutomation(my){
       var writeK = runonly ? "发到" : "写到";
       var writeV = runonly
         ? (s.target_channel_name || s.target_channel_id || "没选会话")
-        : (projName(s.project_id) ? "「" + projName(s.project_id) + "」事项" : "事项列表");
+        : (projName(s.project_id) ? "「" + projName(s.project_id) + "」回路" : "回路列表");
       return '<div class="auto-card' + (s.enabled ? "" : " paused") + '" data-id="' + esc(s.id) + '" role="button" tabindex="0">'
         + '<div class="auto-head"><span class="ac2-when" title="' + esc(s.cron_expr) + '">' + esc(human || s.cron_expr) + "</span>"
         + '<span class="ac2-next">' + (s.next_run_at ? "下次 " + esc(fmtFuture(s.next_run_at)) : (s.enabled ? "" : "已停用")) + "</span>"
@@ -6443,7 +6443,7 @@ function openScheduleModal(s){
       + '<div class="f-err" id="amExecErr" style="margin-top:6px">得选一个执行 bot</div>'
       + '<div class="am-quiet">只能选你自己的 bot,选了别人的服务端会拒绝</div>'
       + '<div class="am-label">输出模式</div>'
-      + '<div class="seg-opt" id="segTrack" role="radio" tabindex="0"><span class="so-radio">✓</span><span><div class="so-t">写入事项</div><div class="so-s">保留记录</div></span></div>'
+      + '<div class="seg-opt" id="segTrack" role="radio" tabindex="0"><span class="so-radio">✓</span><span><div class="so-t">写入回路</div><div class="so-s">保留记录</div></span></div>'
       + '<div class="seg-opt" id="segRunonly" role="radio" tabindex="0"><span class="so-radio">✓</span><span><div class="so-t">仅运行</div><div class="so-s">发回会话</div></span></div>'
       + '<div class="am-label">项目</div>'
       + '<select class="am-select" id="amProj">' + projOpts + "</select>"
@@ -6709,7 +6709,7 @@ function renderMatter(my, id){
     if (my !== renderToken) return;
     var m = normMatter(res[0]);
     if (!m || !m.id){
-      $("#centerCol").innerHTML = errorState(apiError(404, "NOT_FOUND", "没找到这个事项"));
+      $("#centerCol").innerHTML = errorState(apiError(404, "NOT_FOUND", "没找到这个回路"));
       bindRetry($("#centerCol"));
       hideInspector();
       return;
@@ -6756,7 +6756,7 @@ function contextPartSettled(part){
 }
 function crumbDetail(m){
   var backHash = detailReferrer === "mailbox" ? "#/mailbox" : "#/matters";
-  var backLabel = detailReferrer === "mailbox" ? "收件箱" : "全部事项";
+  var backLabel = detailReferrer === "mailbox" ? "收件箱" : "全部回路";
   var projLink = m.project_id
     ? '<a href="#/project/' + esc(m.project_id) + '" class="crumb-link">' + esc(projName(m.project_id) || "项目") + '</a><span class="crumb-sep">&gt;</span>'
     : '<a href="' + backHash + '" class="crumb-link">' + backLabel + '</a><span class="crumb-sep">&gt;</span>';
@@ -6769,7 +6769,7 @@ function parentLinkHTML(){
   if (!m.parent_matter_id) return "";
   var p = cur.parent;
   return '<div class="parent-link" data-open-matter="' + esc(m.parent_matter_id) + '" role="link" tabindex="0">'
-    + '<span class="pl-main"><span class="pl-id">' + esc(p ? seqLabel(p) : "上级") + '</span><span class="pl-title">' + esc(p ? p.title : "打开上级事项") + "</span></span>"
+    + '<span class="pl-main"><span class="pl-id">' + esc(p ? seqLabel(p) : "上级") + '</span><span class="pl-title">' + esc(p ? p.title : "打开上级回路") + "</span></span>"
     + (p ? pillHTML(p.status) : "") + "</div>";
 }
 function bindParentLink(){
@@ -6871,7 +6871,7 @@ function planGraphHTML(m, kids, tv){
   var joinReady = !!(tv && tv.join_ready);
   var jring, jtext;
   if (m.status === "done" || barrier === "joined"){ jring = "done"; jtext = "已完成"; }
-  else if (joinReady || allBack || barrier === "ready" || barrier === "merging"){ jring = "review"; jtext = "子事项已齐"; }
+  else if (joinReady || allBack || barrier === "ready" || barrier === "merging"){ jring = "review"; jtext = "子回路已齐"; }
   else { jring = "todo"; jtext = "等待中"; }
   var joinDeps = isLinear ? [kids.length ? kids[kids.length - 1].id : rootId] : kids.map(function(k){ return k.id; });
   var join = '<div class="pg-node is-join st-' + jring + '" data-pgid="' + joinId + '" data-deps="' + esc(joinDeps.join(",")) + '">'
@@ -6993,8 +6993,8 @@ function planOverviewHTML(m, kids, tv){
   var tone = "", title;
   if (m.status === "done"){ tone = "done"; title = "已完成"; }
   else if (m.status === "blocked"){ tone = "block"; title = "需要协助" + (m.block_reason_text ? " · " + m.block_reason_text : ""); }
-  else if ((tv && tv.join_ready) || (total && doneN === total)){ tone = "taste"; title = "子事项已齐"; }
-  else { title = doneN + "/" + total + " 子事项已回"; }
+  else if ((tv && tv.join_ready) || (total && doneN === total)){ tone = "taste"; title = "子回路已齐"; }
+  else { title = doneN + "/" + total + " 子回路已回"; }
   return '<div class="plan-overview ' + tone + '">'
     + '<div class="po-left"><span class="po-dot"></span><div>'
     + '<div class="po-eyebrow">' + eyebrow + "</div>"
@@ -7039,7 +7039,7 @@ function subsBlockHTML(m){
         + '<div class="plan-empty"><span class="pe-k">等待领队配置</span><span class="pe-v">领队接单后会自动分配角色</span>' + inlineAddBtn + "</div></div>";
     }
     return '<div class="detail-block" id="subsBlock"><div class="sec"><span class="sec-l">计划 ' + modeTag + "</span></div>"
-      + '<div class="plan-empty"><span class="pe-k">单事项</span><span class="pe-v">暂无子任务</span>' + inlineAddBtn + "</div></div>";
+      + '<div class="plan-empty"><span class="pe-k">单回路</span><span class="pe-v">暂无子任务</span>' + inlineAddBtn + "</div></div>";
   }
   kids = kids.slice().sort(function(a, b){
     var d = (a.step_order || 0) - (b.step_order || 0);
@@ -7445,7 +7445,7 @@ function bindDetail(my){
     if (!cur || !cur.m){ toast("这单还在加载,稍等一下再发"); return; }
     var matterId = cur.id;
     send.disabled = true; send.textContent = "发送中…";
-    // @ 了人,或事项在审核中 ⇒ 这是一条反馈(taste 信号):走 feedback,
+    // @ 了人,或回路在审核中 ⇒ 这是一条反馈(taste 信号):走 feedback,
     // 服务端会通知对方、审核中自动退回修改。带附件的部分走 timeline 落档;
     // 两者都有 ⇒ timeline(附件)+feedback(敲铃)各司其职。
     var mentions = parseMentions(v);
@@ -7704,7 +7704,7 @@ function statusEdgeHuman(d){
 function actHuman(a){
   var d = a.detail || {};
   switch (a.action){
-    case "created": return "立了这个事项";
+    case "created": return "立了这个回路";
     case "status_changed": return statusEdgeHuman(d);
     case "assignee_added": return "拉了 " + uname(d.user_id || "") + " 进来";
     case "assignee_removed": return "请走了 " + uname(d.user_id || "");
@@ -7839,7 +7839,7 @@ function preferencePanelHTML(){
           + '<div class="pref-hint-actions">'
           + '<button class="pref-mini good" type="button" data-pref-hint-action="hit" data-pref-summary="' + esc(h.summary_id || "") + '">有用</button>'
           + '<button class="pref-mini warn" type="button" data-pref-hint-action="miss" data-pref-summary="' + esc(h.summary_id || "") + '">失准</button>'
-          + (canManageHints && h.scope_type !== "matter" ? '<button class="pref-mini scope" type="button" data-pref-hint-action="scope_matter" data-pref-summary="' + esc(h.summary_id || "") + '">仅本事项</button>' : "")
+          + (canManageHints && h.scope_type !== "matter" ? '<button class="pref-mini scope" type="button" data-pref-hint-action="scope_matter" data-pref-summary="' + esc(h.summary_id || "") + '">仅本回路</button>' : "")
           + (canManageHints ? '<button class="pref-mini danger" type="button" data-pref-hint-action="discard" data-pref-summary="' + esc(h.summary_id || "") + '">撤销</button>' : "")
           + "</div>"
           + "</div>";
@@ -8347,7 +8347,7 @@ function prefConfidence(row){
 function prefScopeLabel(matterId, row){
   var m = (cur && cur.id === matterId) ? cur.m : null;
   if (row && row.scope) return row.scope;
-  if (row && row.scope_type === "matter") return (m && m.title) ? "本事项" : "Matter";
+  if (row && row.scope_type === "matter") return (m && m.title) ? "本回路" : "Matter";
   return (row && row.scope_type) || "综合";
 }
 function prefScopeChoiceLabel(scopeType, m){
@@ -8356,7 +8356,7 @@ function prefScopeChoiceLabel(scopeType, m){
   if (scopeType === "bot") return "这个 bot";
   if (scopeType === "space") return "整个空间";
   if (scopeType === "global") return "通用";
-  return "本事项";
+  return "本回路";
 }
 function prefScopeSelectHTML(m, row){
   var curType = (row && row.scope_type) || "matter";
@@ -8366,7 +8366,7 @@ function prefScopeSelectHTML(m, row){
     return '<option value="' + v + '"' + (curType === v ? " selected" : "") + (disabled ? " disabled" : "") + ">" + esc(label) + "</option>";
   };
   return '<select class="matter-select" id="prefScopeType">'
-    + opt("matter", "本事项")
+    + opt("matter", "本回路")
     + opt("project", hasProject ? "当前项目" : "当前项目(无项目)", !hasProject)
     + opt("bot", "这个 bot")
     + opt("space", "整个空间")
@@ -8387,7 +8387,7 @@ function prefPreview(row){
   }).filter(Boolean).slice(0, 2).join(" / ");
 }
 function prefScopeTypeName(t){
-  return ({ matter: "本事项", project: "当前项目", bot: "负责人", space: "空间", global: "通用" })[String(t || "").toLowerCase()] || "范围";
+  return ({ matter: "本回路", project: "当前项目", bot: "负责人", space: "空间", global: "通用" })[String(t || "").toLowerCase()] || "范围";
 }
 function prefHintScoreText(h){
   var parts = ["信心 " + prefConfidence(h)];
@@ -8404,12 +8404,12 @@ function prefHintReason(h){
 function prefHintImpact(h, targetBot){
   var bot = uname(targetBot || "") || "当前负责人";
   switch (String((h && (h.match || h.scope_type)) || "").toLowerCase()){
-    case "matter": return "只影响当前事项";
-    case "project": return "当前项目里交给 " + bot + " 的事项会召回";
-    case "bot": return "交给 " + bot + " 的事项会召回";
-    case "space": return "这个空间里交给 " + bot + " 的事项会召回";
+    case "matter": return "只影响当前回路";
+    case "project": return "当前项目里交给 " + bot + " 的回路会召回";
+    case "bot": return "交给 " + bot + " 的回路会召回";
+    case "space": return "这个空间里交给 " + bot + " 的回路会召回";
     case "global": return "这个空间里的通用协作会召回";
-    default: return "匹配到当前事项时召回";
+    default: return "匹配到当前回路时召回";
   }
 }
 function prefHealthHTML(row){
@@ -8476,10 +8476,10 @@ function calibratePreferenceHint(summaryId, action, btn){
       if (next && next.status === "discarded") removePreferenceHint(next.summary_id);
       else if (next) replacePreferenceHint(next);
       paintInspector();
-      toast(action === "hit" ? "已记录召回有用" : (action === "discard" ? "已撤销这条 Preference" : (action === "scope_matter" ? "已收窄到当前事项" : "已标记召回失准")));
+      toast(action === "hit" ? "已记录召回有用" : (action === "discard" ? "已撤销这条 Preference" : (action === "scope_matter" ? "已收窄到当前回路" : "已标记召回失准")));
     })
     .catch(function(e){
-      if (btn){ btn.disabled = false; btn.textContent = old || (action === "hit" ? "有用" : (action === "discard" ? "撤销" : (action === "scope_matter" ? "仅本事项" : "失准"))); }
+      if (btn){ btn.disabled = false; btn.textContent = old || (action === "hit" ? "有用" : (action === "discard" ? "撤销" : (action === "scope_matter" ? "仅本回路" : "失准"))); }
       errToast(e);
     });
 }
@@ -8598,8 +8598,8 @@ function sortDuplicatePreferenceRows(rows){
 }
 function prefManagerEmptyHTML(status){
   var copy = {
-    all: { t: "还没有 Preference", s: "完成事项后,从验收、圈点或手动授权里沉淀可复用偏好。" },
-    authorized: { t: "还没有已授权 Preference", s: "授权后才会在后续事项中被召回;草稿和建议不会自动生效。" },
+    all: { t: "还没有 Preference", s: "完成回路后,从验收、圈点或手动授权里沉淀可复用偏好。" },
+    authorized: { t: "还没有已授权 Preference", s: "授权后才会在后续回路中被召回;草稿和建议不会自动生效。" },
     discarded: { t: "还没有撤销记录", s: "被撤销的偏好会留在这里,方便恢复或审计为什么不用。" },
     duplicates: { t: "暂无重复 Preference", s: "系统会把同内容或高度相似的偏好聚在这里,优先保留证据更强的一条。" }
   }[status] || { t: "还没有 Preference", s: "真实验收和圈点之后才应该沉淀。" };
@@ -8665,7 +8665,7 @@ function resolvePreferenceRecord(botUID, summaryId, action, btn, status){
   if (!botUID || !summaryId) return;
   var reset = setPreferenceRecordPending(btn, action);
   api("/bots/" + encodeURIComponent(botUID) + "/preferences/" + encodeURIComponent(summaryId), { method: "PUT", body: { action: action } }).then(function(){
-    toast(action === "restore" ? "已恢复这条 Preference" : (action === "scope_source" ? "已收窄到来源事项" : "已撤销这条 Preference"));
+    toast(action === "restore" ? "已恢复这条 Preference" : (action === "scope_source" ? "已收窄到来源回路" : "已撤销这条 Preference"));
     openPreferenceManager(botUID, status || "all");
     render();
   }).catch(function(e){
@@ -8843,7 +8843,7 @@ function openSummaryFlow(matterId){
     // No existing record — show bot selector for distillation trigger
     var ownedBots = matterOwnedBots(matterId);
     if (!ownedBots.length){
-      toast("你在这个事项里没有可提炼的 Agent"); return;
+      toast("你在这个回路里没有可提炼的 Agent"); return;
     }
     if (ownedBots.length === 1){
       // Single owned bot: show confirmation modal
@@ -9273,7 +9273,7 @@ function paintDlPop(){
   });
 }
 
-/* ================= 新建事项 modal ================= */
+/* ================= 新建回路 modal ================= */
 function openMatterModal(opts){
   opts = opts || {};
   if (opts.parent) return openSubMatterModal(opts);
@@ -9299,7 +9299,7 @@ function buildNewMatterModal(opts){
   var modeOpts = '<option value="">单干(默认)</option>' + ["split", "swarm", "roundtable", "pipeline", "critic"].map(function(k){
     return '<option value="' + k + '">' + MODE_NAME[k] + "</option>";
   }).join("");
-  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">新建事项</div></div>'
+  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">新建回路</div></div>'
     + '<button class="modal-x" id="mx" type="button">×</button></div>'
     + '<div class="modal-body"><div class="matter-form">'
     + '<div class="matter-field"><label>领队</label>'
@@ -9492,7 +9492,7 @@ function buildNewMatterModal(opts){
   if ($("#nmDraft")) $("#nmDraft").onclick = function(){ submitCreate(true); };
 }
 
-/* ---- 派子任务(从事项详情进入) ---- */
+/* ---- 派子任务(从回路详情进入) ---- */
 function openSubMatterModal(opts){
   var parent = opts.parent;
   Promise.all([
@@ -9512,12 +9512,12 @@ function openSubMatterModal(opts){
       + '<div class="modal-sub">挂在 ' + esc(seqLabel(parent)) + " · " + esc(parent.title) + ' 之下,编号自动 <span style="font-family:var(--mono)">' + esc(stepId) + "</span></div>"
       + '</div><button class="modal-x" id="mx" type="button">×</button></div>'
       + '<div class="modal-body"><div class="matter-form">'
-      + '<div class="matter-field" id="fSubTitle"><label>事项名称<span class="req">*</span></label>'
+      + '<div class="matter-field" id="fSubTitle"><label>回路名称<span class="req">*</span></label>'
       + '<input class="matter-input" id="smTitle" maxlength="200" placeholder="这个子任务要办成什么">'
       + '<div class="f-err">名称不能为空</div></div>'
       + '<div class="matter-field"><label>负责人</label><div class="mp-box" id="smWho" role="button" tabindex="0"></div></div>'
       + '<div class="matter-field"><label>协作方式(改在上级上)</label><select class="matter-select" id="smMode">' + modeOpts + "</select>"
-      + '<div class="hint">这是上级事项的派活方式,改了会更新上级' + (parent.project_id ? " · 子任务跟着上级归入「" + esc(projName(parent.project_id) || "项目") + "」" : "") + "</div></div>"
+      + '<div class="hint">这是上级回路的派活方式,改了会更新上级' + (parent.project_id ? " · 子任务跟着上级归入「" + esc(projName(parent.project_id) || "项目") + "」" : "") + "</div></div>"
       + '<div class="matter-error" id="smErr"></div>'
       + "</div></div>"
       + '<div class="modal-foot"><button class="ff-cancel" id="smCancel" type="button">取消</button>'
@@ -9570,8 +9570,8 @@ function agentCardLedgerHTML(bot, curList, recent, prefs, stats, rowM){
   var html = '<details class="ac-ledger"><summary><span><b>协作实绩</b><em>' + esc(summary) + '</em></span><span class="ac-open"></span></summary>'
     + '<div class="ac-ledger-body">';
   if (bot) html += rankHTML(Number(stats.done || 0));
-  html += '<div class="ac-sec"><div class="ac-sec-title"><span>当前事项</span>' + (curList.length ? "<span>" + curList.length + " 个活跃</span>" : "") + "</div>"
-    + (curList.length ? acRowsHTML(curList, rowM) : '<div class="ac-empty">手上没有进行中的事项</div>') + "</div>"
+  html += '<div class="ac-sec"><div class="ac-sec-title"><span>当前回路</span>' + (curList.length ? "<span>" + curList.length + " 个活跃</span>" : "") + "</div>"
+    + (curList.length ? acRowsHTML(curList, rowM) : '<div class="ac-empty">手上没有进行中的回路</div>') + "</div>"
     + '<div class="ac-sec"><div class="ac-sec-title"><span>已验证记录</span>' + (stats.done ? "<span>" + stats.done + " 件</span>" : "") + "</div>"
     + (recent.length ? acRowsHTML(recent.slice(0, 5), rowM) : '<div class="ac-empty">还没有验证过的交回</div>') + "</div>";
   if (bot){
@@ -10106,7 +10106,7 @@ function openAgentCard(uidStr){
     }
     html += agentCardLedgerHTML(bot, curList, recent, prefs, s, rowM);
     var btns = [];
-    if (onDetail) btns.push('<button class="ac-btn primary" id="acMention" type="button">@ 到当前事项</button>');
+    if (onDetail) btns.push('<button class="ac-btn primary" id="acMention" type="button">@ 到当前回路</button>');
 
     if (btns.length) html += '<div class="ac-actions">' + btns.join("") + "</div>";
     $("#acBody").innerHTML = html;
@@ -10139,7 +10139,7 @@ function openAgentCard(uidStr){
         if (d && (d.tagline || d.description || (d.skills || []).length || (d.capabilities || []).length || (d.systems || []).length)){
           var caps = d.capabilities || [];
           var perm = viewer.relationship === "creator"
-            ? (d.visibility === "private" ? "能力描述仅 creator 可见;下方战绩仍由真实事项派生。" : "能力描述已对空间可见;仅 creator 能编辑。")
+            ? (d.visibility === "private" ? "能力描述仅 creator 可见;下方战绩仍由真实回路派生。" : "能力描述已对空间可见;仅 creator 能编辑。")
             : "你看到的是公开能力描述;creator 私有能力已按权限过滤。";
           box.innerHTML =
             '<div class="ac-perm">' + esc(perm) + "</div>"
