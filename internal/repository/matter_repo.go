@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,12 +33,41 @@ type MatterFilter struct {
 	ChannelID *string
 	// SeqNo resolves the human-facing M-<n> reference to the row (agents and
 	// deep links speak UUID; people speak seq).
-	SeqNo             *uint64
-	DeadlineBefore    *time.Time
-	DeadlineAfter     *time.Time
-	Query             *string
-	Cursor            *string
-	Limit             int
+	SeqNo          *uint64
+	DeadlineBefore *time.Time
+	DeadlineAfter  *time.Time
+	Query          *string
+	Cursor         *string
+	OrderBy        string
+	OrderDir       string
+	Limit          int
+}
+
+var ErrInvalidOrder = errors.New("invalid matter order")
+
+type MatterOrder struct {
+	By  string
+	Dir string
+}
+
+func NormalizeMatterOrder(orderBy, orderDir string) (MatterOrder, bool) {
+	by := strings.TrimSpace(orderBy)
+	if by == "" {
+		by = "created_at"
+	}
+	switch by {
+	case "created_at", "updated_at", "deadline", "priority", "manual", "title", "seq_no":
+	default:
+		return MatterOrder{}, false
+	}
+	dir := strings.ToLower(strings.TrimSpace(orderDir))
+	if dir == "" {
+		dir = "desc"
+	}
+	if dir != "asc" && dir != "desc" {
+		return MatterOrder{}, false
+	}
+	return MatterOrder{By: by, Dir: dir}, true
 }
 
 type MatterRepo struct {
@@ -63,7 +94,7 @@ func (r *MatterRepo) Create(ctx context.Context, matter *model.Matter) error {
 		_, err = r.runner.InsertInto("matters").
 			Columns("id", "seq_no", "space_id", "parent_matter_id", "title", "description",
 				"brief_constraints", "brief_output_spec",
-				"creator_id", "leader_uid", "status", "mode", "mode_config", "step_id", "step_order",
+				"creator_id", "leader_uid", "status", "priority", "mode", "mode_config", "step_id", "step_order",
 				"project_id", "assignment_epoch", "version", "expected_duration_minutes",
 				"last_activity_at", "last_transition_at", "schedule_id", "scheduled_at",
 				"deadline", "remind_at", "source_channel_id", "source_channel_type",
@@ -120,10 +151,97 @@ func (r *MatterRepo) GetByID(ctx context.Context, id, spaceID string) (*model.Ma
 	return &matter, nil
 }
 
+func priorityRankSQL() string {
+	return "CASE priority WHEN 1 THEN 1 WHEN 2 THEN 2 WHEN 3 THEN 3 WHEN 4 THEN 4 ELSE 5 END"
+}
+
+func applyMatterOrdering(q *dbr.SelectStmt, order MatterOrder) *dbr.SelectStmt {
+	dir := strings.ToUpper(order.Dir)
+	switch order.By {
+	case "created_at", "updated_at", "title", "seq_no":
+		return q.OrderBy(order.By + " " + dir).OrderBy("id " + dir)
+	case "deadline":
+		return q.OrderBy("deadline IS NULL ASC").OrderBy("deadline " + dir).OrderBy("id " + dir)
+	case "priority":
+		return q.OrderBy(priorityRankSQL() + " " + dir).OrderBy("id " + dir)
+	case "manual":
+		return q.OrderBy("sort_order IS NULL ASC").OrderBy("sort_order " + dir).OrderBy("id " + dir)
+	default:
+		return q.OrderBy("created_at DESC").OrderBy("id DESC")
+	}
+}
+
+func applyMatterCursor(q *dbr.SelectStmt, order MatterOrder, cursor string) (*dbr.SelectStmt, error) {
+	if cursor == "" {
+		return q, nil
+	}
+	cur, err := DecodeListCursor(cursor)
+	if err != nil {
+		return nil, err
+	}
+	if cur.OrderBy != order.By || cur.OrderDir != order.Dir {
+		return nil, ErrInvalidCursor
+	}
+	op, idOp := ">", ">"
+	if order.Dir == "desc" {
+		op, idOp = "<", "<"
+	}
+	switch order.By {
+	case "created_at", "updated_at":
+		ns, err := strconv.ParseInt(cur.Value, 10, 64)
+		if err != nil {
+			return nil, ErrInvalidCursor
+		}
+		t := time.Unix(0, ns)
+		col := order.By
+		return q.Where(fmt.Sprintf("(%s %s ? OR (%s = ? AND id %s ?))", col, op, col, idOp), t, t, cur.ID), nil
+	case "deadline":
+		if cur.IsNull {
+			return q.Where(fmt.Sprintf("deadline IS NULL AND id %s ?", idOp), cur.ID), nil
+		}
+		ns, err := strconv.ParseInt(cur.Value, 10, 64)
+		if err != nil {
+			return nil, ErrInvalidCursor
+		}
+		t := time.Unix(0, ns)
+		return q.Where(fmt.Sprintf("(deadline IS NULL OR (deadline IS NOT NULL AND (deadline %s ? OR (deadline = ? AND id %s ?))))", op, idOp), t, t, cur.ID), nil
+	case "priority":
+		rank, err := strconv.Atoi(cur.Value)
+		if err != nil {
+			return nil, ErrInvalidCursor
+		}
+		expr := priorityRankSQL()
+		return q.Where(fmt.Sprintf("(%s %s ? OR (%s = ? AND id %s ?))", expr, op, expr, idOp), rank, rank, cur.ID), nil
+	case "manual":
+		if cur.IsNull {
+			return q.Where(fmt.Sprintf("sort_order IS NULL AND id %s ?", idOp), cur.ID), nil
+		}
+		v, err := strconv.ParseFloat(cur.Value, 64)
+		if err != nil {
+			return nil, ErrInvalidCursor
+		}
+		return q.Where(fmt.Sprintf("(sort_order IS NULL OR (sort_order IS NOT NULL AND (sort_order %s ? OR (sort_order = ? AND id %s ?))))", op, idOp), v, v, cur.ID), nil
+	case "title":
+		return q.Where(fmt.Sprintf("(title %s ? OR (title = ? AND id %s ?))", op, idOp), cur.Value, cur.Value, cur.ID), nil
+	case "seq_no":
+		seq, err := strconv.Atoi(cur.Value)
+		if err != nil {
+			return nil, ErrInvalidCursor
+		}
+		return q.Where(fmt.Sprintf("(seq_no %s ? OR (seq_no = ? AND id %s ?))", op, idOp), seq, seq, cur.ID), nil
+	default:
+		return nil, ErrInvalidCursor
+	}
+}
+
 func (r *MatterRepo) ListBySpace(ctx context.Context, spaceID string, filter MatterFilter) ([]*model.Matter, bool, error) {
 	limit := filter.Limit
 	if limit <= 0 {
 		limit = 20
+	}
+	order, ok := NormalizeMatterOrder(filter.OrderBy, filter.OrderDir)
+	if !ok {
+		return nil, false, ErrInvalidOrder
 	}
 
 	// has_children rides along so list rows can render the expander only
@@ -213,17 +331,16 @@ func (r *MatterRepo) ListBySpace(ctx context.Context, spaceID string, filter Mat
 	}
 
 	if filter.Cursor != nil && *filter.Cursor != "" {
-		cur, err := DecodeCursor(*filter.Cursor)
+		var err error
+		q, err = applyMatterCursor(q, order, *filter.Cursor)
 		if err != nil {
 			return nil, false, err
 		}
-		q = q.Where("(created_at < ? OR (created_at = ? AND id < ?))", cur.CreatedAt, cur.CreatedAt, cur.ID)
 	}
 
 	var matters []*model.Matter
-	_, err := q.OrderBy("created_at DESC").
-		OrderBy("id DESC").
-		Limit(uint64(limit + 1)).
+	_, err := applyMatterOrdering(q, order).
+		Limit(uint64(limit+1)).
 		LoadContext(ctx, &matters)
 	if err != nil {
 		return nil, false, err
@@ -262,6 +379,7 @@ func (r *MatterRepo) Update(ctx context.Context, matter *model.Matter) error {
 		Set("brief_constraints", matter.BriefConstraints).
 		Set("brief_output_spec", matter.BriefOutputSpec).
 		Set("deadline", matter.Deadline).
+		Set("priority", matter.Priority).
 		Set("remind_at", matter.RemindAt).
 		Set("mode", matter.Mode).
 		Set("mode_config", matter.ModeConfig).

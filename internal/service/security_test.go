@@ -388,7 +388,7 @@ func TestMatterService_GetMatter_CrossSpaceReturnsNotFound(t *testing.T) {
 func TestMatterService_UpdateMatter_CrossSpaceReturnsNotFound(t *testing.T) {
 	matter := &model.Matter{ID: "t1", SpaceID: "space-A", CreatorID: "u1", Title: "x", Status: model.MatterStatusOpen}
 	svc := newMatterSvc(newFakeMatterRepo(matter), newFakeAssigneeRepo())
-	_, err := svc.UpdateMatter(context.Background(), "t1", "space-B", []string{"u1"}, strPtr("new title"), nil, nil, nil)
+	_, err := svc.UpdateMatter(context.Background(), "t1", "space-B", []string{"u1"}, strPtr("new title"), nil, nil, nil, nil)
 	if !errors.Is(err, apperr.ErrNotFound) {
 		t.Fatalf("cross-space UpdateMatter: got %v, want ErrNotFound", err)
 	}
@@ -397,7 +397,7 @@ func TestMatterService_UpdateMatter_CrossSpaceReturnsNotFound(t *testing.T) {
 func TestMatterService_UpdateMatter_NonCreatorReturnsForbidden(t *testing.T) {
 	matter := &model.Matter{ID: "t1", SpaceID: "space-A", CreatorID: "u1", Title: "x", Status: model.MatterStatusOpen}
 	svc := newMatterSvc(newFakeMatterRepo(matter), newFakeAssigneeRepo())
-	_, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u2"}, strPtr("new"), nil, nil, nil)
+	_, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u2"}, strPtr("new"), nil, nil, nil, nil)
 	if !errors.Is(err, apperr.ErrForbidden) {
 		t.Fatalf("non-creator UpdateMatter: got %v, want ErrForbidden", err)
 	}

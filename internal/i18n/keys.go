@@ -47,6 +47,7 @@ const (
 	KeyMessageIDLimit      = "err.validation.message_id_limit" // params: Index, Limit
 	KeyDeadlineFormat      = "err.validation.deadline_format"
 	KeyRemindAtFormat      = "err.validation.remind_at_format"
+	KeyPriorityInvalid     = "err.validation.priority_invalid"
 	KeyStatusInvalid       = "err.validation.status_invalid"
 	KeyAssigneeUIDRequired = "err.validation.assignee_uid_required"
 	KeyCallerIdentityReq   = "err.validation.caller_identity_required"

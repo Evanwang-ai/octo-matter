@@ -91,6 +91,7 @@ type createMatterReq struct {
 	BriefOutputSpec   *string                 `json:"brief_output_spec" binding:"omitempty,max=4000"`
 	AssigneeIDs       []string                `json:"assignee_ids"`
 	LeaderUID         *string                 `json:"leader_uid" binding:"omitempty,max=64"`
+	Priority          *uint8                  `json:"priority"`
 	ParentMatterID    *string                 `json:"parent_matter_id" binding:"omitempty,uuid"`
 	StepID            *string                 `json:"step_id" binding:"omitempty,max=64"`
 	StepOrder         *uint                   `json:"step_order"`
@@ -146,10 +147,19 @@ func (h *MatterHandler) Create(c *gin.Context) {
 	}
 	sid := spaceID(c)
 	userID := uid(c)
+	var priority uint8
+	if req.Priority != nil {
+		if !model.IsValidPriority(*req.Priority) {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyPriorityInvalid, map[string]any{"field": "priority"})
+			return
+		}
+		priority = *req.Priority
+	}
 	matter := &model.Matter{
 		SpaceID:           sid,
 		Title:             req.Title,
 		Status:            model.MatterStatus(req.Status),
+		Priority:          priority,
 		Description:       req.Description,
 		BriefConstraints:  req.BriefConstraints,
 		BriefOutputSpec:   req.BriefOutputSpec,
@@ -267,8 +277,10 @@ func (h *MatterHandler) Create(c *gin.Context) {
 
 func (h *MatterHandler) List(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	} else if limit > 200 {
+		limit = 200
 	}
 	cursor := c.Query("cursor")
 	status := c.Query("status")
@@ -278,10 +290,21 @@ func (h *MatterHandler) List(c *gin.Context) {
 	sourceChannelID := c.Query("source_channel_id")
 	sourceChannelTypeStr := c.Query("source_channel_type")
 	channelID := c.Query("channel_id")
+	orderBy := c.Query("order_by")
+	orderDir := c.Query("order_dir")
 
 	filter := repository.MatterFilter{
 		CallerUIDs: relatedUIDs(c),
 		Limit:      limit,
+	}
+	if orderBy != "" || orderDir != "" {
+		order, ok := repository.NormalizeMatterOrder(orderBy, orderDir)
+		if !ok {
+			failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, map[string]any{"field": "order_by"})
+			return
+		}
+		filter.OrderBy = order.By
+		filter.OrderDir = order.Dir
 	}
 	if cursor != "" {
 		filter.Cursor = &cursor
@@ -386,6 +409,7 @@ type updateMatterReq struct {
 	BriefOutputSpec  *string                  `json:"brief_output_spec" binding:"omitempty,max=4000"`
 	Deadline         *string                  `json:"deadline"`
 	RemindAt         *string                  `json:"remind_at"`
+	Priority         *uint8                   `json:"priority"`
 	LeaderUID        *string                  `json:"leader_uid" binding:"omitempty,max=64"`
 	Mode             *string                  `json:"mode" binding:"omitempty,max=20"`
 	ModeConfig       *string                  `json:"mode_config" binding:"omitempty,max=4000"`
@@ -406,7 +430,7 @@ func (h *MatterHandler) Update(c *gin.Context) {
 		bindJSONErr(c, err)
 		return
 	}
-	matter, err := h.svc.UpdateMatter(c.Request.Context(), id, spaceID(c), relatedUIDs(c), req.Title, req.Description, req.Deadline, req.RemindAt)
+	matter, err := h.svc.UpdateMatter(c.Request.Context(), id, spaceID(c), relatedUIDs(c), req.Title, req.Description, req.Deadline, req.RemindAt, req.Priority)
 	if err != nil {
 		respondErr(c, err)
 		return

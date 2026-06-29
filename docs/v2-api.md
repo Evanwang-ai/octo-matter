@@ -79,11 +79,12 @@ events_seq, processed_seq, inflight   合并必达 (parent)
 expected_duration_minutes, last_activity_at, last_transition_at
 block_reason_kind ('agent'|'system'), block_reason_text
 schedule_id, scheduled_at             定时建单幂等键
+priority                             0 none, 1 urgent, 2 high, 3 medium, 4 low
 ```
 
 `POST /api/v1/matters` accepts: `title, status, description, assignee_ids,
 leader_uid, parent_matter_id, step_id, step_order, mode, project_id,
-expected_duration_minutes, deadline, remind_at, source_*,
+expected_duration_minutes, deadline, remind_at, priority, source_*,
 input_attachments`.
 
 `status` is optional: `"backlog"` (default) or `"open"`. When created as
@@ -97,10 +98,13 @@ create sub-matters (tree-as-permission rule).
 
 `PUT /api/v1/matters/:id` additionally accepts `leader_uid` (reassign →
 `assignment_epoch`+1, activity `reassigned`, doorbell to old+new leader),
-`mode`, `project_id`, `expected_duration_minutes`.
+`mode`, `project_id`, `expected_duration_minutes`, `priority`.
 
-`GET /api/v1/matters` new filters: `parent_id=<uuid>`, `top_level=1`,
-`project_id=<uuid>`, `leader_id=<uid>`. Default behaviour unchanged.
+`GET /api/v1/matters` filters: `parent_id=<uuid>`, `top_level=1`,
+`project_id=<uuid>`, `leader_id=<uid>`, `order_by=created_at|updated_at|deadline|priority|manual|title|seq_no`,
+`order_dir=asc|desc`. Default remains `created_at desc`. `priority asc`
+returns urgent, high, medium, low, then no priority. `deadline` and `manual`
+keep empty values last.
 
 ## New matter endpoints
 
@@ -423,4 +427,3 @@ GET    /api/v1/matters/:id/bots        列出 matter 的可调度 bot
 - 创建表单协作选择器: 只显示人类(标签"协作（人）")。
 - 创建表单新增"保存草稿"按钮(status=backlog),"发送"按钮(status=open)。
 - backlog 在看板/收件箱显示为"草稿"。
-

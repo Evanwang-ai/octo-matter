@@ -18,12 +18,30 @@ const (
 	MatterStatusArchived   MatterStatus = "archived"    // legacy v1, creator-only
 )
 
+const (
+	MatterPriorityNone   uint8 = 0
+	MatterPriorityUrgent uint8 = 1
+	MatterPriorityHigh   uint8 = 2
+	MatterPriorityMedium uint8 = 3
+	MatterPriorityLow    uint8 = 4
+)
+
 // IsValidStatus reports whether s is a known MatterStatus.
 func IsValidStatus(s MatterStatus) bool {
 	switch s {
 	case MatterStatusBacklog, MatterStatusOpen, MatterStatusInProgress,
 		MatterStatusReview, MatterStatusDone, MatterStatusBlocked,
 		MatterStatusCancelled, MatterStatusArchived:
+		return true
+	}
+	return false
+}
+
+// IsValidPriority reports whether p is one of the Linear-style priority values.
+func IsValidPriority(p uint8) bool {
+	switch p {
+	case MatterPriorityNone, MatterPriorityUrgent, MatterPriorityHigh,
+		MatterPriorityMedium, MatterPriorityLow:
 		return true
 	}
 	return false
@@ -62,18 +80,19 @@ const (
 
 // Matter represents the atomic delegation unit.
 type Matter struct {
-	ID                string       `db:"id" json:"id"`
-	SeqNo             int          `db:"seq_no" json:"seq_no"`
-	SpaceID           string       `db:"space_id" json:"space_id"`
-	ParentMatterID    *string      `db:"parent_matter_id" json:"parent_matter_id,omitempty"`
-	Title             string       `db:"title" json:"title"`
-	Description       *string      `db:"description" json:"description,omitempty"`
+	ID             string  `db:"id" json:"id"`
+	SeqNo          int     `db:"seq_no" json:"seq_no"`
+	SpaceID        string  `db:"space_id" json:"space_id"`
+	ParentMatterID *string `db:"parent_matter_id" json:"parent_matter_id,omitempty"`
+	Title          string  `db:"title" json:"title"`
+	Description    *string `db:"description" json:"description,omitempty"`
 	// Brief 折叠字段 (doc 02 / 05: 硬约束+验收 折进 Brief; 来源 H,人挂载)
-	BriefConstraints *string `db:"brief_constraints" json:"brief_constraints,omitempty"`
-	BriefOutputSpec  *string `db:"brief_output_spec" json:"brief_output_spec,omitempty"`
+	BriefConstraints  *string      `db:"brief_constraints" json:"brief_constraints,omitempty"`
+	BriefOutputSpec   *string      `db:"brief_output_spec" json:"brief_output_spec,omitempty"`
 	CreatorID         string       `db:"creator_id" json:"creator_id"`
 	LeaderUID         *string      `db:"leader_uid" json:"leader_uid,omitempty"`
 	Status            MatterStatus `db:"status" json:"status"`
+	Priority          uint8        `db:"priority" json:"priority"`
 	Mode              *string      `db:"mode" json:"mode,omitempty"`
 	ModeConfig        *string      `db:"mode_config" json:"mode_config,omitempty"`
 	StepID            *string      `db:"step_id" json:"step_id,omitempty"`

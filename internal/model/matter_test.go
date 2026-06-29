@@ -22,3 +22,20 @@ func TestIsValidStatus(t *testing.T) {
 		t.Error("banana should be invalid")
 	}
 }
+
+func TestIsValidPriority(t *testing.T) {
+	for _, p := range []uint8{
+		MatterPriorityNone,
+		MatterPriorityUrgent,
+		MatterPriorityHigh,
+		MatterPriorityMedium,
+		MatterPriorityLow,
+	} {
+		if !IsValidPriority(p) {
+			t.Fatalf("priority %d should be valid", p)
+		}
+	}
+	if IsValidPriority(5) {
+		t.Fatal("priority 5 should be invalid")
+	}
+}

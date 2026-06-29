@@ -96,6 +96,9 @@ other = "deadline 必须为 RFC3339 格式或留空"
 [err.validation.remind_at_format]
 other = "remind_at 必须为 RFC3339 格式或留空"
 
+[err.validation.priority_invalid]
+other = "priority 必须是 0、1、2、3、4 之一"
+
 [err.validation.status_invalid]
 other = "status 必须为 'open'、'done' 或 'archived'"
 

@@ -16,7 +16,7 @@ func TestUpdateMatter_PersistsDeadlineAndRemindAt(t *testing.T) {
 
 	deadline := "2026-06-01T12:00:00Z"
 	remind := "2026-05-30T09:00:00Z"
-	updated, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u1"}, strPtr("x"), nil, &deadline, &remind)
+	updated, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u1"}, strPtr("x"), nil, &deadline, &remind, nil)
 	if err != nil {
 		t.Fatalf("UpdateMatter failed: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestUpdateMatter_AssigneeCanUpdate(t *testing.T) {
 	_ = assigneeRepo.Create(context.Background(), &model.MatterAssignee{MatterID: "t1", UserID: "assignee-1"})
 	svc := newMatterSvc(newFakeMatterRepo(matter), assigneeRepo)
 
-	updated, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"assignee-1"}, strPtr("new title"), nil, nil, nil)
+	updated, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"assignee-1"}, strPtr("new title"), nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("assignee should be able to update matter: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestUpdateMatter_NonCreatorNonAssigneeForbidden(t *testing.T) {
 	matter := &model.Matter{ID: "t1", SpaceID: "space-A", CreatorID: "owner", Title: "x", Status: model.MatterStatusOpen}
 	svc := newMatterSvc(newFakeMatterRepo(matter), newFakeAssigneeRepo())
 
-	_, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"stranger"}, strPtr("hack"), nil, nil, nil)
+	_, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"stranger"}, strPtr("hack"), nil, nil, nil, nil)
 	if !errors.Is(err, apperr.ErrForbidden) {
 		t.Fatalf("non-creator non-assignee should get ErrForbidden, got %v", err)
 	}
@@ -59,7 +59,7 @@ func TestUpdateMatter_EmptyStringClearsTimestamp(t *testing.T) {
 	svc := newMatterSvc(newFakeMatterRepo(matter), newFakeAssigneeRepo())
 
 	empty := ""
-	updated, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u1"}, strPtr("x"), nil, &empty, nil)
+	updated, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u1"}, strPtr("x"), nil, &empty, nil, nil)
 	if err != nil {
 		t.Fatalf("UpdateMatter failed: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestUpdateMatter_NilPointerLeavesTimestampUntouched(t *testing.T) {
 	matter := &model.Matter{ID: "t1", SpaceID: "space-A", CreatorID: "u1", Title: "x", Status: model.MatterStatusOpen, Deadline: &existing, Description: &desc}
 	svc := newMatterSvc(newFakeMatterRepo(matter), newFakeAssigneeRepo())
 
-	updated, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u1"}, strPtr("x"), nil, nil, nil)
+	updated, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u1"}, strPtr("x"), nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("UpdateMatter failed: %v", err)
 	}
@@ -91,9 +91,34 @@ func TestUpdateMatter_InvalidDeadlineReturnsInvalidInput(t *testing.T) {
 	svc := newMatterSvc(newFakeMatterRepo(matter), newFakeAssigneeRepo())
 
 	bad := "not-a-date"
-	_, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u1"}, strPtr("x"), nil, &bad, nil)
+	_, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u1"}, strPtr("x"), nil, &bad, nil, nil)
 	if !errors.Is(err, apperr.ErrInvalidInput) {
 		t.Fatalf("bad deadline should return ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestUpdateMatter_PersistsPriorityIncludingZero(t *testing.T) {
+	matter := &model.Matter{ID: "t1", SpaceID: "space-A", CreatorID: "u1", Title: "x", Status: model.MatterStatusOpen, Priority: model.MatterPriorityHigh}
+	svc := newMatterSvc(newFakeMatterRepo(matter), newFakeAssigneeRepo())
+
+	none := model.MatterPriorityNone
+	updated, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u1"}, nil, nil, nil, nil, &none)
+	if err != nil {
+		t.Fatalf("UpdateMatter priority failed: %v", err)
+	}
+	if updated.Priority != model.MatterPriorityNone {
+		t.Fatalf("priority not persisted: got %d, want 0", updated.Priority)
+	}
+}
+
+func TestUpdateMatter_InvalidPriorityReturnsInvalidInput(t *testing.T) {
+	matter := &model.Matter{ID: "t1", SpaceID: "space-A", CreatorID: "u1", Title: "x", Status: model.MatterStatusOpen}
+	svc := newMatterSvc(newFakeMatterRepo(matter), newFakeAssigneeRepo())
+
+	bad := uint8(5)
+	_, err := svc.UpdateMatter(context.Background(), "t1", "space-A", []string{"u1"}, nil, nil, nil, nil, &bad)
+	if !errors.Is(err, apperr.ErrInvalidInput) {
+		t.Fatalf("bad priority should return ErrInvalidInput, got %v", err)
 	}
 }
 

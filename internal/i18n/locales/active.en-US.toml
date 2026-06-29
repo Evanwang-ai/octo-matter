@@ -98,6 +98,9 @@ other = "deadline must be RFC3339 or empty"
 [err.validation.remind_at_format]
 other = "remind_at must be RFC3339 or empty"
 
+[err.validation.priority_invalid]
+other = "priority must be one of 0, 1, 2, 3, 4"
+
 [err.validation.status_invalid]
 other = "status must be 'open', 'done', or 'archived'"
 

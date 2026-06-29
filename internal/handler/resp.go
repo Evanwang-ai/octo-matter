@@ -58,6 +58,8 @@ func respondErr(c *gin.Context, err error) {
 		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, nil)
 	case errors.Is(err, repository.ErrInvalidCursor):
 		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidCursor, nil)
+	case errors.Is(err, repository.ErrInvalidOrder):
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidRequest, nil)
 	default:
 		log.Printf("internal error: %v", err)
 		i18n.RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", i18n.KeyInternal, nil, nil)

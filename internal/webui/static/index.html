@@ -128,6 +128,8 @@
   .modnav-h .mh-add svg { width: 18px; height: 18px; }
   .modnav-scroll { flex: 1; overflow-y: auto; padding: 28px 12px 20px; }
   .nav-list { display: flex; flex-direction: column; gap: 8px; }
+  body.mailbox-mode .modnav { display: none; }
+  body.mailbox-mode .work { min-width: 0; }
   .nav-item {
     position: relative; display: flex; align-items: center; gap: 11px;
     min-height: 40px; height: 40px; padding: 0 12px; border-radius: 10px;
@@ -340,6 +342,35 @@
     color: #fff; font-size: 11px; font-weight: 800;
   }
   .mrow.is-checked { background: rgba(0,119,250,.05); }
+  .priority-btn {
+    width: 24px; height: 24px; flex: 0 0 24px; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid transparent; border-radius: 6px; background: transparent;
+    color: var(--text-4); font: 800 11px/1 var(--mono); cursor: pointer; transition: .15s;
+  }
+  .priority-btn:hover, .priority-btn.active { background: #fff; border-color: var(--hairline-strong); color: var(--text); }
+  .priority-btn.p1 { color: var(--block); }
+  .priority-btn.p2 { color: var(--amber); }
+  .priority-btn.p3 { color: var(--accent); }
+  .priority-btn.p4 { color: var(--done); }
+  .priority-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .priority-menu {
+    position: fixed; z-index: 2000; min-width: 200px; padding: 6px;
+    background: var(--surface-popover); border: 1px solid var(--hairline); border-radius: 8px;
+    box-shadow: 0 14px 36px rgba(28,28,35,.16);
+  }
+  .priority-menu-title { padding: 7px 9px 6px; color: var(--text-3); font-size: 12px; font-weight: 650; }
+  .priority-option {
+    width: 100%; min-height: 34px; display: grid; grid-template-columns: 24px minmax(0,1fr) 18px; align-items: center; gap: 8px;
+    padding: 0 8px; border: 0; border-radius: 7px; background: transparent; color: var(--text-2);
+    font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+  }
+  .priority-option:hover { background: var(--surface-hover); color: var(--text); }
+  .priority-option .po-mark { justify-self: center; font: 800 11px/1 var(--mono); color: var(--text-3); }
+  .priority-option.p1 .po-mark { color: var(--block); }
+  .priority-option.p2 .po-mark { color: var(--amber); }
+  .priority-option.p3 .po-mark { color: var(--accent); }
+  .priority-option.p4 .po-mark { color: var(--done); }
+  .priority-option .po-check { color: var(--accent); font-size: 13px; font-weight: 800; text-align: center; }
   .inbox-filterbar {
     max-width: 100%; display: inline-flex; align-items: center; gap: 4px;
     padding: 4px; border-radius: 999px; background: rgba(28,28,35,.06);
@@ -397,6 +428,7 @@
   .mrow:hover { background: var(--surface-hover); }
   .mrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .mrow[data-status="cancelled"], .mrow[data-status="archived"] { opacity: .6; }
+  .mrow.dragging { opacity: .55; }
   .row-exp {
     grid-area: exp;
     width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
@@ -414,8 +446,15 @@
   .mrow .m-pill-col .pill { height: 22px; min-height: 22px; max-height: 22px; min-width: 0; padding: 0 7px; font-size: 11px; white-space: nowrap; overflow: hidden; flex: 0 1 auto; }
   .mrow .m-pill-col .row-exp { width: 22px; height: 22px; font-size: 10px; flex: 0 0 22px; }
   .mrow .m-title {
+    min-width: 0; overflow: hidden;
+  }
+  .mrow .m-title-main {
     font-size: 13.5px; font-weight: 650; line-height: 20px; color: var(--text);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mrow .m-title-desc {
+    margin-top: 2px; font-size: 12px; line-height: 17px; font-weight: 500; color: var(--text-3);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .mrow .m-projcol {
     min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -445,6 +484,88 @@
     color: var(--text-3); font-size: 12px; font-weight: 500;
     text-align: right; white-space: nowrap;
   }
+
+  /* ============ my matters ============ */
+  .content.mymatters-content { overflow-y: auto; }
+  .mymatters-page { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+  .my-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 4px 0 12px; border-bottom: 1px solid var(--hairline-soft); margin-bottom: 8px;
+  }
+  .my-tabs {
+    display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(90px, max-content);
+    align-items: center; gap: 4px; min-width: 0; overflow-x: auto;
+    padding: 4px; border-radius: 999px; background: var(--fill-2);
+  }
+  .my-tabs .inbox-filter {
+    min-height: 32px; justify-content: center; border: 0; background: transparent;
+    padding: 0 16px; border-radius: 999px; color: var(--text-3);
+  }
+  .my-tabs .inbox-filter:hover { color: var(--text); background: rgba(255,255,255,.58); }
+  .my-tabs .inbox-filter.active { color: var(--text); background: #fff; box-shadow: 0 1px 2px rgba(28,28,35,.10); }
+  .my-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 0 auto; position: relative; }
+  .work-count {
+    min-height: 34px; display: inline-flex; align-items: center; padding: 0 12px;
+    border: 1px solid var(--hairline); border-radius: 9px; color: var(--text-3);
+    font-size: 13px; font-weight: 650; background: var(--surface-card); white-space: nowrap;
+  }
+  .my-pop-zone { position: relative; display: inline-flex; }
+  .my-filter-pop, .my-order-pop {
+    display: none; position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
+    width: 360px; max-width: calc(100vw - 32px); max-height: min(640px, calc(100vh - 138px));
+    overflow: auto; padding: 8px; background: var(--surface-card);
+    border: 1px solid var(--hairline-soft); border-radius: 12px; box-shadow: var(--shadow-popover);
+  }
+  .my-order-pop { width: 320px; padding: 10px; }
+  .my-filter-pop.open, .my-order-pop.open { display: block; }
+  .my-order-title { font-size: 12px; line-height: 18px; color: var(--text-3); font-weight: 650; margin: 0 0 8px; }
+  .my-order-controls { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 10px; }
+  .my-order-select {
+    width: 100%; min-height: 38px; border: 1px solid var(--hairline); border-radius: 10px;
+    background: #fff; color: var(--text); font: inherit; font-size: 13px; font-weight: 650; padding: 0 12px;
+  }
+  .my-order-dir {
+    width: 44px; min-height: 38px; border: 1px solid var(--hairline); border-radius: 10px;
+    background: #fff; color: var(--text); font: inherit; font-size: 19px; font-weight: 760; cursor: pointer;
+  }
+  .my-order-dir:hover, .my-order-select:hover { border-color: var(--hairline-strong); }
+  .my-card-props { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hairline-soft); }
+  .my-prop-list { display: flex; flex-direction: column; gap: 4px; }
+  .my-prop-option {
+    min-height: 32px; display: flex; align-items: center; gap: 9px;
+    border: 0; border-radius: 7px; background: transparent; color: var(--text-2);
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 0 8px;
+  }
+  .my-prop-option:hover { background: var(--surface-hover); color: var(--text); }
+  .my-prop-check {
+    width: 18px; height: 18px; border: 1px solid var(--hairline-strong); border-radius: 5px;
+    display: inline-flex; align-items: center; justify-content: center; color: transparent; background: #fff;
+    font-size: 11px; font-weight: 800; flex: 0 0 18px;
+  }
+  .my-prop-option.active .my-prop-check { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .my-drop-line { height: 3px; border-radius: 2px; background: var(--accent); margin: -1px 0; flex: 0 0 3px; }
+  .my-filter-section { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
+  .mm-pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mm-pill {
+    min-height: 26px; padding: 0 9px; border: 1px solid var(--hairline); border-radius: 999px;
+    background: var(--surface-card); color: var(--text-2); font: inherit; font-size: 12px; font-weight: 650;
+    cursor: pointer;
+  }
+  .mm-pill:hover { background: var(--fill-2); }
+  .mm-pill.active { background: var(--accent-tint); color: var(--accent); border-color: var(--accent-border); }
+  .matter-group { border-bottom: 1px solid var(--hairline-soft); }
+  .matter-group-head {
+    width: 100%; min-height: 42px; display: flex; align-items: center; gap: 8px;
+    border: 0; border-radius: 10px; background: var(--fill-1); color: var(--text);
+    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; padding: 0 14px; margin: 6px 0;
+  }
+  .matter-group-head:hover { background: var(--fill-2); }
+  .mg-caret { color: var(--text-3); width: 14px; text-align: center; }
+  .mg-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 18px; }
+  .mg-icon svg { width: 18px; height: 18px; display: block; }
+  .mg-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; }
+  .mg-count { color: var(--text-3); font-weight: 650; }
+  .my-board-shell { height: calc(100vh - 175px); padding-top: 8px; }
 
   /* ============ board ============ */
   .content.board-content { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
@@ -633,6 +754,8 @@
   }
   .board-shell[data-density="compact"] .bcard .bc-card-top { min-height: 22px; margin: -9px -9px 0; padding: 3px 9px; }
   .bcard .bc-card-id { color: rgba(28,28,35,.6); font-size: 12px; font-family: var(--mono); line-height: 20px; white-space: nowrap; }
+  .bcard .bc-card-left { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+  .bcard .priority-btn { width: 22px; height: 22px; flex-basis: 22px; background: rgba(255,255,255,.65); }
   .bcard .bc-date { color: rgba(28,28,35,.6); font-size: 12px; line-height: 18px; white-space: nowrap; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; }
   .bcard .bc-src { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-3); min-width: 0; }
   .bcard .bc-src .sc-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -640,6 +763,9 @@
     display: block; color: var(--text); font-size: 14px; font-weight: 650; line-height: 20px;
     white-space: normal; overflow-wrap: anywhere; word-break: break-word;
   }
+  .bcard .bc-desc { color: var(--text-3); font-size: 12px; line-height: 17px; max-height: 34px; overflow: hidden; }
+  .bcard .bc-project { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: var(--text-3); font-size: 11.5px; }
+  .bcard .bc-project .sc-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .board-shell[data-density="compact"] .bcard .bc-title { font-size: 13.5px; line-height: 18px; }
   .bcard .bc-block-line { font-size: 11.5px; color: var(--tag-block); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bcard .bc-people { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin-top: 2px; }
@@ -945,6 +1071,9 @@
   .ibx-toggle:hover { background: var(--fill-2); color: var(--text); }
   .ibx-toggle svg { width: 18px; height: 18px; }
   .ibx-expand-float { position: absolute; top: 10px; left: 10px; z-index: 10; background: var(--surface-card); border: 1px solid var(--hairline-soft); box-shadow: var(--shadow-card); }
+  .mailbox-matters-shell { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .mailbox-source-row { height: 48px; flex: 0 0 auto; display: flex; align-items: center; padding: 7px 12px; border-bottom: 1px solid var(--hairline-soft); box-sizing: border-box; background: rgba(255,255,255,.92); }
+  .mailbox-matters-shell .inbox-split { flex: 1 1 auto; min-height: 0; }
   .ibx-resize { width: 4px; flex: 0 0 4px; cursor: col-resize; background: transparent; transition: background .15s; position: relative; z-index: 5; }
   .ibx-resize:hover, .ibx-resize:active { background: var(--accent-border); }
   .inbox-left-list { flex: 1; overflow-y: auto; }
@@ -2866,6 +2995,62 @@ function seqLabel(m){
   if (m && (m.seq_no || m.seq_no === 0)) return "M-" + m.seq_no;
   return m && m.id ? String(m.id).slice(0, 8) : "";
 }
+var PRIORITY = {
+  0: { label: "No priority", mark: "-", cls: "p0" },
+  1: { label: "Urgent", mark: "!", cls: "p1" },
+  2: { label: "High", mark: "H", cls: "p2" },
+  3: { label: "Medium", mark: "M", cls: "p3" },
+  4: { label: "Low", mark: "L", cls: "p4" }
+};
+var PRIORITY_VALUES = [0, 1, 2, 3, 4];
+function priorityValue(m){
+  var p = Number(m && m.priority);
+  return PRIORITY[p] ? p : 0;
+}
+function priorityRank(m){
+  var p = priorityValue(m);
+  return p === 0 ? 5 : p;
+}
+function priorityButtonHTML(m){
+  var p = priorityValue(m);
+  var meta = PRIORITY[p] || PRIORITY[0];
+  return '<button type="button" class="priority-btn ' + meta.cls + '" data-priority-id="' + esc(m.id) + '" title="' + esc(meta.label) + '" aria-label="Priority: ' + esc(meta.label) + '">' + esc(meta.mark) + "</button>";
+}
+function closePriorityMenu(){
+  var pop = $("#priorityMenu");
+  if (pop) pop.remove();
+  $$(".priority-btn.active").forEach(function(btn){ btn.classList.remove("active"); });
+}
+function openPriorityMenu(anchor, currentPriority, onSelect){
+  closePriorityMenu();
+  anchor.classList.add("active");
+  var pop = document.createElement("div");
+  pop.className = "priority-menu";
+  pop.id = "priorityMenu";
+  pop.innerHTML = '<div class="priority-menu-title">Change priority to...</div>'
+    + PRIORITY_VALUES.map(function(p){
+      var meta = PRIORITY[p];
+      return '<button type="button" class="priority-option ' + meta.cls + '" data-priority-value="' + p + '">'
+        + '<span class="po-mark">' + esc(meta.mark) + '</span><span>' + esc(meta.label) + '</span><span class="po-check">' + (p === currentPriority ? "✓" : "") + "</span></button>";
+    }).join("");
+  document.body.appendChild(pop);
+  var r = anchor.getBoundingClientRect();
+  var top = Math.min(window.innerHeight - pop.offsetHeight - 8, r.bottom + 6);
+  var left = Math.min(window.innerWidth - pop.offsetWidth - 8, r.left);
+  pop.style.top = Math.max(8, top) + "px";
+  pop.style.left = Math.max(8, left) + "px";
+  $$(".priority-option", pop).forEach(function(btn){
+    btn.addEventListener("click", function(e){
+      e.stopPropagation();
+      var next = Number(btn.getAttribute("data-priority-value"));
+      closePriorityMenu();
+      onSelect(next);
+    });
+  });
+  setTimeout(function(){
+    document.addEventListener("click", closePriorityMenu, { once: true });
+  }, 0);
+}
 
 /* ---------------- 状态词表(exact) ---------------- */
 var ST = {
@@ -2897,6 +3082,7 @@ function normMatter(raw){
     return typeof a === "string" ? a : (a && (a.user_id || a.uid)) || "";
   }).filter(Boolean);
   m.leader = raw.leader_uid || "";
+  m.priority = PRIORITY[Number(raw.priority)] ? Number(raw.priority) : 0;
   return m;
 }
 
@@ -2932,18 +3118,21 @@ function scopeLabel(p){ return p && p.scope === "private" ? "私有项目" : "�
 
 /* ---------------- shell / nav ---------------- */
 var NAV_ITEMS = [
-  { key: "myinbox", hash: "#/inbox", label: "收件箱",
-    ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l7-3.5L17 7v8l-7 3.5L3 15z"/><path d="M3 7l7 3.5L17 7"/><path d="M10 10.5V18"/></svg>',
+  { key: "mymatters", hash: "#/matters", label: "全部事项",
+    ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h10M5 10h10M5 14h10"/><path d="M2.8 6h.1M2.8 10h.1M2.8 14h.1"/></svg>',
     badge: true },
+  { key: "mailbox", hash: "#/mailbox", label: "收件箱",
+    ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l7-3.5L17 7v8l-7 3.5L3 15z"/><path d="M3 7l7 3.5L17 7"/><path d="M10 10.5V18"/></svg>',
+    sourceOnly: true },
   { key: "projects", hash: "#/projects", label: "项目",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5h3l1.6 1.8h5.4A1.5 1.5 0 0 1 16 8.3V15a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 3 15z"/></svg>' },
   { key: "automation", hash: "#/automation", label: "自动化",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="11" r="6"/><path d="M10 8v3l2 1.4M10 5V3M7.5 3.2h5"/></svg>' },
-  { key: "cards", hash: "#/cards", label: "Preference",
+  { key: "cards", hash: "#/cards", label: "偏好卡",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M7 8h6M7 11h4"/></svg>' }
 ];
 function buildNav(){
-  $("#navList").innerHTML = NAV_ITEMS.map(function(n){
+  $("#navList").innerHTML = NAV_ITEMS.filter(function(n){ return !n.sourceOnly; }).map(function(n){
     return '<div class="nav-item" data-nav="' + n.key + '" data-hash="' + n.hash + '" role="link" tabindex="0">'
       + '<span class="ni-ic">' + n.ic + '</span><span class="ni-label">' + n.label + "</span>"
       + (n.badge ? '<span class="ni-badge" id="navBadge_' + n.key + '"></span>' : "")
@@ -2958,6 +3147,9 @@ function buildNav(){
 }
 function setNav(key){
   $$(".nav-item").forEach(function(n){ n.classList.toggle("active", n.getAttribute("data-nav") === key); });
+}
+function setShellMode(view){
+  document.body.classList.toggle("mailbox-mode", view === "mailbox");
 }
 function setCrumbText(label){
   $("#crumb").innerHTML = '<span class="title-plain">' + esc(label) + "</span>";
@@ -2985,7 +3177,7 @@ function closeDrawer(){
   $("#navScrim").classList.remove("open");
 }
 function setNavBadge(n){
-  var b = $("#navBadge_myinbox");
+  var b = $("#navBadge_mymatters");
   if (!b) return;
   b.textContent = n ? (n > 99 ? "99+" : String(n)) : "";
 }
@@ -3045,6 +3237,8 @@ function setInspectorOpen(open){
 }
 function hideInspector(){
   setInspectorOpen(false);
+  var p = $("#props");
+  if (p) p.innerHTML = "";
   var t = $("#inspToggle");
   if (t){ t.style.display = "none"; t.classList.remove("on"); t.onclick = null; }
 }
@@ -3083,22 +3277,33 @@ function bindRetry(root){
 /* ---------------- router ---------------- */
 var renderToken = 0;
 function parseHash(){
-  var h = (location.hash || "#/inbox").replace(/^#\//, "");
+  var h = (location.hash || "#/matters").replace(/^#\//, "");
   if (h.indexOf("matter/") === 0) return { view: "matter", id: h.slice(7) };
   if (h.indexOf("project/") === 0) return { view: "project", id: h.slice(8) };
-  if (h === "timeline" || h === "board") { location.hash = "#/inbox"; return { view: "myinbox", tab: "all" }; }
+  if (h === "timeline" || h === "board") { location.hash = "#/matters"; return { view: "mymatters", tab: "all", mode: "list" }; }
   if (h === "projects" || h === "automation" || h === "cards") return { view: h };
-  if (h === "mine") return { view: "myinbox", tab: "mine" };
-  if (h === "review-me") return { view: "myinbox", tab: "review" };
-  if (h === "initiated") return { view: "myinbox", tab: "initiated" };
-  if (h === "archived") return { view: "myinbox", tab: "archived" };
-  if (h === "inbox") return { view: "myinbox", tab: "all" };
-  return { view: "myinbox", tab: "all" };
+  if (h === "mailbox") return { view: "mailbox", source: "matters" };
+  if (h.indexOf("mailbox/") === 0) return { view: "mailbox", source: h.slice(8) || "matters" };
+  if (h === "matters") return { view: "mymatters", tab: "all", mode: "list" };
+  if (h === "matters/board") return { view: "mymatters", tab: "all", mode: "board" };
+  if (h === "matters/created") return { view: "mymatters", tab: "created", mode: "list" };
+  if (h === "matters/created/board") return { view: "mymatters", tab: "created", mode: "board" };
+  if (h === "matters/participating") return { view: "mymatters", tab: "participating", mode: "list" };
+  if (h === "matters/participating/board") return { view: "mymatters", tab: "participating", mode: "board" };
+  if (h === "matters/assigned") { location.hash = "#/matters/participating"; return { view: "mymatters", tab: "participating", mode: "list" }; }
+  if (h === "matters/assigned/board") { location.hash = "#/matters/participating/board"; return { view: "mymatters", tab: "participating", mode: "board" }; }
+  if (h === "matters/agents") { location.hash = "#/matters/participating"; return { view: "mymatters", tab: "participating", mode: "list" }; }
+  if (h === "matters/agents/board") { location.hash = "#/matters/participating/board"; return { view: "mymatters", tab: "participating", mode: "board" }; }
+  if (h === "mine") { location.hash = "#/matters/participating"; return { view: "mymatters", tab: "participating", mode: "list" }; }
+  if (h === "initiated") { location.hash = "#/matters/created"; return { view: "mymatters", tab: "created", mode: "list" }; }
+  if (h === "review-me" || h === "archived") { location.hash = "#/matters"; return { view: "mymatters", tab: "all", mode: "list" }; }
+  if (h === "inbox") { location.hash = "#/mailbox"; return { view: "mailbox", source: "matters" }; }
+  return { view: "mymatters", tab: "all", mode: "list" };
 }
 function matterViewSwitchHTML(active){
   return '<div class="matter-view-switch" role="tablist" aria-label="事项视图">'
-    + '<a class="mvs-btn' + (active === "list" ? " active" : "") + '" href="#/inbox" role="tab" aria-selected="' + (active === "list") + '">列表</a>'
-    + '<a class="mvs-btn' + (active === "board" ? " active" : "") + '" href="#/board" role="tab" aria-selected="' + (active === "board") + '">看板</a>'
+    + '<a class="mvs-btn' + (active === "list" ? " active" : "") + '" href="#/matters" role="tab" aria-selected="' + (active === "list") + '">列表</a>'
+    + '<a class="mvs-btn' + (active === "board" ? " active" : "") + '" href="#/matters/board" role="tab" aria-selected="' + (active === "board") + '">看板</a>'
     + "</div>";
 }
 function render(){
@@ -3109,6 +3314,7 @@ function render(){
   closeDlPop();
   hideAnnotAll();
   var r = parseHash();
+  setShellMode(r.view);
   var p;
   if (!authReady()){
     setNav(r.view === "matter" || r.view === "project" ? null : r.view);
@@ -3124,7 +3330,8 @@ function render(){
   else if (r.view === "automation") p = renderAutomation(my);
   else if (r.view === "cards") p = renderCards(my);
   else if (r.view === "project") p = renderProjectDetail(my, r.id);
-  else p = renderMyInbox(my, r.tab || "all");
+  else if (r.view === "mailbox") p = renderMailbox(my, r.source || "matters");
+  else p = renderMyMatters(my, r.tab || "all", r.mode || "list");
   return p.catch(function(e){
     if (my !== renderToken) return;
     errToast(e);
@@ -3141,16 +3348,16 @@ var inboxState = null; // { rows, page, params, key }
 var expandedRows = {};
 var projShowArchived = false;
 var INBOX_TABS = [
-  { k: "all", hash: "#/inbox", label: "全部", title: "全部事项" },
+  { k: "all", hash: "#/matters", label: "全部", title: "全部事项" },
   { k: "initiated", hash: "#/initiated", label: "我发起的", title: "我发起的" },
   { k: "archived", hash: "#/archived", label: "已归档", title: "已归档" }
 ];
 var MY_INBOX_TABS = [
-  { k: "all", hash: "#/inbox", label: "全部", title: "全部" },
-  { k: "review", hash: "#/review-me", label: "待确认", title: "待确认" },
-  { k: "mine", hash: "#/mine", label: "我负责的", title: "我负责的" },
-  { k: "initiated", hash: "#/initiated", label: "我发起的", title: "我发起的" },
-  { k: "archived", hash: "#/archived", label: "已归档", title: "已归档" }
+  { k: "all", label: "全部事项", title: "全部事项" },
+  { k: "review", label: "待确认", title: "待确认" },
+  { k: "mine", label: "我负责的", title: "我负责的" },
+  { k: "initiated", label: "我发起的", title: "我发起的" },
+  { k: "archived", label: "已归档", title: "已归档" }
 ];
 function tabInfo(k){
   return INBOX_TABS.find(function(t){ return t.k === k; }) || INBOX_TABS[0];
@@ -3251,14 +3458,615 @@ function fmtRelative(d){
   if (dy < 30) return Math.floor(dy) + "天前";
   return fmtShortDate(d);
 }
+
+/* ---- Mailbox source shell ---- */
+function renderMailbox(my, source){
+  source = source || "matters";
+  if (source === "agent-mail" || source === "agentmail"){
+    setNav("mailbox");
+    hideInspector();
+    setCrumbText("收件箱");
+    $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
+      + '<div class="list-head"><div class="list-title">收件箱</div><div class="list-head-actions">'
+      + mailboxSourceSwitchHTML("agent-mail") + "</div></div>"
+      + '<div class="empty-state"><div class="es-t">Agent Mail 还没接入</div><div class="es-s">Agent Mail 是收件箱里的一个 source。当前阶段先保留入口,服务端同步和回复后置。</div></div>'
+      + "</div></div>";
+    return Promise.resolve();
+  }
+  if (source === "system"){
+    setNav("mailbox");
+    hideInspector();
+    setCrumbText("收件箱");
+    $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
+      + '<div class="list-head"><div class="list-title">收件箱</div><div class="list-head-actions">'
+      + mailboxSourceSwitchHTML("system") + "</div></div>"
+      + '<div class="empty-state"><div class="es-t">还没有系统信</div><div class="es-s">系统信 / onboarding 会作为收件箱 source 后续接入。</div></div>'
+      + "</div></div>";
+    return Promise.resolve();
+  }
+  return renderMyInbox(my, myInboxTab || "all");
+}
+function mailboxSourceSwitchHTML(active){
+  var items = [
+    { k: "matters", hash: "#/mailbox", label: "事项" },
+    { k: "agent-mail", hash: "#/mailbox/agent-mail", label: "Agent Mail" },
+    { k: "system", hash: "#/mailbox/system", label: "系统信" }
+  ];
+  return '<div class="matter-view-switch mailbox-source-switch" role="tablist" aria-label="收件箱来源">'
+    + items.map(function(it){
+      return '<a class="mvs-btn' + (active === it.k ? " active" : "") + '" href="' + it.hash + '" role="tab" aria-selected="' + (active === it.k) + '">' + esc(it.label) + "</a>";
+    }).join("") + "</div>";
+}
+
+/* ---- My Matters / 全部事项 global view ---- */
+var MY_MATTERS_TABS = [
+  { k: "all", hash: "#/matters", label: "全部" },
+  { k: "created", hash: "#/matters/created", label: "我发起的" },
+  { k: "participating", hash: "#/matters/participating", label: "我参与的" }
+];
+var MY_MATTERS_STATUS_ORDER = ["backlog", "open", "in_progress", "review", "blocked", "done", "cancelled", "archived"];
+var myMattersTab = "all";
+var myMattersMode = "list";
+var myMattersState = null;
+var myMattersFilters = { statuses: [], creator: "", project: "" };
+var myMattersFilterOpen = false;
+var myMattersOrderingOpen = false;
+var myMattersCollapsed = {};
+var myMattersOrdering = "created";
+var myMattersOrderDir = "desc";
+var myMattersSelected = {};
+var myMattersProps = {
+  priority: true,
+  description: false,
+  assignee: true,
+  startDate: true,
+  dueDate: false,
+  project: true
+};
+try { myMattersOrdering = sessionStorage.getItem("octo-mymatters-ordering") || "created"; } catch (_e) {}
+try { myMattersOrderDir = sessionStorage.getItem("octo-mymatters-order-dir") || "desc"; } catch (_e) {}
+try {
+  var myMattersPropsRaw = sessionStorage.getItem("octo-mymatters-props");
+  if (myMattersPropsRaw) myMattersProps = Object.assign(myMattersProps, JSON.parse(myMattersPropsRaw));
+} catch (_e) {}
+function saveMyMattersProps(){
+  try { sessionStorage.setItem("octo-mymatters-props", JSON.stringify(myMattersProps)); } catch (_e) {}
+}
+function myMattersTabInfo(k){ return MY_MATTERS_TABS.find(function(t){ return t.k === k; }) || MY_MATTERS_TABS[0]; }
+function myMattersRouteHash(tab, mode){
+  var info = myMattersTabInfo(tab);
+  if (mode === "board") return info.k === "all" ? "#/matters/board" : info.hash + "/board";
+  return info.hash;
+}
+function myMattersParams(tab){
+  var p = { top_level: 1, limit: 200 };
+  if (tab === "created") p.creator_id = "me";
+  p.order_by = ({ created: "created_at", seq: "seq_no", deadline: "deadline", priority: "priority", manual: "manual", title: "title" })[myMattersOrdering] || "created_at";
+  p.order_dir = myMattersOrderDir === "asc" ? "asc" : "desc";
+  return p;
+}
+function myMattersTabRows(rows){
+  var out = rows.slice();
+  if (myMattersTab === "participating"){
+    var ob = ownedBotInfo();
+    var mine = {};
+    if (auth.uid) mine[auth.uid] = true;
+    Object.keys(ob.owned || {}).forEach(function(uid){ mine[uid] = true; });
+    out = out.filter(function(m){
+      if (m.leader && mine[m.leader]) return true;
+      return (m.assignees || []).some(function(uid){ return !!mine[uid]; });
+    });
+  }
+  return out;
+}
+function myMattersFilteredRows(){
+  var rows = myMattersTabRows((myMattersState && myMattersState.rows) || []);
+  var statusSet = {};
+  myMattersFilters.statuses.forEach(function(s){ statusSet[s] = true; });
+  rows = rows.filter(function(m){
+    if (myMattersFilters.statuses.length && !statusSet[m.status]) return false;
+    if (myMattersFilters.creator && m.creator_id !== myMattersFilters.creator) return false;
+    if (myMattersFilters.project && m.project_id !== myMattersFilters.project) return false;
+    return true;
+  });
+  return sortMyMattersRows(rows);
+}
+function sortMyMattersRows(rows){
+  var r = rows.slice();
+  var dir = myMattersOrderDir === "asc" ? 1 : -1;
+  if (myMattersOrdering === "title") return r.sort(function(a, b){
+    return dir * String(a.title || "").localeCompare(String(b.title || ""), "zh-Hans-CN");
+  });
+  if (myMattersOrdering === "seq") return r.sort(function(a, b){
+    return dir * (Number(a.seq_no || 0) - Number(b.seq_no || 0));
+  });
+  if (myMattersOrdering === "priority") return r.sort(function(a, b){
+    var d = priorityRank(a) - priorityRank(b);
+    if (d) return dir * d;
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+  });
+  if (myMattersOrdering === "deadline") return r.sort(function(a, b){
+    var av = a.deadline ? new Date(a.deadline).getTime() : NaN;
+    var bv = b.deadline ? new Date(b.deadline).getTime() : NaN;
+    var aNil = !isFinite(av), bNil = !isFinite(bv);
+    if (aNil && bNil) return 0;
+    if (aNil) return 1;
+    if (bNil) return -1;
+    return dir * (av - bv);
+  });
+  if (myMattersOrdering === "manual") return r.sort(function(a, b){
+    var an = a.sort_order == null, bn = b.sort_order == null;
+    if (an && bn) return 0;
+    if (an) return 1;
+    if (bn) return -1;
+    var sa = a.sort_order;
+    var sb = b.sort_order;
+    if (sa !== sb) return dir * (sa - sb);
+    return dir * (new Date(a.updated_at || 0).getTime() - new Date(b.updated_at || 0).getTime());
+  });
+  return r.sort(function(a, b){ return dir * (new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()); });
+}
+function renderMyMatters(my, tab, mode){
+  myMattersTab = tab || "all";
+  myMattersMode = mode || "list";
+  setNav("mymatters");
+  hideInspector();
+  setCrumbText("全部事项");
+  $("#centerCol").innerHTML = listSkeleton("全部事项");
+  return Promise.all([
+    api("/matters", { params: myMattersParams(myMattersTab) }),
+    loadMembers().catch(function(){ return []; }),
+    getProjects().catch(function(){ return []; })
+  ]).then(function(res){
+    if (my !== renderToken) return;
+    myMattersState = { rows: listData(res[0]).map(normMatter), page: pageInfo(res[0]) };
+    paintMyMatters(my);
+  });
+}
+function myMattersToolbarHTML(mode, count){
+  var tabs = MY_MATTERS_TABS.map(function(t){
+    return '<a class="inbox-filter' + (myMattersTab === t.k ? " active" : "") + '" href="' + myMattersRouteHash(t.k, mode) + '">' + esc(t.label) + "</a>";
+  }).join("");
+  var activeFilters = myMattersFilters.statuses.length + (myMattersFilters.creator ? 1 : 0) + (myMattersFilters.project ? 1 : 0);
+  var orderLabel = ({ manual: "手动", created: "创建日期", deadline: "截止日期", priority: "Priority", title: "标题", seq: "编号" })[myMattersOrdering] || "创建日期";
+  var orderArrow = myMattersOrderDir === "asc" ? "↑" : "↓";
+  return '<div class="my-head"><div class="my-tabs">' + tabs + '</div><div class="my-actions">'
+    + '<span class="work-count">' + count + ' working</span>'
+    + '<div class="my-pop-zone"><button class="board-filter-trigger' + (activeFilters ? " has-filters" : "") + '" id="myFilterBtn" type="button" aria-expanded="' + (myMattersFilterOpen ? "true" : "false") + '">' + FILTER_SVG + '<span>筛选</span>' + (activeFilters ? '<span class="bf-count">' + activeFilters + '</span>' : '') + '</button>' + myMattersFilterPopHTML() + '</div>'
+    + '<div class="my-pop-zone"><button class="board-filter-trigger" id="myOrderBtn" type="button"><span>' + orderArrow + '</span><span>' + esc(orderLabel) + '</span></button>' + myMattersOrderingPopHTML() + '</div>'
+    + '<div class="matter-view-switch" role="tablist" aria-label="全部事项视图">'
+    + '<a class="mvs-btn' + (mode === "list" ? " active" : "") + '" href="' + myMattersRouteHash(myMattersTab, "list") + '" role="tab">列表</a>'
+    + '<a class="mvs-btn' + (mode === "board" ? " active" : "") + '" href="' + myMattersRouteHash(myMattersTab, "board") + '" role="tab">看板</a>'
+    + '</div></div></div>';
+}
+function myMattersFilterPopHTML(){
+  var creatorIds = {};
+  ((myMattersState && myMattersState.rows) || []).forEach(function(m){
+    if (m.creator_id) creatorIds[m.creator_id] = true;
+  });
+  var statusHTML = MY_MATTERS_STATUS_ORDER.map(function(s){
+    var on = myMattersFilters.statuses.indexOf(s) >= 0;
+    return '<button type="button" class="bf-option' + (on ? " is-active" : "") + '" data-mm-status="' + esc(s) + '">'
+      + '<span class="bf-dot" style="background:var(' + (BOARD_STATUS_COLOR[s] || "--hairline-strong") + ')"></span>'
+      + '<span class="bf-main">' + esc(stName(s)) + '</span></button>';
+  }).join("");
+  var creatorHTML = '<button type="button" class="bf-option' + (!myMattersFilters.creator ? " is-active" : "") + '" data-mm-filter-field="creator" data-mm-filter-value=""><span class="bf-dot"></span><span class="bf-main">全部发起人</span></button>'
+    + Object.keys(creatorIds).sort(function(a, b){ return uname(a).localeCompare(uname(b), "zh-Hans-CN"); }).map(function(uid){
+      return '<button type="button" class="bf-option' + (myMattersFilters.creator === uid ? " is-active" : "") + '" data-mm-filter-field="creator" data-mm-filter-value="' + esc(uid) + '">' + av(uid, "bf-avatar") + '<span class="bf-main">' + esc(uname(uid)) + "</span></button>";
+    }).join("");
+  var projects = liveProjects().slice().sort(function(a, b){ return String(a.name || "").localeCompare(String(b.name || ""), "zh-Hans-CN"); });
+  var knownProject = myMattersFilters.project && !projects.find(function(p){ return p.id === myMattersFilters.project; });
+  if (knownProject) projects.unshift({ id: myMattersFilters.project, name: projName(myMattersFilters.project) || myMattersFilters.project });
+  var projectHTML = '<button type="button" class="bf-option' + (!myMattersFilters.project ? " is-active" : "") + '" data-mm-filter-field="project" data-mm-filter-value=""><span class="bf-dot"></span><span class="bf-main">全部项目</span></button>'
+    + projects.map(function(p){
+      return '<button type="button" class="bf-option' + (myMattersFilters.project === p.id ? " is-active" : "") + '" data-mm-filter-field="project" data-mm-filter-value="' + esc(p.id) + '">' + FOLDER_SVG.replace('width="12" height="12"', 'width="16" height="16"') + '<span class="bf-main">' + esc(p.name || "未命名项目") + "</span></button>";
+    }).join("");
+  return '<div class="my-filter-pop' + (myMattersFilterOpen ? " open" : "") + '" id="myFilterPop">'
+    + '<div class="bf-pop-head"><div><div class="bf-pop-title">筛选</div></div><button type="button" class="bf-clear" id="myFilterClear">清空</button></div>'
+    + '<div class="bf-section"><div class="bf-section-title">状态</div><div class="bf-options">' + statusHTML + '</div></div>'
+    + '<div class="bf-section"><div class="bf-section-title">项目</div><div class="bf-options">' + projectHTML + '</div></div>'
+    + '<div class="bf-section"><div class="bf-section-title">发起人</div><div class="bf-options">' + creatorHTML + '</div></div>'
+    + '</div>';
+}
+function myMattersOrderingPopHTML(){
+  var opts = [
+    { k: "manual", label: "手动" },
+    { k: "created", label: "创建日期" },
+    { k: "deadline", label: "截止日期" },
+    { k: "priority", label: "Priority" },
+    { k: "title", label: "标题" },
+    { k: "seq", label: "编号" }
+  ];
+  var propOpts = [
+    { k: "priority", label: "Priority" },
+    { k: "description", label: "Description" },
+    { k: "assignee", label: "Assignee" },
+    { k: "startDate", label: "Start date" },
+    { k: "dueDate", label: "Due date" },
+    { k: "project", label: "Project" }
+  ];
+  return '<div class="my-order-pop' + (myMattersOrderingOpen ? " open" : "") + '" id="myOrderPop">'
+    + '<div class="my-order-title">排序</div><div class="my-order-controls"><select class="my-order-select" id="myOrderField">'
+    + opts.map(function(o){
+      return '<option value="' + esc(o.k) + '"' + (myMattersOrdering === o.k ? " selected" : "") + ">" + esc(o.label) + "</option>";
+    }).join("")
+    + '</select><button type="button" class="my-order-dir" id="myOrderDir" title="' + (myMattersOrderDir === "asc" ? "正序" : "倒序") + '">' + (myMattersOrderDir === "asc" ? "↑" : "↓") + "</button></div>"
+    + '<div class="my-card-props"><div class="my-order-title">Card properties</div><div class="my-prop-list">'
+    + propOpts.map(function(o){
+      var on = myMattersProps[o.k] !== false;
+      return '<button type="button" class="my-prop-option' + (on ? " active" : "") + '" data-mm-prop="' + esc(o.k) + '">'
+        + '<span class="my-prop-check">✓</span><span>' + esc(o.label) + "</span></button>";
+    }).join("")
+    + "</div></div></div>";
+}
+function myMattersSelectedIds(rows){
+  var visible = {};
+  rows.forEach(function(m){ visible[m.id] = true; });
+  return Object.keys(myMattersSelected).filter(function(id){ return visible[id]; });
+}
+function myMattersBatchBarHTML(rows){
+  var ids = myMattersSelectedIds(rows);
+  if (!ids.length) return "";
+  var opts = MY_MATTERS_STATUS_ORDER.filter(function(st){ return st !== "archived"; }).map(function(st){
+    return '<option value="' + esc(st) + '">' + esc(stName(st)) + "</option>";
+  }).join("");
+  return '<div class="batch-bar my-batch-bar"><span class="bb-count">' + ids.length + ' 项已选</span>'
+    + '<select class="my-order-select" id="myBatchStatus" aria-label="批量状态">' + opts + '</select>'
+    + '<button type="button" id="myBatchApply">批量改状态</button>'
+    + '<button type="button" id="myBatchArchive">归档</button>'
+    + '<button type="button" class="bb-cancel" id="myBatchClear">取消选择</button></div>';
+}
+function myMattersListHTML(rows){
+  if (!rows.length) return '<div class="empty-state"><div class="es-t">没有匹配事项</div><div class="es-s">调整筛选或排序后再看。</div></div>';
+  var html = myMattersBatchBarHTML(rows);
+  MY_MATTERS_STATUS_ORDER.forEach(function(st){
+    var group = rows.filter(function(m){ return m.status === st; });
+    if (!group.length) return;
+    var closed = !!myMattersCollapsed[st];
+    html += '<div class="matter-group"><button class="matter-group-head" type="button" data-mm-group="' + esc(st) + '" aria-expanded="' + (!closed) + '">'
+      + '<span class="mg-caret">' + (closed ? "▸" : "▾") + '</span><span class="mg-icon">' + statusIconSVG(st) + "</span>"
+      + '<span class="mg-name">' + esc(stName(st)) + '</span><span class="mg-count">' + group.length + '</span></button>'
+      + (closed ? "" : '<div class="mlist" data-mm-list-status="' + esc(st) + '">' + group.map(function(m){ return rowHTML(m, { flat: true, checked: !!myMattersSelected[m.id], priority: true, props: myMattersProps, draggable: myMattersOrdering === "manual" }); }).join("") + "</div>")
+      + "</div>";
+  });
+  return html;
+}
+function myMattersBoardHTML(rows){
+  var cols = MY_MATTERS_STATUS_ORDER.filter(function(st){ return ["cancelled", "archived"].indexOf(st) < 0; }).map(function(st){
+    var cards = rows.filter(function(m){ return m.status === st; });
+    return '<div class="board-col ' + ({backlog:"backlog",open:"todo",in_progress:"doing",review:"review",blocked:"block",done:"done"}[st] || "") + (cards.length ? "" : " is-empty") + '" data-status="' + st + '">'
+      + '<div class="board-col-h"><span class="bc-dot"></span>' + esc(stName(st)) + '<span class="bc-cnt">' + cards.length + '</span></div>'
+      + '<div class="board-cards">' + (cards.map(function(m){ return boardCardHTML(m, { readonly: myMattersOrdering !== "manual", priority: true, props: myMattersProps }); }).join("") || '<div class="board-empty">没有事项</div>') + "</div></div>";
+  }).join("");
+  return '<div class="board-shell my-board-shell"><div class="board-viewport"><div class="board-wrap">' + cols + "</div></div></div>";
+}
+function paintMyMatters(my){
+  var rows = myMattersFilteredRows();
+  $("#centerCol").innerHTML = '<div class="content ' + (myMattersMode === "board" ? "board-content" : "mymatters-content") + '"><div class="content-inner wide inbox-page mymatters-page">'
+    + '<div class="list-head"><div class="list-title">全部事项</div></div>'
+    + myMattersToolbarHTML(myMattersMode, rows.length)
+    + (myMattersMode === "board" ? myMattersBoardHTML(rows) : myMattersListHTML(rows))
+    + "</div></div>";
+  bindMyMatters(my);
+}
+function updateMyMatterPriority(id, next, my){
+  if (!myMattersState || !PRIORITY[next]) return;
+  var i = myMattersState.rows.findIndex(function(r){ return r.id === id; });
+  if (i < 0) return;
+  var prev = priorityValue(myMattersState.rows[i]);
+  if (prev === next) return;
+  myMattersState.rows[i].priority = next;
+  paintMyMatters(my);
+  api("/matters/" + id, { method: "PUT", body: { priority: next } }).then(function(detail){
+    if (my !== renderToken || !myMattersState) return;
+    var updated = normMatter(detail);
+    var idx = myMattersState.rows.findIndex(function(r){ return r.id === id; });
+    if (idx >= 0 && updated && updated.id) myMattersState.rows[idx] = updated;
+    paintMyMatters(my);
+  }).catch(function(e){
+    if (my !== renderToken) return;
+    if (myMattersState){
+      var idx = myMattersState.rows.findIndex(function(r){ return r.id === id; });
+      if (idx >= 0) myMattersState.rows[idx].priority = prev;
+      paintMyMatters(my);
+    }
+    errToast(e);
+  });
+}
+function replaceMyMatterRow(fresh){
+  if (!myMattersState || !fresh || !fresh.id) return;
+  for (var i = 0; i < myMattersState.rows.length; i++){
+    if (myMattersState.rows[i] && myMattersState.rows[i].id === fresh.id){
+      myMattersState.rows[i] = fresh;
+      return;
+    }
+  }
+}
+function manualSortValue(row, index, rows){
+  if (row.sort_order != null) return Number(row.sort_order);
+  var real = rows.map(function(r){ return r.sort_order == null ? null : Number(r.sort_order); }).filter(function(v){ return isFinite(v); });
+  var asc = myMattersOrderDir !== "desc";
+  if (asc){
+    var max = real.length ? Math.max.apply(Math, real) : 0;
+    return max + (index + 1) * 1000;
+  }
+  var min = real.length ? Math.min.apply(Math, real) : 0;
+  return min - (index + 1) * 1000;
+}
+function myManualGroupRows(status, excludeId){
+  var rows = myMattersFilteredRows().filter(function(m){ return m.status === status && m.id !== excludeId; });
+  return rows.map(function(m, i){
+    return { matter: m, order: manualSortValue(m, i, rows) };
+  });
+}
+function calcMyManualSortOrder(status, id, insertIndex){
+  var rows = myManualGroupRows(status, id);
+  var before = insertIndex > 0 && rows[insertIndex - 1] ? rows[insertIndex - 1].order : null;
+  var after = insertIndex < rows.length && rows[insertIndex] ? rows[insertIndex].order : null;
+  var desc = myMattersOrderDir === "desc";
+  if (!desc){
+    if (before == null && after == null) return 1000;
+    if (before == null) return after - 1000;
+    if (after == null) return before + 1000;
+    return (before + after) / 2;
+  }
+  if (before == null && after == null) return 1000;
+  if (before == null) return after + 1000;
+  if (after == null) return before - 1000;
+  return (before + after) / 2;
+}
+function commitMyManualSort(id, status, insertIndex, my){
+  if (!myMattersState || myMattersOrdering !== "manual") return;
+  var row = myMattersState.rows.find(function(m){ return m.id === id; });
+  if (!row || row.status !== status) return;
+  var prev = row.sort_order;
+  var next = calcMyManualSortOrder(status, id, insertIndex);
+  if (!isFinite(next)) return;
+  row.sort_order = next;
+  paintMyMatters(my);
+  api("/matters/" + id, { method: "PUT", body: { sort_order: next } }).then(function(detail){
+    if (my !== renderToken || !myMattersState) return;
+    replaceMyMatterRow(normMatter(detail));
+    paintMyMatters(my);
+  }).catch(function(e){
+    if (my !== renderToken || !myMattersState) return;
+    var r = myMattersState.rows.find(function(m){ return m.id === id; });
+    if (r) r.sort_order = prev;
+    paintMyMatters(my);
+    errToast(e);
+  });
+}
+function myDropIndex(container, y, selector){
+  var rows = $$(selector + ":not(.dragging)", container);
+  var best = { idx: rows.length, y: Infinity };
+  rows.forEach(function(el, i){
+    var r = el.getBoundingClientRect();
+    var mid = r.top + r.height / 2;
+    if (Math.abs(y - mid) < Math.abs(y - best.y)) best = { idx: y < mid ? i : i + 1, y: mid };
+  });
+  return best.idx;
+}
+function showMyDropLine(container, idx, selector){
+  $$(".my-drop-line").forEach(function(l){ l.remove(); });
+  var rows = $$(selector + ":not(.dragging)", container);
+  var line = document.createElement("div");
+  line.className = "my-drop-line";
+  if (idx < rows.length) container.insertBefore(line, rows[idx]); else container.appendChild(line);
+}
+function bindMyManualSorting(my){
+  if (myMattersOrdering !== "manual") return;
+  var drag = { id: "", status: "" };
+  function startDrag(el, status){
+    drag.id = el.getAttribute("data-id") || "";
+    drag.status = status || el.getAttribute("data-status") || "";
+    el.classList.add("dragging");
+  }
+  function endDrag(el){
+    el.classList.remove("dragging");
+    drag = { id: "", status: "" };
+    $$(".my-drop-line").forEach(function(l){ l.remove(); });
+    $$(".drop-over").forEach(function(c){ c.classList.remove("drop-over"); });
+  }
+  $$(".mrow[draggable='true'][data-id]").forEach(function(el){
+    el.addEventListener("dragstart", function(e){
+      startDrag(el, el.getAttribute("data-status"));
+      e.dataTransfer.setData("text/plain", drag.id);
+      e.dataTransfer.effectAllowed = "move";
+    });
+    el.addEventListener("dragend", function(){ endDrag(el); });
+  });
+  $$("[data-mm-list-status]").forEach(function(list){
+    list.addEventListener("dragover", function(e){
+      if (!drag.id || drag.status !== list.getAttribute("data-mm-list-status")) return;
+      e.preventDefault();
+      showMyDropLine(list, myDropIndex(list, e.clientY, ".mrow[data-id]"), ".mrow[data-id]");
+    });
+    list.addEventListener("drop", function(e){
+      if (!drag.id) return;
+      e.preventDefault();
+      var status = list.getAttribute("data-mm-list-status");
+      if (drag.status !== status) return;
+      var idx = myDropIndex(list, e.clientY, ".mrow[data-id]");
+      $$(".my-drop-line").forEach(function(l){ l.remove(); });
+      commitMyManualSort(drag.id, status, idx, my);
+    });
+  });
+  $$(".my-board-shell .bcard[draggable='true'][data-id]").forEach(function(el){
+    el.addEventListener("dragstart", function(e){
+      var col = el.closest(".board-col");
+      startDrag(el, col ? col.getAttribute("data-status") : "");
+      e.dataTransfer.setData("text/plain", drag.id);
+      e.dataTransfer.effectAllowed = "move";
+    });
+    el.addEventListener("dragend", function(){ endDrag(el); });
+  });
+  $$(".my-board-shell .board-col").forEach(function(col){
+    var cards = $(".board-cards", col);
+    if (!cards) return;
+    col.addEventListener("dragover", function(e){
+      if (!drag.id || drag.status !== col.getAttribute("data-status")) return;
+      e.preventDefault();
+      col.classList.add("drop-over");
+      showMyDropLine(cards, myDropIndex(cards, e.clientY, ".bcard[data-id]"), ".bcard[data-id]");
+    });
+    col.addEventListener("dragleave", function(e){
+      if (col.contains(e.relatedTarget)) return;
+      col.classList.remove("drop-over");
+      $$(".my-drop-line", col).forEach(function(l){ l.remove(); });
+    });
+    col.addEventListener("drop", function(e){
+      if (!drag.id) return;
+      e.preventDefault();
+      col.classList.remove("drop-over");
+      var status = col.getAttribute("data-status");
+      if (drag.status !== status) return;
+      var idx = myDropIndex(cards, e.clientY, ".bcard[data-id]");
+      $$(".my-drop-line").forEach(function(l){ l.remove(); });
+      commitMyManualSort(drag.id, status, idx, my);
+    });
+  });
+}
+function bindMyMatters(my){
+  var fb = $("#myFilterBtn");
+  if (fb) fb.addEventListener("click", function(e){
+    e.stopPropagation();
+    myMattersOrderingOpen = false;
+    myMattersFilterOpen = !myMattersFilterOpen;
+    paintMyMatters(my);
+  });
+  var ob = $("#myOrderBtn");
+  if (ob) ob.addEventListener("click", function(e){
+    e.stopPropagation();
+    myMattersFilterOpen = false;
+    myMattersOrderingOpen = !myMattersOrderingOpen;
+    paintMyMatters(my);
+  });
+  var clear = $("#myFilterClear");
+  if (clear) clear.addEventListener("click", function(e){
+    e.stopPropagation();
+    myMattersFilters = { statuses: [], creator: "", project: "" };
+    myMattersFilterOpen = false;
+    paintMyMatters(my);
+  });
+  $$("[data-mm-status]").forEach(function(el){
+    el.addEventListener("click", function(e){
+      e.stopPropagation();
+      var st = el.getAttribute("data-mm-status");
+      var i = myMattersFilters.statuses.indexOf(st);
+      if (i >= 0) myMattersFilters.statuses.splice(i, 1); else myMattersFilters.statuses.push(st);
+      myMattersFilterOpen = true;
+      paintMyMatters(my);
+    });
+  });
+  var cf = $("#myCreatorFilter");
+  if (cf) cf.addEventListener("change", function(){ myMattersFilters.creator = cf.value; myMattersFilterOpen = true; paintMyMatters(my); });
+  var pf = $("#myProjectFilter");
+  if (pf) pf.addEventListener("change", function(){ myMattersFilters.project = pf.value; myMattersFilterOpen = true; paintMyMatters(my); });
+  $$("[data-mm-filter-field]").forEach(function(el){
+    el.addEventListener("click", function(e){
+      e.stopPropagation();
+      var field = el.getAttribute("data-mm-filter-field");
+      var value = el.getAttribute("data-mm-filter-value") || "";
+      if (field === "creator") myMattersFilters.creator = value;
+      if (field === "project") myMattersFilters.project = value;
+      myMattersFilterOpen = true;
+      paintMyMatters(my);
+    });
+  });
+  var of = $("#myOrderField");
+  if (of) of.addEventListener("change", function(){
+    myMattersOrdering = of.value || "created";
+    try { sessionStorage.setItem("octo-mymatters-ordering", myMattersOrdering); } catch (_e) {}
+    myMattersOrderingOpen = true;
+    renderMyMatters(my, myMattersTab, myMattersMode);
+  });
+  var od = $("#myOrderDir");
+  if (od) od.addEventListener("click", function(e){
+    e.stopPropagation();
+    myMattersOrderDir = myMattersOrderDir === "asc" ? "desc" : "asc";
+    try { sessionStorage.setItem("octo-mymatters-order-dir", myMattersOrderDir); } catch (_e) {}
+    myMattersOrderingOpen = true;
+    renderMyMatters(my, myMattersTab, myMattersMode);
+  });
+  $$("[data-mm-prop]").forEach(function(el){
+    el.addEventListener("click", function(e){
+      e.stopPropagation();
+      var key = el.getAttribute("data-mm-prop");
+      if (!key || !(key in myMattersProps)) return;
+      myMattersProps[key] = myMattersProps[key] === false;
+      saveMyMattersProps();
+      myMattersOrderingOpen = true;
+      paintMyMatters(my);
+    });
+  });
+  $$("[data-mm-group]").forEach(function(el){
+    el.addEventListener("click", function(){
+      var st = el.getAttribute("data-mm-group");
+      myMattersCollapsed[st] = !myMattersCollapsed[st];
+      paintMyMatters(my);
+    });
+  });
+  $$(".m-check[data-check]").forEach(function(el){
+    el.addEventListener("click", function(e){ e.stopPropagation(); });
+    el.addEventListener("change", function(e){
+      e.stopPropagation();
+      var id = el.getAttribute("data-check");
+      if (!id) return;
+      if (el.checked) myMattersSelected[id] = true; else delete myMattersSelected[id];
+      paintMyMatters(my);
+    });
+  });
+  var clearSel = $("#myBatchClear");
+  if (clearSel) clearSel.addEventListener("click", function(){
+    myMattersSelected = {};
+    paintMyMatters(my);
+  });
+  function runMyMattersBatch(targetStatus){
+    var rows = myMattersFilteredRows();
+    var ids = myMattersSelectedIds(rows);
+    if (!ids.length) return;
+    Promise.all(ids.map(function(id){
+      return api("/matters/" + id + "/status", { method: "PUT", body: { status: targetStatus } }).then(function(detail){
+        var m = normMatter(detail);
+        var i = myMattersState.rows.findIndex(function(r){ return r.id === id; });
+        if (i >= 0 && m && m.id) myMattersState.rows[i] = m;
+      }).catch(function(){});
+    })).then(function(){
+      toast("已更新 " + ids.length + " 项");
+      myMattersSelected = {};
+      paintMyMatters(my);
+    });
+  }
+  var batchApply = $("#myBatchApply");
+  if (batchApply) batchApply.addEventListener("click", function(){
+    var sel = $("#myBatchStatus");
+    runMyMattersBatch(sel && sel.value ? sel.value : "open");
+  });
+  var batchArchive = $("#myBatchArchive");
+  if (batchArchive) batchArchive.addEventListener("click", function(){ runMyMattersBatch("archived"); });
+  $$("[data-priority-id]").forEach(function(el){
+    el.addEventListener("click", function(e){
+      e.stopPropagation();
+      var id = el.getAttribute("data-priority-id");
+      var m = myMattersState && myMattersState.rows.find(function(r){ return r.id === id; });
+      openPriorityMenu(el, priorityValue(m), function(next){ updateMyMatterPriority(id, next, my); });
+    });
+  });
+  bindMyManualSorting(my);
+  $$(".mrow[data-id], .bcard[data-id]").forEach(function(el){
+    el.addEventListener("click", function(){ location.hash = "#/matter/" + el.getAttribute("data-id"); });
+  });
+}
 function renderMyInbox(my, tab){
   if (tab) myInboxTab = tab;
-  setNav("myinbox");
+  setNav("mailbox");
   setCrumbText("收件箱");
-  $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="inbox-split">'
+  $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="mailbox-matters-shell">'
+    + '<div class="mailbox-source-row">' + mailboxSourceSwitchHTML("matters") + '</div>'
+    + '<div class="inbox-split">'
     + '<div class="inbox-left"><div class="inbox-left-head">' + skelRows(2, 48) + '</div><div class="inbox-left-list"></div></div>'
     + '<div class="inbox-right"><div class="inbox-right-empty">加载中…</div></div>'
-    + '</div></div>';
+    + '</div></div></div>';
   var params = inboxParams(myInboxTab);
   return Promise.all([
     api("/matters", { params: params }),
@@ -3288,7 +4096,9 @@ function paintMyInbox(my){
     + esc(curTabInfo.label) + " 没有事项</div>";
   var listHTML = rows.map(function(m){ return mailRowHTML(m, myInboxSel); }).join("");
   var toggleSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg>';
-  $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="inbox-split" style="position:relative">'
+  $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="mailbox-matters-shell">'
+    + '<div class="mailbox-source-row">' + mailboxSourceSwitchHTML("matters") + '</div>'
+    + '<div class="inbox-split" style="position:relative">'
     + (inboxLeftCollapsed ? '<button class="ibx-toggle ibx-expand-float" id="ibxExpand" type="button" title="展开列表">' + toggleSVG + '</button>' : '')
     + '<div class="inbox-left' + (inboxLeftCollapsed ? " collapsed" : "") + '" id="inboxLeft"' + (inboxLeftWidth && !inboxLeftCollapsed ? ' style="width:' + inboxLeftWidth + 'px"' : '') + '>'
     + '<div class="inbox-left-head">' + filterHTML
@@ -3300,7 +4110,7 @@ function paintMyInbox(my){
     + '<div class="inbox-right" id="inboxRight">'
     + (myInboxSel ? '' : '<div class="inbox-right-empty">选择一个事项查看详情</div>')
     + '</div>'
-    + '</div></div>';
+    + '</div></div></div>';
   var ibxTrigger = $("#ibxFilterTrigger");
   var ibxDrop = $("#ibxDrop");
   if (ibxTrigger) ibxTrigger.addEventListener("click", function(e){
@@ -3312,7 +4122,8 @@ function paintMyInbox(my){
     el.addEventListener("click", function(e){
       e.stopPropagation();
       if (ibxDrop) ibxDrop.classList.remove("open");
-      location.hash = myInboxTabInfo(el.getAttribute("data-mitab")).hash;
+      myInboxTab = el.getAttribute("data-mitab") || "all";
+      renderMyInbox(++renderToken, myInboxTab).catch(errToast);
     });
   });
   var ibxNewBtn = $("#ibxNew");
@@ -3509,28 +4320,32 @@ function matchSearch(m, q){
 }
 function rowHTML(m, opts){
   opts = opts || {};
+  var props = opts.props || {};
   // 有子事项才画展开箭头(服务端 has_children 派生;小白原则:没有就不画)
   var probed = cache.children[m.id];
   var canExpand = !opts.child && !opts.noExpand && !opts.flat && !m.parent_matter_id
     && (m.has_children === true || (probed && probed.length > 0));
   var isOpen = !!expandedRows[m.id];
   var leader = m.leader || m.assignees[0] || "";
-  var pj = m.project_id ? '<span class="m-project">' + esc(projName(m.project_id) || "项目") + "</span>" : "";
-  var src = m.source_name
-    ? '<span class="m-dotsep">·</span><span class="src-chip" data-src="' + esc(m.source_name) + '" title="来源会话" role="button">' + CHAT_SVG + '<span class="sc-nm">' + esc(srcLabel(m.source_name)) + "</span></span>"
-    : "";
-  var dotColor = ({ backlog: "var(--text-4)", open: "var(--gray)", in_progress: "var(--progress)", review: "var(--amber)", done: "var(--done)", blocked: "var(--block)", cancelled: "#c2c6cf" })[m.status] || "var(--gray)";
-  var projSrc = (m.project_id ? esc(projName(m.project_id) || "项目") : "") + (m.source_name ? (m.project_id ? " · " : "") + esc(srcLabel(m.source_name)) : "");
-  return '<div class="mrow' + (opts.child ? " m-child" : "") + (canExpand ? " has-kids" : "") + '" data-id="' + esc(m.id) + '" data-status="' + esc(m.status) + '" role="link" tabindex="0" aria-label="' + esc(m.title) + '">'
+  var projSrc = props.project === false ? "" : ((m.project_id ? esc(projName(m.project_id) || "项目") : "") + (m.source_name ? (m.project_id ? " · " : "") + esc(srcLabel(m.source_name)) : ""));
+  var leftMeta = opts.priority && props.priority !== false ? priorityButtonHTML(m) : pillHTML(m.status);
+  var desc = props.description && m.description ? '<div class="m-title-desc">' + esc(firstLine(m.description)) + "</div>" : "";
+  var assigneeHTML = props.assignee === false ? "" : (leader ? avChip(leader) : '<span class="m-noone">没人接</span>');
+  var dateBits = [];
+  if (props.dueDate && m.deadline) dateBits.push("截止 " + fmtShortDate(m.deadline));
+  if (props.startDate !== false) dateBits.push(fmtShortDate(m.created_at));
+  var dateTitle = props.dueDate && m.deadline ? fmtFull(m.deadline) : fmtFull(m.created_at);
+  var dateText = dateBits.filter(Boolean).join(" · ");
+  return '<div class="mrow' + (opts.child ? " m-child" : "") + (canExpand ? " has-kids" : "") + '" data-id="' + esc(m.id) + '" data-status="' + esc(m.status) + '" draggable="' + (opts.draggable ? "true" : "false") + '" role="link" tabindex="0" aria-label="' + esc(m.title) + '">'
     + '<label class="m-check-zone" onclick="event.stopPropagation()">'
-    + '<input type="checkbox" class="m-check" data-check="' + esc(m.id) + '">'
+    + '<input type="checkbox" class="m-check" data-check="' + esc(m.id) + '"' + (opts.checked ? " checked" : "") + '>'
     + '</label>'
-    + '<span class="m-pill-col">' + pillHTML(m.status) + (canExpand ? '<button class="row-exp" type="button" data-expand="' + esc(m.id) + '" aria-expanded="' + isOpen + '">' + (isOpen ? "▾" : "▸") + "</button>" : "") + '</span>'
-    + '<span class="m-title" title="' + esc(m.title) + '">' + esc(m.title) + "</span>"
+    + '<span class="m-pill-col">' + leftMeta + (canExpand ? '<button class="row-exp" type="button" data-expand="' + esc(m.id) + '" aria-expanded="' + isOpen + '">' + (isOpen ? "▾" : "▸") + "</button>" : "") + '</span>'
+    + '<span class="m-title" title="' + esc(m.title) + '"><span class="m-title-main">' + esc(m.title) + "</span>" + desc + "</span>"
     + '<span class="m-projcol" title="' + esc(projSrc) + '">' + projSrc + "</span>"
     + '<span class="m-codecol">' + esc(seqLabel(m)) + "</span>"
-    + '<span class="m-assignee">' + (leader ? avChip(leader) : '<span class="m-noone">没人接</span>') + "</span>"
-    + '<span class="m-datecol" title="' + esc(fmtFull(m.created_at)) + '">' + esc(fmtShortDate(m.created_at)) + "</span>"
+    + '<span class="m-assignee">' + assigneeHTML + "</span>"
+    + '<span class="m-datecol" title="' + esc(dateTitle) + '">' + esc(dateText) + "</span>"
     + "</div>";
 }
 function rowsWithChildren(rows, q){
@@ -3658,21 +4473,38 @@ function silentFor(m){
 function boardFilterSourceRows(){
   return Array.isArray(boardFilterRows) ? boardFilterRows : boardAll;
 }
-function boardCardHTML(m){
+function boardCardHTML(m, opts){
+  opts = opts || {};
+  var hasPropConfig = !!opts.props;
+  var props = opts.props || {};
   var who = m.leader || m.assignees[0] || "";
   var others = m.assignees.filter(function(u){ return u !== who; }).length;
   var block = m.status === "blocked"
     ? '<div class="bc-block-line" title="' + esc(m.block_reason_text || "") + '">● ' + esc(silentFor(m) || "需要协助") + "</div>" : "";
-  var date = boardShowDate ? '<span class="bc-date" title="创建于 ' + esc(fmtFull(m.created_at)) + '">' + CAL_SVG + esc(fmtShortDate(m.created_at)) + "</span>" : "";
-  var assignee = boardShowAssignee ? '<span class="bc-person-value">'
+  var dateText = "";
+  var dateTitle = "";
+  if (boardShowDate && (props.startDate !== false || props.dueDate)){
+    if (props.dueDate && m.deadline){
+      dateText = "截止 " + fmtShortDate(m.deadline);
+      dateTitle = "截止 " + fmtFull(m.deadline);
+    } else if (props.startDate !== false){
+      dateText = fmtShortDate(m.created_at);
+      dateTitle = "创建于 " + fmtFull(m.created_at);
+    }
+  }
+  var date = dateText ? '<span class="bc-date" title="' + esc(dateTitle) + '">' + CAL_SVG + esc(dateText) + "</span>" : "";
+  var assignee = boardShowAssignee && props.assignee !== false ? '<span class="bc-person-value">'
     + (who ? '<span data-uid="' + esc(who) + '" style="display:inline-flex;align-items:center;gap:4px;min-width:0">' + av(who) + '<span class="nm">' + esc(uname(who)) + "</span>" + aiTagHTML(who) + "</span>" : '<span class="m-noone">没人接</span>')
     + (others > 0 ? '<span class="bc-plus">等 ' + (others + 1) + " 人</span>" : "")
     + "</span>" : "";
   var src = boardShowSource && m.source_name ? '<div class="bc-src">' + CHAT_SVG + '<span class="sc-nm">' + esc(srcLabel(m.source_name)) + "</span></div>" : "";
-  var foot = assignee || src ? '<div class="bc-people">' + assignee + src + "</div>" : "";
-  return '<div class="bcard" draggable="true" data-id="' + esc(m.id) + '" role="link" tabindex="0">'
-    + '<div class="bc-card-top"><span class="bc-card-id">' + esc(seqLabel(m)) + "</span>" + date + "</div>"
-    + '<div class="bc-title" title="' + esc(m.title) + '">' + esc(m.title) + "</div>" + block
+  var project = !hasPropConfig || props.project === false || !m.project_id ? "" : '<div class="bc-project">' + FOLDER_SVG + '<span class="sc-nm">' + esc(projName(m.project_id) || "项目") + "</span></div>";
+  var foot = assignee || project || src ? '<div class="bc-people">' + assignee + project + src + "</div>" : "";
+  var pri = opts.priority && props.priority !== false ? priorityButtonHTML(m) : "";
+  var desc = props.description && m.description ? '<div class="bc-desc">' + esc(firstLine(m.description)) + "</div>" : "";
+  return '<div class="bcard" draggable="' + (opts.readonly ? "false" : "true") + '" data-id="' + esc(m.id) + '" role="link" tabindex="0">'
+    + '<div class="bc-card-top"><span class="bc-card-left">' + pri + '<span class="bc-card-id">' + esc(seqLabel(m)) + "</span></span>" + date + "</div>"
+    + '<div class="bc-title" title="' + esc(m.title) + '">' + esc(m.title) + "</div>" + desc + block
     + foot + "</div>";
 }
 var BOARD_STATUS_COLOR = { backlog: "--text-4", open: "--gray", in_progress: "--progress", review: "--amber", done: "--done", blocked: "--block" };
@@ -6205,7 +7037,7 @@ function contextPartSettled(part){
 function crumbDetail(m){
   var projLink = m.project_id
     ? '<a href="#/project/' + esc(m.project_id) + '" class="crumb-link">' + esc(projName(m.project_id) || "项目") + '</a><span class="crumb-sep">&gt;</span>'
-    : '<a href="#/inbox" class="crumb-link">收件箱</a><span class="crumb-sep">&gt;</span>';
+    : '<a href="#/matters" class="crumb-link">全部事项</a><span class="crumb-sep">&gt;</span>';
   $("#crumb").innerHTML = projLink
     + '<span class="crumb-current"><span class="cid" style="color:var(--text-3);font-weight:400;margin-right:4px">' + esc(seqLabel(m)) + '</span>' + esc(m.title) + "</span>";
   setTopSourceChip(m);
@@ -8949,9 +9781,11 @@ function buildNewMatterModal(opts){
       closeModal();
       cache.projCounts = {};
       toast((asDraft ? "已保存草稿" : "已发送") + " · " + (nm ? seqLabel(nm) : "") + (body.input_attachments ? " · " + body.input_attachments.length + " 份材料" : ""));
-      if (nm && nm.id && parseHash().view === "myinbox"){
+      if (nm && nm.id && parseHash().view === "mailbox"){
         myInboxSel = nm.id;
         renderMyInbox(renderToken, myInboxTab);
+      } else if (nm && nm.id && parseHash().view === "mymatters"){
+        renderMyMatters(renderToken, myMattersTab, myMattersMode);
       } else if (nm && nm.id){
         location.hash = "#/matter/" + nm.id;
       } else { render(); }
@@ -9881,7 +10715,7 @@ function bindGlobal(){
     if (e.target === $("#modalScrim")) closeModal();
   });
   // rail / drawer
-  $("#railMatters").addEventListener("click", function(){ location.hash = "#/inbox"; });
+  $("#railMatters").addEventListener("click", function(){ location.hash = "#/matters"; });
   $("#railMe").addEventListener("click", function(){ showConnect(); });
   $("#railSettings").addEventListener("click", function(){ showConnect(); });
   var topNewBtn = $("#newMatterTop");
@@ -9909,12 +10743,12 @@ paintIdentity();
 bindConnect();
 bindGlobal();
 window.addEventListener("hashchange", function(){ render(); });
-if (!location.hash) history.replaceState(null, "", "#/inbox");
+if (!location.hash) history.replaceState(null, "", "#/matters");
 render();
 if (authReady()){
   loadMembers();
   resolveUid();
-  if (parseHash().view !== "inbox") setTimeout(fetchReviewBadge, 1400);
+  if (parseHash().view !== "mymatters") setTimeout(fetchReviewBadge, 1400);
 }
 if (auth.token && !auth.space){
   discoverSpace().then(function(found){

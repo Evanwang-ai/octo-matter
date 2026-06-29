@@ -206,6 +206,37 @@ func TestCreateMatterReq_AbsentSourceMsgIDsFieldFallsBackToObjectShape(t *testin
 	}
 }
 
+func TestCreateMatterReq_BindsPriorityZero(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	body := []byte(`{"title": "t", "priority": 0}`)
+
+	var bound createMatterReq
+	r := gin.New()
+	r.POST("/m", func(c *gin.Context) {
+		if err := c.ShouldBindJSON(&bound); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/m", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", w.Code, w.Body.String())
+	}
+	if bound.Priority == nil {
+		t.Fatal("priority pointer: got nil, want explicit 0")
+	}
+	if *bound.Priority != 0 {
+		t.Fatalf("priority: got %d, want 0", *bound.Priority)
+	}
+}
+
 // TestCreateMatterReq_RejectsSourceMsgsMissingMessageID guards the nested
 // binding tag: each source_msgs entry
 // must carry a non-empty message_id, otherwise empty-id rows would land in

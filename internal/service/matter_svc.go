@@ -211,10 +211,7 @@ func (s *MatterService) ListMatters(ctx context.Context, spaceID string, filter 
 	var nextCursor string
 	if hasMore && len(matters) > 0 {
 		last := matters[len(matters)-1]
-		nextCursor = repository.EncodeCursor(repository.Cursor{
-			CreatedAt: last.CreatedAt,
-			ID:        last.ID,
-		})
+		nextCursor = repository.EncodeMatterCursor(filter.OrderBy, filter.OrderDir, last)
 	}
 	items, err := s.attachAssignees(ctx, matters)
 	if err != nil {
@@ -402,7 +399,7 @@ func (s *MatterService) isAssigneeAny(ctx context.Context, matterID string, call
 
 // UpdateMatter applies editable fields. Creator or any assignee (expanded via
 // callerUIDs) may edit.
-func (s *MatterService) UpdateMatter(ctx context.Context, id, spaceID string, callerUIDs []string, title *string, description *string, deadline, remindAt *string) (*model.Matter, error) {
+func (s *MatterService) UpdateMatter(ctx context.Context, id, spaceID string, callerUIDs []string, title *string, description *string, deadline, remindAt *string, priority *uint8) (*model.Matter, error) {
 	matter, err := s.matterRepo.GetByID(ctx, id, spaceID)
 	if err != nil {
 		return nil, err
@@ -460,6 +457,19 @@ func (s *MatterService) UpdateMatter(ctx context.Context, id, spaceID string, ca
 			return nil, apperr.InvalidInput(i18n.KeyRemindAtFormat)
 		}
 		matter.RemindAt = t
+	}
+	if priority != nil {
+		if !model.IsValidPriority(*priority) {
+			return nil, apperr.ValidationError(i18n.KeyPriorityInvalid, "priority")
+		}
+		if matter.Priority != *priority {
+			oldPriority, newPriority := matter.Priority, *priority
+			activities = append(activities, func() {
+				recordActivity(ctx, s.activity, id, actorID, "priority_changed",
+					map[string]interface{}{"from": oldPriority, "to": newPriority})
+			})
+		}
+		matter.Priority = *priority
 	}
 	if err := s.matterRepo.Update(ctx, matter); err != nil {
 		return nil, err

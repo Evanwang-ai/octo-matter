@@ -45,16 +45,17 @@ func (d JSONDetail) MarshalJSON() ([]byte, error) {
 //	title_changed:       {"from": string, "to": string}
 //	description_changed: {"summary": string}
 //	deadline_changed:    {"from": int|null, "to": int|null}  (unix seconds)
+//	priority_changed:    {"from": int, "to": int}
 //	status_changed:      {"from": string, "to": string}
 //	assignee_added:      {"user_id": string}
 //	assignee_removed:    {"user_id": string}
 //	channel_linked:      {"channel_id": string, "channel_name"?: string}
 //	channel_unlinked:    {"channel_id": string}
 type MatterActivity struct {
-	ID        string          `db:"id"         json:"id"`
-	MatterID  string          `db:"matter_id"  json:"matter_id"`
-	ActorID   string          `db:"actor_id"   json:"actor_id"`
-	Action    string          `db:"action"     json:"action"`
-	Detail    JSONDetail      `db:"detail"     json:"detail"`
-	CreatedAt time.Time       `db:"created_at" json:"created_at"`
+	ID        string     `db:"id"         json:"id"`
+	MatterID  string     `db:"matter_id"  json:"matter_id"`
+	ActorID   string     `db:"actor_id"   json:"actor_id"`
+	Action    string     `db:"action"     json:"action"`
+	Detail    JSONDetail `db:"detail"     json:"detail"`
+	CreatedAt time.Time  `db:"created_at" json:"created_at"`
 }
