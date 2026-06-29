@@ -496,16 +496,14 @@
     padding: 4px 0 12px; border-bottom: 1px solid var(--hairline-soft); margin-bottom: 8px;
   }
   .my-tabs {
-    display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(90px, max-content);
-    align-items: center; gap: 4px; min-width: 0; overflow-x: auto;
-    padding: 4px; border-radius: 999px; background: var(--fill-2);
+    display: inline-flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto;
   }
   .my-tabs .inbox-filter {
-    min-height: 32px; justify-content: center; border: 0; background: transparent;
-    padding: 0 16px; border-radius: 999px; color: var(--text-3);
+    min-height: 30px; justify-content: center; border: 0; background: transparent;
+    padding: 0 10px; border-radius: 6px; color: var(--text-3); font-weight: 500;
   }
-  .my-tabs .inbox-filter:hover { color: var(--text); background: rgba(255,255,255,.58); }
-  .my-tabs .inbox-filter.active { color: var(--text); background: #fff; box-shadow: 0 1px 2px rgba(28,28,35,.10); }
+  .my-tabs .inbox-filter:hover { color: var(--text-2); background: var(--hover); }
+  .my-tabs .inbox-filter.active { color: var(--text); font-weight: 650; background: transparent; }
   .my-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 0 auto; position: relative; }
   .work-count {
     min-height: 34px; display: inline-flex; align-items: center; padding: 0 12px;
@@ -745,7 +743,7 @@
     cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s;
   }
   .board-shell[data-density="compact"] .bcard { min-height: 0; padding: 9px; gap: 6px; }
-  .bcard:hover { border-color: rgba(28,28,35,.16); box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
+  .bcard:hover { border-color: rgba(28,28,35,.16); box-shadow: var(--shadow-card-hover); }
   .bcard:focus-visible { outline: none; box-shadow: var(--focus-ring), var(--shadow-card-hover); }
   .bcard.dragging { opacity: .55; box-shadow: var(--shadow-drag); }
   .board-col.drop-over .board-cards { outline: 2px dashed var(--accent-border); outline-offset: 2px; background: var(--accent-tint); transition: background .15s; }
@@ -5079,6 +5077,7 @@ function paintTimeline(my){
 
 /* ================= PREFERENCE CARDS (Zettelkasten) ================= */
 var cardsCache = null;
+var cardsFullCache = null;
 var CARD_STATUS_LABEL = { draft: "草稿", authorized: "已授权", hit: "命中", miss: "未命中", discarded: "已弃" };
 var CARD_SCOPE_LABEL = { matter: "事项", project: "项目", bot: "Bot", space: "空间", global: "全局" };
 var CARD_STATUS_CLS = { draft: "gray", authorized: "done", hit: "progress", miss: "block", discarded: "cancel" };
@@ -5093,6 +5092,7 @@ function renderCards(my){
   return api("/preference-cards", { params: { limit: 100 } }).then(function(json){
     if (my !== renderToken) return;
     cardsCache = (json && json.data) || [];
+    cardsFullCache = cardsCache.slice();
     paintCards(my);
   }).catch(function(e){
     if (my !== renderToken) return;
@@ -5205,7 +5205,7 @@ function paintCards(my){
     if (suspendBtn){
       e.stopPropagation();
       api("/preference-cards/" + suspendBtn.getAttribute("data-suspend"), { method: "PUT", body: { status: "discarded" } }).then(function(){
-        toast("已停用"); renderCards(my);
+        toast("已弃用"); renderCards(my);
       }).catch(function(er){ errToast(er); });
       return;
     }
@@ -5251,7 +5251,7 @@ function paintCardRow(c){
     actions = '<button class="pref-act" data-auth="' + esc(c.id) + '" title="确认">确认</button>'
       + '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" title="弃用">弃用</button>';
   } else if (c.status === "authorized" || c.status === "hit"){
-    actions = '<button class="pref-act pref-act-warn" data-suspend="' + esc(c.id) + '" title="停用">停用</button>';
+    actions = '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" title="弃用">弃用</button>';
   }
   return '<div class="pref-row" data-card-id="' + esc(c.id) + '" role="button" tabindex="0">'
     + '<div class="pref-main">'
@@ -5272,7 +5272,7 @@ function paintCardsBindSearch(my){
     cs.addEventListener("input", function(){
       clearTimeout(searchTimer);
       var q = cs.value.trim();
-      if (!q){ cardsCache = null; renderCards(my); return; }
+      if (!q){ cardsCache = cardsFullCache ? cardsFullCache.slice() : null; paintCards(my); return; }
       searchTimer = setTimeout(function(){
         api("/preference-cards/search", { params: { q: q } }).then(function(json){
           if (my !== renderToken) return;
