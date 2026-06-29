@@ -511,6 +511,27 @@
     font-size: 13px; font-weight: 650; background: var(--surface-card); white-space: nowrap;
   }
   .my-pop-zone { position: relative; display: inline-flex; }
+
+  /* ---- Display Panel ---- */
+  .display-panel { position: absolute; right: 0; top: 100%; margin-top: 6px; z-index: 50; min-width: 260px; max-width: 320px; background: var(--surface-popover); border-radius: 12px; box-shadow: var(--shadow-popover); padding: 12px; display: none; }
+  .display-panel.open { display: block; }
+  .dp-row { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+  .dp-row + .dp-row { margin-top: 4px; }
+  .dp-label { flex: 0 0 52px; font-size: 12px; font-weight: 600; color: var(--text-3); }
+  .dp-btns { display: flex; gap: 2px; background: var(--fill-2); border-radius: 6px; padding: 2px; }
+  .dp-btn { border: none; background: transparent; padding: 4px 10px; border-radius: 5px; font-size: 12px; font-weight: 500; color: var(--text-3); cursor: pointer; }
+  .dp-btn:hover { color: var(--text-2); }
+  .dp-btn.active { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgba(28,28,35,.08); font-weight: 600; }
+  .dp-select { flex: 1; min-width: 0; border: 1px solid var(--hairline); border-radius: 6px; padding: 4px 8px; font-size: 12px; color: var(--text); background: var(--surface-card); cursor: pointer; }
+  .dp-dir { border: none; background: var(--fill-2); width: 28px; height: 28px; border-radius: 6px; font-size: 14px; cursor: pointer; color: var(--text-3); display: flex; align-items: center; justify-content: center; }
+  .dp-dir:hover { background: var(--fill-3); }
+  .dp-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--hairline-soft); }
+  .dp-section-title { font-size: 11px; font-weight: 700; color: var(--text-4); letter-spacing: .3px; margin-bottom: 6px; }
+  .dp-props { display: flex; flex-wrap: wrap; gap: 4px; }
+  .dp-prop { border: 1px solid var(--hairline); border-radius: 6px; padding: 3px 8px; font-size: 11.5px; font-weight: 500; color: var(--text-3); background: transparent; cursor: pointer; }
+  .dp-prop.active { background: var(--accent-tint); border-color: var(--accent-border); color: var(--accent); font-weight: 600; }
+  .dp-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); cursor: pointer; padding: 4px 0; }
+  .dp-toggle input { accent-color: var(--accent); }
   .my-filter-pop, .my-order-pop {
     display: none; position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
     width: 360px; max-width: calc(100vw - 32px); max-height: min(640px, calc(100vh - 138px));
@@ -3526,6 +3547,113 @@ try {
 } catch (_e) {}
 function saveMyMattersProps(){
   try { sessionStorage.setItem("octo-mymatters-props", JSON.stringify(myMattersProps)); } catch (_e) {}
+}
+
+/* ---- Unified ViewSpec ---- */
+var VIEW_SPEC_DEFAULTS = {
+  layout: "list",
+  groupBy: "status",
+  orderBy: "created_at",
+  orderDir: "desc",
+  showCompleted: false,
+  showSubIssues: false,
+  board: { density: "comfortable", hideEmpty: false, showDate: true, showAssignee: true, showSource: true },
+  displayProps: { id: true, status: true, assignee: true, priority: true, project: true, dueDate: false, startDate: true, source: false, created: true, updated: false }
+};
+var GROUPABLE_FIELDS = [
+  { k: "none", label: "不分组" },
+  { k: "status", label: "状态" },
+  { k: "project_id", label: "项目" },
+  { k: "leader_uid", label: "负责人" },
+  { k: "priority", label: "优先级" }
+];
+var ORDERABLE_FIELDS = [
+  { k: "manual", label: "手动" },
+  { k: "created_at", label: "创建时间" },
+  { k: "updated_at", label: "更新时间" },
+  { k: "deadline", label: "截止日期" },
+  { k: "priority", label: "优先级" },
+  { k: "title", label: "标题" },
+  { k: "seq_no", label: "编号" }
+];
+var DISPLAY_PROPS = [
+  { k: "id", label: "编号" },
+  { k: "status", label: "状态" },
+  { k: "assignee", label: "负责人" },
+  { k: "priority", label: "优先级" },
+  { k: "project", label: "项目" },
+  { k: "dueDate", label: "截止日期" },
+  { k: "startDate", label: "创建日期" },
+  { k: "source", label: "来源" }
+];
+function loadViewSpec(key){
+  var spec = JSON.parse(JSON.stringify(VIEW_SPEC_DEFAULTS));
+  try {
+    var raw = sessionStorage.getItem(key);
+    if (raw) Object.assign(spec, JSON.parse(raw), { board: Object.assign({}, spec.board, JSON.parse(raw).board || {}), displayProps: Object.assign({}, spec.displayProps, JSON.parse(raw).displayProps || {}) });
+  } catch (_e) {}
+  return spec;
+}
+function saveViewSpec(key, spec){
+  try { sessionStorage.setItem(key, JSON.stringify(spec)); } catch (_e) {}
+}
+var myMattersViewSpec = loadViewSpec("octo-view-v2:mymatters");
+function displayPanelHTML(spec, opts){
+  opts = opts || {};
+  var hideProject = opts.hideProject;
+  var showContext = opts.showContext;
+  var layoutBtns = '<div class="dp-row"><span class="dp-label">布局</span><div class="dp-btns">'
+    + '<button class="dp-btn' + (spec.layout === "list" ? " active" : "") + '" data-dp-layout="list">列表</button>'
+    + '<button class="dp-btn' + (spec.layout === "board" ? " active" : "") + '" data-dp-layout="board">看板</button>'
+    + (showContext ? '<button class="dp-btn' + (spec.layout === "context" ? " active" : "") + '" data-dp-layout="context">上下文</button>' : '')
+    + '</div></div>';
+  var groupOpts = GROUPABLE_FIELDS.filter(function(f){ return !(hideProject && f.k === "project_id"); }).map(function(f){
+    return '<option value="' + f.k + '"' + (spec.groupBy === f.k ? ' selected' : '') + '>' + esc(f.label) + '</option>';
+  }).join("");
+  var groupRow = '<div class="dp-row"><span class="dp-label">' + (spec.layout === "board" ? "列" : "分组") + '</span><select class="dp-select" data-dp-field="groupBy">' + groupOpts + '</select></div>';
+  var orderOpts = ORDERABLE_FIELDS.map(function(f){
+    return '<option value="' + f.k + '"' + (spec.orderBy === f.k ? ' selected' : '') + '>' + esc(f.label) + '</option>';
+  }).join("");
+  var orderRow = '<div class="dp-row"><span class="dp-label">排序</span><select class="dp-select" data-dp-field="orderBy">' + orderOpts + '</select>'
+    + '<button class="dp-dir" data-dp-field="orderDir" title="切换排序方向">' + (spec.orderDir === "asc" ? "↑" : "↓") + '</button></div>';
+  var boardOpts = spec.layout === "board" ? '<div class="dp-section"><div class="dp-section-title">看板选项</div>'
+    + '<div class="dp-row"><span class="dp-label">密度</span><div class="dp-btns">'
+    + '<button class="dp-btn' + (spec.board.density === "comfortable" ? " active" : "") + '" data-dp-board="density:comfortable">舒适</button>'
+    + '<button class="dp-btn' + (spec.board.density === "compact" ? " active" : "") + '" data-dp-board="density:compact">紧凑</button>'
+    + '</div></div>'
+    + '<label class="dp-toggle"><input type="checkbox" data-dp-board="hideEmpty"' + (spec.board.hideEmpty ? " checked" : "") + '><span>隐藏空列</span></label>'
+    + '</div>' : '';
+  var props = DISPLAY_PROPS.filter(function(p){ return !(hideProject && p.k === "project"); }).map(function(p){
+    var on = spec.displayProps[p.k] !== false;
+    return '<button class="dp-prop' + (on ? " active" : "") + '" data-dp-prop="' + p.k + '">' + esc(p.label) + '</button>';
+  }).join("");
+  var propsRow = '<div class="dp-section"><div class="dp-section-title">显示属性</div><div class="dp-props">' + props + '</div></div>';
+  return '<div class="display-panel" id="displayPanel">'
+    + layoutBtns + groupRow + orderRow + boardOpts + propsRow
+    + '</div>';
+}
+function bindDisplayPanel(spec, onChange){
+  var panel = $("#displayPanel");
+  if (!panel) return;
+  panel.addEventListener("click", function(e){
+    var layoutBtn = e.target.closest("[data-dp-layout]");
+    if (layoutBtn){ spec.layout = layoutBtn.getAttribute("data-dp-layout"); onChange(); return; }
+    var dirBtn = e.target.closest("[data-dp-field='orderDir']");
+    if (dirBtn){ spec.orderDir = spec.orderDir === "asc" ? "desc" : "asc"; onChange(); return; }
+    var boardBtn = e.target.closest("[data-dp-board]");
+    if (boardBtn){
+      var bv = boardBtn.getAttribute("data-dp-board");
+      if (bv.indexOf(":") >= 0){ var parts = bv.split(":"); spec.board[parts[0]] = parts[1]; }
+      else { spec.board[bv] = !spec.board[bv]; }
+      onChange(); return;
+    }
+    var propBtn = e.target.closest("[data-dp-prop]");
+    if (propBtn){ var pk = propBtn.getAttribute("data-dp-prop"); spec.displayProps[pk] = !spec.displayProps[pk]; onChange(); return; }
+  });
+  panel.addEventListener("change", function(e){
+    var sel = e.target.closest("[data-dp-field]");
+    if (sel){ spec[sel.getAttribute("data-dp-field")] = sel.value; onChange(); }
+  });
 }
 function myMattersTabInfo(k){ return MY_MATTERS_TABS.find(function(t){ return t.k === k; }) || MY_MATTERS_TABS[0]; }
 function myMattersRouteHash(tab, mode){
