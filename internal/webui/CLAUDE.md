@@ -28,7 +28,8 @@ static/index.html:  单文件 SPA (~10150 行), 全部 JS/CSS 内联, 无构建�
 - ViewSpec: 统一视图配置对象(layout/groupBy/orderBy/orderDir/board/displayProps), sessionStorage 持久化
 - Display 面板: displayPanelHTML(spec, opts) 渲染 popover, bindDisplayPanel(spec, onChange) 绑定交互
 - 字段注册: GROUPABLE_FIELDS(5), ORDERABLE_FIELDS(7), DISPLAY_PROPS(8) 集中定义
-- MyMatters toolbar: Display 按钮替代旧的 ordering popover + view-switch, onChange 同步 viewSpec → legacy vars
+- MyMatters toolbar: Display 按钮替代旧的 ordering popover + view-switch, onChange 同步 viewSpec → legacy vars, 面板保持打开支持连续修改
+- 动态分组: groupKeyForMatter()/groupLabel()/groupIcon()/groupOrder() 支持 status/project/leader/priority/none 五种分组
 
 ## CSS token 体系
 
