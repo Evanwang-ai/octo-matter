@@ -3835,17 +3835,53 @@ function myMattersBatchBarHTML(rows){
     + '<button type="button" id="myBatchApply">批量改状态</button>'
     + '<button type="button" class="bb-cancel" id="myBatchClear">取消选择</button></div>';
 }
+function groupKeyForMatter(m, field){
+  if (field === "status") return m.status || "backlog";
+  if (field === "project_id") return m.project_id || "_none";
+  if (field === "leader_uid") return m.leader || "_none";
+  if (field === "priority") return String(m.priority || 0);
+  return "_all";
+}
+function groupLabel(key, field){
+  if (field === "status") return stName(key);
+  if (field === "project_id") return key === "_none" ? "无项目" : (projName(key) || "未命名项目");
+  if (field === "leader_uid") return key === "_none" ? "无负责人" : uname(key);
+  if (field === "priority") return ({ "1": "紧急", "2": "高", "3": "中", "4": "低", "0": "无优先级" })[key] || "无优先级";
+  return "全部";
+}
+function groupIcon(key, field){
+  if (field === "status") return statusIconSVG(key);
+  return "";
+}
+function groupOrder(field){
+  if (field === "status") return MY_MATTERS_STATUS_ORDER;
+  if (field === "priority") return ["1", "2", "3", "4", "0"];
+  return null;
+}
 function myMattersListHTML(rows){
   if (!rows.length) return '<div class="empty-state"><div class="es-t">没有匹配回路</div><div class="es-s">调整筛选或排序后再看。</div></div>';
   var html = myMattersBatchBarHTML(rows);
-  MY_MATTERS_STATUS_ORDER.forEach(function(st){
-    var group = rows.filter(function(m){ return m.status === st; });
-    if (!group.length) return;
-    var closed = !!myMattersCollapsed[st];
-    html += '<div class="matter-group"><button class="matter-group-head" type="button" data-mm-group="' + esc(st) + '" aria-expanded="' + (!closed) + '">'
-      + '<span class="mg-caret">' + (closed ? "▸" : "▾") + '</span><span class="mg-icon">' + statusIconSVG(st) + "</span>"
-      + '<span class="mg-name">' + esc(stName(st)) + '</span><span class="mg-count">' + group.length + '</span></button>'
-      + (closed ? "" : '<div class="mlist" data-mm-list-status="' + esc(st) + '">' + group.map(function(m){ return rowHTML(m, { flat: true, checked: !!myMattersSelected[m.id], priority: true, props: myMattersProps, draggable: myMattersOrdering === "manual" }); }).join("") + "</div>")
+  var gf = myMattersViewSpec.groupBy;
+  if (gf === "none"){
+    html += '<div class="mlist">' + rows.map(function(m){ return rowHTML(m, { flat: true, checked: !!myMattersSelected[m.id], priority: true, props: myMattersProps, draggable: myMattersOrdering === "manual" }); }).join("") + "</div>";
+    return html;
+  }
+  var groups = {};
+  var order = [];
+  var fixedOrder = groupOrder(gf);
+  rows.forEach(function(m){
+    var k = groupKeyForMatter(m, gf);
+    if (!groups[k]){ groups[k] = []; if (!fixedOrder) order.push(k); }
+    groups[k].push(m);
+  });
+  if (fixedOrder) order = fixedOrder.filter(function(k){ return groups[k]; });
+  order.forEach(function(k){
+    var group = groups[k];
+    var closed = !!myMattersCollapsed[k];
+    html += '<div class="matter-group"><button class="matter-group-head" type="button" data-mm-group="' + esc(k) + '" aria-expanded="' + (!closed) + '">'
+      + '<span class="mg-caret">' + (closed ? "▸" : "▾") + '</span><span class="mg-icon">' + groupIcon(k, gf) + "</span>"
+      + '<span class="mg-name">' + esc(groupLabel(k, gf)) + '</span><span class="mg-count">' + group.length + '</span></button>'
+      + (closed ? "" : '<div class="mlist" data-mm-list-status="' + esc(k) + '">' + group.map(function(m){ return rowHTML(m, { flat: true, checked: !!myMattersSelected[m.id], priority: true, props: myMattersProps, draggable: myMattersOrdering === "manual" }); }).join("") + "</div>")
       + "</div>";
   });
   return html;
@@ -4067,9 +4103,7 @@ function bindMyMatters(my){
     myMattersOrderDir = myMattersViewSpec.orderDir;
     myMattersProps = myMattersViewSpec.displayProps;
     saveMyMattersProps();
-    var panel = $("#displayPanel");
-    if (panel) panel.classList.remove("open");
-    renderMyMatters(my, myMattersTab, myMattersMode);
+    paintMyMatters(my);
   });
   var clear = $("#myFilterClear");
   if (clear) clear.addEventListener("click", function(e){
