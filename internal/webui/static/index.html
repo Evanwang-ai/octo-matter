@@ -17,6 +17,9 @@
     --text-2: rgba(28,28,35,.66);
     --text-3: rgba(28,28,35,.50);
     --text-4: rgba(28,28,35,.38);
+    --text-5: rgba(28,28,35,.28);
+    --text-1: rgba(28,28,35,.80);
+    --hover: rgba(28,28,35,.055);
     --fill-1: rgba(28,28,35,.025);
     --fill-2: rgba(28,28,35,.045);
     --fill-3: rgba(28,28,35,.06);
@@ -1341,14 +1344,13 @@
   .plan-empty .pe-k { font-weight: 650; color: var(--text); }
   .plan-empty .pe-v { color: var(--text-3); font-size: 12.5px; text-align: right; }
   .replies { display: flex; flex-direction: column; gap: 14px; }
-  .report { border-radius: 12px; background: rgba(28,28,35,.04); overflow: hidden; }
+  .report { border-radius: 12px; background: rgba(28,28,35,.04); overflow: hidden; position: relative; }
   .report-head { display: flex; align-items: center; gap: 10px; padding: 12px 12px 0; }
   .r-av { width: 30px; height: 30px; border-radius: 50%; flex: 0 0 30px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; }
   .r-meta { flex: 1; min-width: 0; }
   .r-name { font-size: 13.5px; font-weight: 650; color: var(--text); display: flex; align-items: center; gap: 8px; min-width: 0; }
   .r-name .uname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .r-name .r-time { font-family: var(--mono); font-size: 10.5px; font-weight: 500; color: var(--text-3); flex: 0 0 auto; }
-  .report { position: relative; }
   .report-body { padding: 10px 12px 14px; }
   /* --- per-entry action menu --- */
   .entry-actions { position: absolute; top: 10px; right: 10px; }
@@ -2068,10 +2070,10 @@
   .pref-file .pf-main { min-width: 0; }
   .pref-file .pf-name { font-size: 13px; font-weight: 650; color: var(--text); overflow-wrap: anywhere; }
   .pref-file .pf-sub { margin-top: 2px; font-size: 11px; color: var(--text-3); }
-  .pref-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-  .pref-meta .pm { border: 1px solid var(--border-soft); border-radius: 9px; padding: 8px 11px; background: #fff; }
-  .pref-meta .pm .k { font-size: 10.5px; color: var(--text-3); margin-bottom: 3px; }
-  .pref-meta .pm .v { font-size: 12.5px; font-weight: 600; color: var(--text); }
+  .pref-detail-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .pref-detail-meta .pm { border: 1px solid var(--border-soft); border-radius: 9px; padding: 8px 11px; background: #fff; }
+  .pref-detail-meta .pm .k { font-size: 10.5px; color: var(--text-3); margin-bottom: 3px; }
+  .pref-detail-meta .pm .v { font-size: 12.5px; font-weight: 600; color: var(--text); }
   .pref-health { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
   .pref-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 8px; border-radius: 999px; background: var(--fill-1); border: 1px solid var(--border-soft); color: var(--text-3); font-size: 11.5px; font-weight: 650; }
   .pref-chip.strong { color: #10723a; background: #eaf8ef; border-color: #cbeed8; }
@@ -3466,7 +3468,7 @@ function renderMailbox(my, source){
   if (source === "agent-mail" || source === "agentmail"){
     setNav("mailbox");
     hideInspector();
-    setCrumbText("收件箱");
+    setCrumbText("");
     $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
       + '<div class="list-head"><div class="list-title">收件箱</div><div class="list-head-actions">'
       + mailboxSourceSwitchHTML("agent-mail") + "</div></div>"
@@ -3477,7 +3479,7 @@ function renderMailbox(my, source){
   if (source === "system"){
     setNav("mailbox");
     hideInspector();
-    setCrumbText("收件箱");
+    setCrumbText("");
     $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
       + '<div class="list-head"><div class="list-title">收件箱</div><div class="list-head-actions">'
       + mailboxSourceSwitchHTML("system") + "</div></div>"
@@ -3612,7 +3614,7 @@ function renderMyMatters(my, tab, mode){
   myMattersMode = mode || "list";
   setNav("mymatters");
   hideInspector();
-  setCrumbText("全部事项");
+  setCrumbText("");
   $("#centerCol").innerHTML = listSkeleton("全部事项");
   return Promise.all([
     api("/matters", { params: myMattersParams(myMattersTab) }),
@@ -4061,7 +4063,7 @@ function bindMyMatters(my){
 function renderMyInbox(my, tab){
   if (tab) myInboxTab = tab;
   setNav("mailbox");
-  setCrumbText("收件箱");
+  setCrumbText("");
   $("#centerCol").innerHTML = '<div class="content" style="overflow:hidden"><div class="mailbox-matters-shell">'
     + '<div class="mailbox-source-row">' + mailboxSourceSwitchHTML("matters") + '</div>'
     + '<div class="inbox-split">'
@@ -4974,7 +4976,7 @@ var tlAll = [];
 function renderTimeline(my){
   setNav("timeline");
   hideInspector();
-  setCrumbText("时间线");
+  setCrumbText("");
   var activeN = boardActiveFilters().length;
   var filterControl = '<div class="board-actions" style="display:inline-flex">'
     + '<button type="button" class="board-filter-trigger' + (activeN ? " has-filters" : "") + (boardFilterOpen ? " open" : "") + '" id="boardFilterBtn" aria-haspopup="menu" aria-expanded="' + (boardFilterOpen ? "true" : "false") + '" aria-label="筛选事项">' + FILTER_SVG + '<span>筛选</span><span class="bf-count">' + activeN + "</span></button>"
@@ -5409,7 +5411,7 @@ var CARD_STATUS_CLS = { draft: "gray", authorized: "done", hit: "progress", miss
 function renderCards(my){
   setNav("cards");
   hideInspector();
-  setCrumbText("Preference");
+  setCrumbText("");
   $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide inbox-page">'
     + skelRows(4, 56)
     + '</div></div>';
@@ -5707,7 +5709,7 @@ var FOLDER_SVG = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" str
 function renderProjects(my){
   setNav("projects");
   hideInspector();
-  setCrumbText("项目");
+  setCrumbText("");
   $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide">'
     + '<div class="list-head"><div class="list-title">项目</div></div><div class="list-sub">加载中…</div>' + skelRows(3, 100) + "</div></div>";
   return Promise.all([
@@ -5855,7 +5857,7 @@ var projState = null; // { id, project, rows, page, sources, srcErr, tab, adding
 function renderProjectDetail(my, id){
   setNav("projects");
   hideInspector();
-  setCrumbText("项目");
+  setCrumbText("");
   $("#centerCol").innerHTML = listSkeleton("项目");
   return Promise.all([
     getProjects().catch(function(){ return []; }),
@@ -6614,7 +6616,7 @@ function fillRuns(box, schedId, n){
 function renderAutomation(my){
   setNav("automation");
   hideInspector();
-  setCrumbText("自动化");
+  setCrumbText("");
   $("#centerCol").innerHTML = '<div class="content"><div class="content-inner wide">'
     + '<div class="list-head"><div class="list-title">自动化</div></div><div class="list-sub">加载中…</div>' + skelRows(3, 130) + "</div></div>";
   return Promise.all([
