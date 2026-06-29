@@ -6,7 +6,7 @@
 ## 成员清单
 
 webui.go:           //go:embed static 指令, FS() 返回 fs.FS 供 router 挂载
-static/index.html:  单文件 SPA (~10150 行), 全部 JS/CSS 内联, 无构建工具
+static/index.html:  单文件 SPA (~10580 行), 全部 JS/CSS 内联, 无构建工具
 
 ## UI 架构
 
@@ -32,6 +32,9 @@ static/index.html:  单文件 SPA (~10150 行), 全部 JS/CSS 内联, 无构建�
 - 动态分组: groupKeyForMatter()/groupLabel()/groupIcon()/groupOrder() 支持 status/project/leader/priority/none 五种分组
 - ProjectDetail: Display 面板替代旧模式下拉, per-project projViewSpec, hideProject=true, showContext=true
 - click-outside: singleton _dpCloseHandler + armDisplayPanelClose/clearDisplayPanelClose 避免闭包泄漏
+- 收件箱 source filter: INBOX_SOURCES pills + INBOX_SCOPE_TABS(全部/我负责的/我发起的), 客户端过滤无路由跳转
+- 类型分发: loadInboxItemDetail(my, item) 按 source_type 路由到 matter/agent_mail/system 渲染器
+- postMessage: window.message 监听, 验证 source+origin+type+hash allowlist, 替代 iframe src swap
 
 ## CSS token 体系
 
