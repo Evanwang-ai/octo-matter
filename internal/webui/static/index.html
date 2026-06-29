@@ -4081,6 +4081,21 @@ function bindMyManualSorting(my){
     });
   });
 }
+var _dpCloseHandler = null;
+function clearDisplayPanelClose(){ if (_dpCloseHandler){ document.removeEventListener("click", _dpCloseHandler); _dpCloseHandler = null; } }
+function armDisplayPanelClose(){
+  clearDisplayPanelClose();
+  setTimeout(function(){
+    var p = $("#displayPanel"); if (!p || !p.classList.contains("open")) return;
+    _dpCloseHandler = function(ev){
+      var cp = $("#displayPanel"); var cb = $("#myDisplayBtn");
+      if ((cp && cp.contains(ev.target)) || (cb && cb.contains(ev.target))) return;
+      if (cp) cp.classList.remove("open");
+      clearDisplayPanelClose();
+    };
+    document.addEventListener("click", _dpCloseHandler);
+  }, 0);
+}
 function bindMyMatters(my){
   var fb = $("#myFilterBtn");
   if (fb) fb.addEventListener("click", function(e){
@@ -4095,15 +4110,8 @@ function bindMyMatters(my){
     myMattersFilterOpen = false;
     var panel = $("#displayPanel");
     if (panel) panel.classList.toggle("open");
-    if (panel && panel.classList.contains("open")){
-      setTimeout(function(){
-        document.addEventListener("click", function closeDP(ev){
-          if (panel.contains(ev.target) || db.contains(ev.target)) return;
-          panel.classList.remove("open");
-          document.removeEventListener("click", closeDP);
-        });
-      }, 0);
-    }
+    if (panel && panel.classList.contains("open")) armDisplayPanelClose();
+    else clearDisplayPanelClose();
   });
   bindDisplayPanel(myMattersViewSpec, function(){
     saveViewSpec("octo-view-v2:mymatters", myMattersViewSpec);
@@ -4114,7 +4122,7 @@ function bindMyMatters(my){
     saveMyMattersProps();
     paintMyMatters(my);
     var reopened = $("#displayPanel");
-    if (reopened) reopened.classList.add("open");
+    if (reopened){ reopened.classList.add("open"); armDisplayPanelClose(); }
   });
   var clear = $("#myFilterClear");
   if (clear) clear.addEventListener("click", function(e){
@@ -5739,10 +5747,13 @@ function openProjectModal(p){
 
 /* ---- 项目详情:回路 / 上下文 两个 tab ---- */
 var projState = null; // { id, project, rows, page, sources, srcErr, tab, adding }
+var projViewSpec = null;
 function renderProjectDetail(my, id){
   setNav("projects");
   hideInspector();
   setCrumbText("");
+  projViewSpec = loadViewSpec("octo-view-v2:project:" + id);
+  if (projViewSpec.layout === "context") projViewSpec.layout = "list";
   $("#centerCol").innerHTML = listSkeleton("项目");
   return Promise.all([
     getProjects().catch(function(){ return []; }),
@@ -5960,6 +5971,8 @@ function paintProjectDetail(my){
     + '<div class="list-head"><div class="list-title">' + esc(name) + '</div><div class="list-head-actions">'
     + '<div class="ibx-filter-zone"><button class="ibx-filter-trigger" id="projModeTrigger" type="button">' + filterSVG2 + '<span class="ibx-ft-label">' + esc(curModeLabel) + '</span></button>'
     + '<div class="ibx-drop" id="projModeDrop">' + modeDropItems + '</div></div>'
+    + '<div class="my-pop-zone"><button class="board-filter-trigger" id="projDisplayBtn" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" width="14" height="14"><path d="M6.5 2.5h7M2.5 2.5h1M6.5 8h7M2.5 8h1M6.5 13.5h7M2.5 13.5h1"/><circle cx="4.5" cy="2.5" r="1.5"/><circle cx="4.5" cy="8" r="1.5"/><circle cx="4.5" cy="13.5" r="1.5"/></svg><span>Display</span></button>'
+    + displayPanelHTML(projViewSpec, { hideProject: true, showContext: true }) + '</div>'
     + '<button class="new-btn" id="projNewMatterBtn" type="button">+ 新建</button>'
     + (p ? '<button class="pc-more" id="projMoreBtn" type="button" aria-label="项目操作" title="分享 / 重命名 / 归档">⋯</button>' : "")
     + "</div></div>"
@@ -5991,6 +6004,22 @@ function paintProjectDetail(my){
       st.adding = false;
       paintProjectDetail(my);
     });
+  });
+  var pdb = $("#projDisplayBtn");
+  if (pdb) pdb.addEventListener("click", function(e){
+    e.stopPropagation();
+    var panel = $("#displayPanel");
+    if (panel) panel.classList.toggle("open");
+    if (panel && panel.classList.contains("open")) armDisplayPanelClose();
+    else clearDisplayPanelClose();
+  });
+  bindDisplayPanel(projViewSpec, function(){
+    saveViewSpec("octo-view-v2:project:" + st.id, projViewSpec);
+    if (projViewSpec.layout === "context"){ st.tab = "context"; }
+    else { st.tab = "matters"; st.viewMode = projViewSpec.layout; }
+    paintProjectDetail(my);
+    var reopened = $("#displayPanel");
+    if (reopened){ reopened.classList.add("open"); armDisplayPanelClose(); }
   });
   var more = $("#projMoreBtn");
   if (more) more.addEventListener("click", function(e){ e.stopPropagation(); openProjectMenu(p, more); });
