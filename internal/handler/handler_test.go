@@ -359,7 +359,7 @@ func TestRegisterWebUIRoutes_EntrypointsServeIndexWithoutRedirect(t *testing.T) 
 			if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
 				t.Fatalf("expected html content type, got %q", ct)
 			}
-			if !strings.Contains(w.Body.String(), "<title>Octo · 事项</title>") {
+			if !strings.Contains(w.Body.String(), "<title>Octo · 回路</title>") {
 				t.Fatal("expected embedded Matter UI index")
 			}
 		})

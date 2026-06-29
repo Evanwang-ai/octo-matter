@@ -430,7 +430,7 @@
   }
   .mrow:hover { background: var(--surface-hover); }
   .mrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .mrow[data-status="cancelled"], .mrow[data-status="archived"] { opacity: .6; }
+  .mrow[data-status="cancelled"] { opacity: .6; }
   .mrow.dragging { opacity: .55; }
   .row-exp {
     grid-area: exp;
@@ -1331,7 +1331,7 @@
   .sr-dot.review { background: var(--amber); }
   .sr-dot.done { background: var(--done); }
   .sr-dot.blocked { background: var(--block); }
-  .sr-dot.cancelled, .sr-dot.archived { background: #c2c6cf; }
+  .sr-dot.cancelled { background: #c2c6cf; }
   .sr-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 550; color: var(--text); }
   .sr-title .sr-step { font-family: var(--mono); font-size: 10.5px; color: var(--text-4); margin-right: 6px; }
   .sr-leader { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-2); min-width: 0; }
@@ -3078,8 +3078,7 @@ var ST = {
   review:      { name: "待确认", pill: "amber",    ring: "review" },
   done:        { name: "已完成", pill: "done",     ring: "done" },
   blocked:     { name: "需要协助", pill: "block",    ring: "block" },
-  cancelled:   { name: "已取消", pill: "cancel",   ring: "cancel" },
-  archived:    { name: "已归档", pill: "cancel",   ring: "cancel" }
+  cancelled:   { name: "已取消", pill: "cancel",   ring: "cancel" }
 };
 var ST_ORDER = ["backlog", "open", "in_progress", "review", "done", "blocked", "cancelled"];
 function stName(s){ return (ST[s] || {}).name || s; }
@@ -3089,7 +3088,7 @@ function pillHTML(s){
 }
 var MODE_NAME = { solo: "单干", split: "分头干", swarm: "撒网", roundtable: "圆桌", pipeline: "流水线", critic: "生成-验证" };
 function modeLabel(m){ return MODE_NAME[m] || ""; }
-function isTerminalRow(m){ return m.status === "cancelled" || m.status === "archived"; }
+function isTerminalRow(m){ return m.status === "cancelled"; }
 
 /* ---------------- normalize ---------------- */
 function normMatter(raw){
@@ -3376,13 +3375,13 @@ var MY_INBOX_TABS = [
   { k: "review", label: "待确认", title: "待确认" },
   { k: "mine", label: "我负责的", title: "我负责的" },
   { k: "initiated", label: "我发起的", title: "我发起的" },
-  { k: "archived", label: "已归档", title: "已归档" }
+  { k: "cancelled", label: "已取消", title: "已取消" }
 ];
 function inboxParams(tab){
   if (tab === "mine") return { top_level: 1, leader_id: auth.uid || "me", limit: 50 };
   if (tab === "initiated") return { top_level: 1, creator_id: "me", limit: 50 };
   if (tab === "review") return { status: "review", limit: 50 };
-  if (tab === "archived") return { status: "archived", limit: 50 };
+  if (tab === "cancelled") return { status: "cancelled", limit: 50 };
   return { top_level: 1, limit: 50 };
 }
 function fetchReviewBadge(){
@@ -3419,7 +3418,6 @@ var STATUS_ICON = {
   review:      '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#e5a100" stroke-width="1.2"/><path d="M6.5 9.2l2 1.8 3.5-4" stroke="#e5a100" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   done:        '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" fill="#16a34a" stroke="#16a34a" stroke-width="1.2"/><path d="M6 9.2l2 2 4-4.4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   cancelled:   '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#999" stroke-width="1.2"/><path d="M6.5 6.5l5 5M11.5 6.5l-5 5" stroke="#999" stroke-width="1.2" stroke-linecap="round"/></svg>',
-  archived:    '<svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#999" stroke-width="1.2"/><path d="M6.5 6.5l5 5M11.5 6.5l-5 5" stroke="#999" stroke-width="1.2" stroke-linecap="round"/></svg>'
 };
 function statusIconSVG(s){ return STATUS_ICON[s] || STATUS_ICON.open; }
 function mailRowHTML(m, sel){
@@ -3496,7 +3494,7 @@ var MY_MATTERS_TABS = [
   { k: "created", hash: "#/matters/created", label: "我发起的" },
   { k: "participating", hash: "#/matters/participating", label: "我参与的" }
 ];
-var MY_MATTERS_STATUS_ORDER = ["backlog", "open", "in_progress", "review", "blocked", "done", "cancelled", "archived"];
+var MY_MATTERS_STATUS_ORDER = ["backlog", "open", "in_progress", "review", "blocked", "done", "cancelled"];
 var myMattersTab = "all";
 var myMattersMode = "list";
 var myMattersState = null;
@@ -3699,13 +3697,12 @@ function myMattersSelectedIds(rows){
 function myMattersBatchBarHTML(rows){
   var ids = myMattersSelectedIds(rows);
   if (!ids.length) return "";
-  var opts = MY_MATTERS_STATUS_ORDER.filter(function(st){ return st !== "archived"; }).map(function(st){
+  var opts = MY_MATTERS_STATUS_ORDER.map(function(st){
     return '<option value="' + esc(st) + '">' + esc(stName(st)) + "</option>";
   }).join("");
   return '<div class="batch-bar my-batch-bar"><span class="bb-count">' + ids.length + ' 项已选</span>'
     + '<select class="my-order-select" id="myBatchStatus" aria-label="批量状态">' + opts + '</select>'
     + '<button type="button" id="myBatchApply">批量改状态</button>'
-    + '<button type="button" id="myBatchArchive">归档</button>'
     + '<button type="button" class="bb-cancel" id="myBatchClear">取消选择</button></div>';
 }
 function myMattersListHTML(rows){
@@ -3724,7 +3721,7 @@ function myMattersListHTML(rows){
   return html;
 }
 function myMattersBoardHTML(rows){
-  var cols = MY_MATTERS_STATUS_ORDER.filter(function(st){ return ["cancelled", "archived"].indexOf(st) < 0; }).map(function(st){
+  var cols = MY_MATTERS_STATUS_ORDER.filter(function(st){ return st !== "cancelled"; }).map(function(st){
     var cards = rows.filter(function(m){ return m.status === st; });
     return '<div class="board-col ' + ({backlog:"backlog",open:"todo",in_progress:"doing",review:"review",blocked:"block",done:"done"}[st] || "") + (cards.length ? "" : " is-empty") + '" data-status="' + st + '">'
       + '<div class="board-col-h"><span class="bc-dot"></span>' + esc(stName(st)) + '<span class="bc-cnt">' + cards.length + '</span></div>'
@@ -4034,8 +4031,6 @@ function bindMyMatters(my){
     var sel = $("#myBatchStatus");
     runMyMattersBatch(sel && sel.value ? sel.value : "open");
   });
-  var batchArchive = $("#myBatchArchive");
-  if (batchArchive) batchArchive.addEventListener("click", function(){ runMyMattersBatch("archived"); });
   $$("[data-priority-id]").forEach(function(el){
     el.addEventListener("click", function(e){
       e.stopPropagation();
@@ -4184,9 +4179,7 @@ function paintMyInbox(my){
     var mst = m ? m.status : "";
     var menu = document.createElement("div"); menu.className = "ctx-menu"; menu.id = "ctxMenu";
     var items = [];
-    if (mst !== "archived") items.push('<button data-ctx="archive">归档</button>');
-    if (mst === "archived") items.push('<button data-ctx="unarchive">取消归档</button>');
-    if (mst !== "cancelled" && mst !== "done" && mst !== "archived") items.push('<button data-ctx="cancel" class="danger">取消回路</button>');
+    if (mst !== "cancelled" && mst !== "done") items.push('<button data-ctx="cancel" class="danger">取消回路</button>');
     if (!items.length) return;
     menu.innerHTML = items.join('<div class="ctx-sep"></div>');
     menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + "px";
@@ -4195,10 +4188,10 @@ function paintMyInbox(my){
     menu.addEventListener("click", function(ce){
       var btn = ce.target.closest("[data-ctx]"); if (!btn) return;
       var act = btn.getAttribute("data-ctx"); closeCtxMenu();
-      var target = act === "archive" ? "archived" : act === "unarchive" ? "done" : "cancelled";
-      if (target === "cancelled" && !confirm("确定要取消这个回路吗？此操作不容易恢复。")) return;
+      var target = "cancelled";
+      if (!confirm("确定要取消这个回路吗？此操作不容易恢复。")) return;
       api("/matters/" + mid + "/status", { method: "PUT", body: { status: target } }).then(function(){
-        toast(target === "archived" ? "已归档" : target === "cancelled" ? "已取消" : "已恢复");
+        toast("已取消");
         if (m) m.status = target;
         paintMyInbox(my);
       }).catch(errToast);
@@ -6173,7 +6166,7 @@ function paintProjectDetail(my){
         pmlist.parentNode.insertBefore(existing, pmlist);
       }
       existing.innerHTML = '已选 <span class="bb-count">' + checked.length + '</span> 项'
-        + '<button type="button" data-pbatch="archive">归档</button>'
+        + '<button type="button" '
         + '<button type="button" data-pbatch="cancel" style="color:var(--block)">取消回路</button>'
         + '<button type="button" class="bb-cancel" data-pbatch="clear">取消选择</button>';
       $$("[data-pbatch]", existing).forEach(function(btn){
@@ -6184,13 +6177,13 @@ function paintProjectDetail(my){
             pmlist.classList.remove("has-checked"); existing.remove(); return;
           }
           var ids = checked.map(function(c){ return c.getAttribute("data-check"); });
-          var target = act === "archive" ? "archived" : "cancelled";
+          var target = "cancelled";
           if (target === "cancelled" && !confirm("确定要取消 " + ids.length + " 个回路吗？此操作不容易恢复。")) return;
           var done = 0;
           Promise.all(ids.map(function(id){
             return api("/matters/" + id + "/status", { method: "PUT", body: { status: target } }).then(function(){ done++; }).catch(function(){});
           })).then(function(){
-            toast((target === "archived" ? "已归档 " : "已取消 ") + done + " 项");
+            toast(("已取消 ") + done + " 项");
             ids.forEach(function(id){ var r = st.rows.find(function(m){ return m.id === id; }); if (r) r.status = target; });
             paintProjectDetail(my);
           });
@@ -6207,9 +6200,7 @@ function paintProjectDetail(my){
       if (!mid) return;
       var menu = document.createElement("div"); menu.className = "ctx-menu"; menu.id = "ctxMenu";
       var items = [];
-      if (mst !== "archived") items.push('<button data-ctx="archive">归档</button>');
-      if (mst === "archived") items.push('<button data-ctx="unarchive">取消归档</button>');
-      if (mst !== "cancelled" && mst !== "done" && mst !== "archived") items.push('<button data-ctx="cancel" class="danger">取消回路</button>');
+      if (mst !== "cancelled" && mst !== "done") items.push('<button data-ctx="cancel" class="danger">取消回路</button>');
       if (!items.length) return;
       menu.innerHTML = items.join('<div class="ctx-sep"></div>');
       menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + "px";
@@ -6218,9 +6209,9 @@ function paintProjectDetail(my){
       menu.addEventListener("click", function(ce){
         var btn = ce.target.closest("[data-ctx]"); if (!btn) return;
         var act = btn.getAttribute("data-ctx"); closeCtxMenu();
-        var target = act === "archive" ? "archived" : act === "unarchive" ? "done" : "cancelled";
+        var target = "cancelled";
         api("/matters/" + mid + "/status", { method: "PUT", body: { status: target } }).then(function(){
-          toast(target === "archived" ? "已归档" : target === "cancelled" ? "已取消" : "已恢复");
+          toast("已取消");
           var r = st.rows.find(function(m){ return m.id === mid; }); if (r) r.status = target;
           paintProjectDetail(my);
         }).catch(errToast);
@@ -6834,8 +6825,8 @@ function reviewBannerHTML(m){
     + '<div class="rv-text">' + esc(text) + "</div></div></div></div>";
 }
 /* ---- 计划图(几何即语义,移植原型 planNodes/renderCollab/drawPlanEdges,数据来自 GET /matters/:id/tree) ---- */
-var PG_RING = { backlog: "backlog", open: "todo", in_progress: "doing", review: "review", done: "done", blocked: "block", cancelled: "cancel", archived: "cancel" };
-var PG_STATE_TEXT = { backlog: "草稿", open: "待开始", in_progress: "进行中", review: "待确认", done: "已完成", blocked: "需要协助", cancelled: "已取消", archived: "已归档" };
+var PG_RING = { backlog: "backlog", open: "todo", in_progress: "doing", review: "review", done: "done", blocked: "block", cancelled: "cancel" };
+var PG_STATE_TEXT = { backlog: "草稿", open: "待开始", in_progress: "进行中", review: "待确认", done: "已完成", blocked: "需要协助", cancelled: "已取消" };
 function pgAsgHTML(uid){
   if (!uid) return '<div class="pg-asg"><span class="m-noone">没人接</span></div>';
   return '<div class="pg-asg" data-uid="' + esc(uid) + '" title="' + esc(uid) + '">'
@@ -6856,7 +6847,7 @@ function planGraphHTML(m, kids, tv){
   var curMode = ((tv && tv.mode) || m.mode) || "";
   var isLinear = curMode === "pipeline" || curMode === "critic";
   var rootId = "__plan_root", joinId = "__plan_join";
-  var liveKids = kids.filter(function(k){ return k.status !== "cancelled" && k.status !== "archived"; });
+  var liveKids = kids.filter(function(k){ return k.status !== "cancelled"; });
   var doneN = liveKids.filter(function(k){ return k.status === "done"; }).length;
   var allBack = liveKids.length > 0 && doneN === liveKids.length;
   var rootTitle = { critic: "生成→验证 " + kids.length + " 步", pipeline: "流水线 " + kids.length + " 步", split: "分成 " + kids.length + " 块", swarm: "竞选 " + kids.length + " 路", roundtable: "圆桌 " + kids.length + " 方" }[curMode] || ("拆成 " + kids.length + " 份");
@@ -6918,7 +6909,7 @@ function roleNodesFromConfig(mode, configStr, timeline){
 }
 function pgRoleNodeHTML(n, deps, mStatus){
   var ring;
-  if (mStatus === "done" || mStatus === "archived") ring = "done";
+  if (mStatus === "done") ring = "done";
   else if (n.spoke) ring = "review";
   else ring = "todo";
   return '<div class="pg-node is-role st-' + ring + '" data-pgid="' + esc(n.id) + '" data-deps="' + esc(deps.join(",")) + '">'
@@ -6933,7 +6924,7 @@ function roleGraphHTML(m, roles, mode){
   var rootId = "__plan_root", joinId = "__plan_join";
   var spokeN = roles.filter(function(r){ return r.spoke; }).length;
   var allSpoke = roles.length > 0 && spokeN === roles.length;
-  var mDone = m.status === "done" || m.status === "archived";
+  var mDone = m.status === "done";
   var rootRing = "done";
   var root = '<div class="pg-node is-root is-role st-done" data-pgid="' + rootId + '">'
     + '<div class="pg-top"><span class="pg-dot done"></span><span class="pg-role-tag">领队</span></div>'
@@ -6983,7 +6974,7 @@ function roleOverviewHTML(m, roles, mode){
     + '<div class="po-meter"><span class="po-num">' + spokeN + "/" + total + '</span><span class="po-bar"><span style="width:' + pct + '%"></span></span></div></div>';
 }
 function planOverviewHTML(m, kids, tv){
-  var liveKids = kids.filter(function(k){ return k.status !== "cancelled" && k.status !== "archived"; });
+  var liveKids = kids.filter(function(k){ return k.status !== "cancelled"; });
   var total = liveKids.length, doneN = liveKids.filter(function(k){ return k.status === "done"; }).length;
   var pct = total ? Math.round(doneN / total * 100) : 0;
   var leader = uname(m.leader || m.creator_id || "");
@@ -7045,7 +7036,7 @@ function subsBlockHTML(m){
     var d = (a.step_order || 0) - (b.step_order || 0);
     return d !== 0 ? d : ((a.seq_no || 0) - (b.seq_no || 0));
   });
-  var liveKids = kids.filter(function(k){ return k.status !== "cancelled" && k.status !== "archived"; });
+  var liveKids = kids.filter(function(k){ return k.status !== "cancelled"; });
   var doneN = liveKids.filter(function(k){ return k.status === "done"; }).length;
   return '<div class="detail-block" id="subsBlock">'
     + '<div class="sec"' + (tv && tv.barrier_state ? ' title="barrier: ' + esc(tv.barrier_state) + '"' : "") + '>'
@@ -7131,7 +7122,7 @@ function outputSpecPreview(m){
 }
 function emptyOutputHTML(m, es){
   var spec = outputSpecPreview(m);
-  var canWrite = authReady() && m.status !== "archived" && m.status !== "cancelled";
+  var canWrite = authReady() && m.status !== "cancelled";
   var contract = spec
     ? '<div class="er-contract"><span class="er-k">交付口径</span>' + esc(spec) + "</div>"
     : "";
@@ -7200,8 +7191,7 @@ function timelineBlockHTML(m){
       review:      { cls: "doing", ic: "◌", title: "待确认", sub: "等待确认" },
       done:        { cls: "done",  ic: "✓", title: "已完成", sub: "没有附加产出" },
       blocked:     { cls: "block", ic: "⚠", title: "需要协助", sub: m.block_reason_text || "等待协助" },
-      cancelled:   { cls: "",      ic: "⊘", title: "已取消", sub: "仅留档" },
-      archived:    { cls: "",      ic: "⊘", title: "已归档", sub: "只读留档" }
+      cancelled:   { cls: "",      ic: "⊘", title: "已取消", sub: "仅留档" }
     }[m.status] || { cls: "", ic: "○", title: "还没有动态", sub: "" };
     inner = emptyOutputHTML(m, es);
   } else {
@@ -7683,7 +7673,6 @@ function controlLine(m){
   if (m.status === "blocked") return { cls: "block", label: "需要协助", main: "需要协助:" + (m.block_reason_text || "没说原因") };
   if (m.status === "done") return { cls: "done", label: "已完成", main: "已完成" };
   if (m.status === "cancelled") return { cls: "cancel", label: "已取消", main: "已取消" };
-  if (m.status === "archived") return { cls: "cancel", label: "已归档", main: "已归档" };
   return { cls: "", label: "待开始", main: doer ? ("等待开始 · 在 " + doer + " 手里") : "等待开始" };
 }
 function statusEdgeHuman(d){
@@ -7698,7 +7687,6 @@ function statusEdgeHuman(d){
   if (to === "done") return "完成,收下了";
   if (to === "blocked") return "需要协助" + (d.reason ? ":" + d.reason : "");
   if (to === "cancelled") return "取消了";
-  if (to === "archived") return "归档了";
   return "改到「" + stName(to) + "」";
 }
 function actHuman(a){
@@ -7940,7 +7928,6 @@ function paintInspector(){
   var c = controlLine(m);
   var s = ST[m.status] || ST.open;
   var statuses = ST_ORDER.slice();
-  if (m.status === "archived") statuses.push("archived");
   var opts = statuses.map(function(k){
     var so = ST[k];
     return '<div class="status-opt' + (k === m.status ? " current" : "") + (k === "cancelled" ? " danger" : "") + '" data-status="' + k + '" role="menuitemradio" aria-checked="' + (k === m.status ? "true" : "false") + '" tabindex="-1">'
@@ -8041,7 +8028,6 @@ function statusOptionHint(k, m){
     done: "已完成",
     blocked: "需要协助",
     cancelled: "停止这单,保留记录",
-    archived: "只读归档,不再推进"
   })[k] || "";
 }
 function setStatusMenuOpen(field, open, focusTarget){
