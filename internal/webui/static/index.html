@@ -1101,7 +1101,14 @@
   .pref-row:hover { background: var(--fill-1); margin: 0 -16px; padding-left: 16px; padding-right: 16px; border-radius: 8px; }
   .pref-chev { flex: 0 0 16px; width: 16px; height: 16px; margin-top: 2px; color: var(--text-4); transition: transform .15s; font-size: 12px; text-align: center; }
   .pref-row.expanded .pref-chev { transform: rotate(90deg); }
-  .pref-expand { overflow: hidden; transition: max-height .2s ease, opacity .15s; }
+  .pref-expand { overflow: hidden; transition: max-height .2s ease, opacity .15s; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hairline-soft); }
+  .pref-expand-content { font-size: 13px; color: var(--text); white-space: pre-wrap; line-height: 1.6; margin-bottom: 8px; }
+  .pref-expand-evidence { font-size: 12px; color: var(--text-3); background: var(--fill-1); border-left: 3px solid var(--accent-border); border-radius: 0 6px 6px 0; padding: 8px 10px; margin-bottom: 6px; line-height: 1.5; }
+  .pref-expand-avoid { font-size: 12px; color: var(--amber); background: rgba(255,190,0,.06); border-left: 3px solid var(--amber); border-radius: 0 6px 6px 0; padding: 8px 10px; margin-bottom: 6px; line-height: 1.5; }
+  .pref-group-label { font-size: 11px; font-weight: 700; color: var(--text-4); letter-spacing: .3px; padding: 10px 0 6px; border-bottom: 1px solid var(--hairline-soft); margin-bottom: 2px; }
+  .pref-group-count { font-weight: 500; color: var(--text-5); }
+  .pref-sub-label { font-size: 10.5px; color: var(--text-4); padding: 6px 0 2px; font-weight: 600; }
+  .pref-source-info { font-size: 11.5px; color: var(--text-4); margin-top: 2px; }
   .pref-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .pref-rule { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--text); }
   .pref-evidence { font-size: 12px; color: var(--text-3); line-height: 1.45; }
@@ -2528,6 +2535,13 @@
     .mrow .m-codecol, .mrow .m-datecol { display: none; }
     .mrow .m-assignee .pv-assignee .nm { display: none; }
     .mrow .m-assignee .mav + .mav { display: none; }
+  }
+  @media (max-width: 580px) {
+    .board-col { min-width: 200px; }
+    .tl-bar { min-height: 20px; }
+    .tl-label { font-size: 10px; }
+    .my-head { flex-wrap: wrap; gap: 8px; }
+    .my-actions { width: 100%; justify-content: flex-start; }
   }
   @media (max-width: 480px) {
     .modal { max-width: 94vw; }
@@ -5180,8 +5194,8 @@ function paintCards(my){
     var group = grouped[g];
     if (!group || !group.length) return;
     html += '<div class="pref-group">'
-      + '<div class="pref-group-label" style="font-size:11px;font-weight:700;color:var(--text-4);letter-spacing:.3px;padding:10px 0 6px;border-bottom:1px solid var(--hairline-soft);margin-bottom:2px">'
-      + esc(cardScopeGroupLabel(g)) + ' <span style="font-weight:500;color:var(--text-5)">' + group.length + '</span></div>';
+      + '<div class="pref-group-label">'
+      + esc(cardScopeGroupLabel(g)) + ' <span class="pref-group-count">' + group.length + '</span></div>';
     if (g === 1){
       // Sub-group by project
       var byProj = {};
@@ -5192,7 +5206,7 @@ function paintCards(my){
       });
       Object.keys(byProj).forEach(function(pk){
         var pName = pk !== "_none" ? (projName(pk) || "未命名项目") : "";
-        if (pName) html += '<div style="font-size:10.5px;color:var(--text-4);padding:6px 0 2px;font-weight:600">' + esc(pName) + '</div>';
+        if (pName) html += '<div class="pref-sub-label">' + esc(pName) + '</div>';
         byProj[pk].forEach(function(c){ html += paintCardRow(c); });
       });
     } else {
@@ -5251,11 +5265,11 @@ function paintCards(my){
       // Build expand content on first click
       var c = cardsCache.find(function(x){ return x.id === row.getAttribute("data-card-id"); });
       if (c){
-        var expandHTML = '<div class="pref-expand" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--hairline-soft)">'
-          + '<div style="font-size:13px;color:var(--text);white-space:pre-wrap;line-height:1.6;margin-bottom:8px">' + esc(c.content) + '</div>'
-          + (c.evidence ? '<div style="font-size:12px;color:var(--text-3);background:var(--fill-1);border-left:3px solid var(--accent-border);border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:6px;line-height:1.5">' + esc(c.evidence) + '</div>' : '')
-          + (c.avoid ? '<div style="font-size:12px;color:var(--amber);background:rgba(255,190,0,.06);border-left:3px solid var(--amber);border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:6px;line-height:1.5">不适用: ' + esc(c.avoid) + '</div>' : '')
-          + '<div style="margin-top:6px"><button class="pref-act pref-edit-btn" data-edit-card="' + esc(c.id) + '" onclick="event.stopPropagation()" style="font-size:12px">编辑</button></div>'
+        var expandHTML = '<div class="pref-expand">'
+          + '<div class="pref-expand-content">' + esc(c.content) + '</div>'
+          + (c.evidence ? '<div class="pref-expand-evidence">' + esc(c.evidence) + '</div>' : '')
+          + (c.avoid ? '<div class="pref-expand-avoid">不适用: ' + esc(c.avoid) + '</div>' : '')
+          + '<div style="margin-top:6px"><button class="pref-act pref-edit-btn" data-edit-card="' + esc(c.id) + '" onclick="event.stopPropagation()">编辑</button></div>'
           + '</div>';
         row.classList.add("expanded");
         row.querySelector(".pref-main").insertAdjacentHTML("beforeend", expandHTML);
@@ -5281,7 +5295,7 @@ function paintCardRow(c){
     + '<span class="pref-chev">&#x25B8;</span>'
     + '<div class="pref-main">'
     + '<div class="pref-rule">' + esc(firstLine) + '</div>'
-    + '<div class="pref-source-info" style="font-size:11.5px;color:var(--text-4);margin-top:2px">' + esc(srcInfo) + '</div>'
+    + '<div class="pref-source-info">' + esc(srcInfo) + '</div>'
     + '</div>'
     + '<div class="pref-meta">'
     + '<span class="pill ' + statusCls + '"><span class="dot"></span>' + esc(CARD_STATUS_LABEL[c.status] || c.status) + '</span>'

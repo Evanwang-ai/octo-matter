@@ -6,7 +6,7 @@
 ## 成员清单
 
 webui.go:           //go:embed static 指令, FS() 返回 fs.FS 供 router 挂载
-static/index.html:  单文件 SPA (~10400 行), 全部 JS/CSS 内联, 无构建工具
+static/index.html:  单文件 SPA (~10150 行), 全部 JS/CSS 内联, 无构建工具
 
 ## UI 架构
 
@@ -17,6 +17,10 @@ static/index.html:  单文件 SPA (~10400 行), 全部 JS/CSS 内联, 无构建�
 - 状态图标: Linear 风格 SVG 圆形 icon (statusIconSVG)
 - 领队选择器: ownedBotsOnly (只显示自己的 bot + 自己)
 - 协作选择器: humansOnly (只显示人类)
+- 面包屑: 顶级页面不显示(setCrumbText("")), 仅 detail 页显示层级路径, mailbox 来源自动追踪(detailReferrer)
+- Markdown: 统一渲染器 mdHTML(), 支持 heading/list/table/code fence/inline
+- 偏好卡: Preference 页独立 .cards-toolbar CSS; 行展开有 chevron 指示器; 搜索清空走内存缓存
+- 收件箱 detail: inboxDetailCache 按 matter ID 缓存已加载详情, 切换时即时展示
 
 ## CSS token 体系
 
