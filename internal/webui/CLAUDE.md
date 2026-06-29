@@ -23,6 +23,8 @@ static/index.html:  单文件 SPA (~10150 行), 全部 JS/CSS 内联, 无构建�
 - Markdown: 统一渲染器 mdHTML(), 支持 heading/list/table/code fence/inline
 - 偏好卡: Preference 页独立 .cards-toolbar CSS; 行展开有 chevron 指示器; 搜索清空走内存缓存
 - 收件箱 detail: inboxDetailCache 按 matter ID 缓存已加载详情, 切换时即时展示
+- 已读/未读: localStorage readIds Set(上限 2000), .unread 蓝点+粗体, markRead() 在选中时触发
+- Tab 切换: paintMyInbox(my, preserveRight=true) 快路径只刷左侧列表, 右侧详情保留
 
 ## CSS token 体系
 

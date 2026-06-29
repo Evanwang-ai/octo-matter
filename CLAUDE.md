@@ -1,4 +1,4 @@
-# Octo Matter — Human×Agent 协作工作台的事项引擎
+# Octo Matter — Human×Agent 协作工作台的回路引擎
 
 Go 1.25 + Gin + gocraft/dbr/v2 (MySQL 8) + google/uuid + go-playground/validator/v10
 
