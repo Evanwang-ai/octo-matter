@@ -25,6 +25,9 @@ static/index.html:  单文件 SPA (~10150 行), 全部 JS/CSS 内联, 无构建�
 - 收件箱 detail: inboxDetailCache 按 matter ID 缓存已加载详情, 切换时即时展示
 - 已读/未读: localStorage readIds Set(上限 2000), .unread 蓝点+粗体, markRead() 在选中时触发
 - Tab 切换: paintMyInbox(my, preserveRight=true) 快路径只刷左侧列表, 右侧详情保留
+- ViewSpec: 统一视图配置对象(layout/groupBy/orderBy/orderDir/board/displayProps), sessionStorage 持久化
+- Display 面板: displayPanelHTML(spec, opts) 渲染 popover, bindDisplayPanel(spec, onChange) 绑定交互
+- 字段注册: GROUPABLE_FIELDS(5), ORDERABLE_FIELDS(7), DISPLAY_PROPS(8) 集中定义
 
 ## CSS token 体系
 
