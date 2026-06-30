@@ -4,69 +4,73 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Octo · 回路</title>
+<!-- 设计系统 token(--wk-*),来自 octo-web dmworkbase。必须在 <style> 之前 -->
+<link rel="stylesheet" href="tokens.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
-    /* ===== Octo tokens — from octo设计稿.fig (prototype :root) ===== */
+    /* ===== Layer 0: 颜色派生自 octo-web 设计系统(--wk-*,见 tokens.css) =====
+       --ink = 品牌黑 #1C1C23 (= --wk-brand-black);透明度阶梯是 Matter 呈现层,
+       值同 --wk-brand-tint-* 家族。标 [0.4] 者暂无对应 --wk-*,留待 Layer 0.4 收敛。 */
     --ink: 28,28,35;
-    --bg: #f5f6f7;
-    --panel: #ffffff;
-    --border: rgba(28,28,35,.10);
-    --border-soft: rgba(28,28,35,.06);
-    --text: #1c1c23;
-    --text-2: rgba(28,28,35,.66);
-    --text-3: rgba(28,28,35,.50);
-    --text-4: rgba(28,28,35,.38);
-    --text-5: rgba(28,28,35,.28);
-    --text-1: rgba(28,28,35,.80);
-    --hover: rgba(28,28,35,.055);
-    --fill-1: rgba(28,28,35,.025);
-    --fill-2: rgba(28,28,35,.045);
-    --fill-3: rgba(28,28,35,.06);
-    --accent: #0077fa;
-    --accent-2: #4e9bff;
-    --accent-tint: #ebf5ff;
-    --accent-tint-2: #dcecff;
-    --accent-border: #bfdcff;
-    --progress: #0077fa;
-    --progress-bg: #ebf9ff;
-    --amber: #ff8800;
-    --amber-bg: #fff5eb;
-    --amber-border: #ffe1bf;
-    --amber-text: #b06d00;
-    --done: #21a953;
-    --done-bg: #e9f8ee;
-    --done-border: #bfe8cb;
-    --gray: rgba(28,28,35,.5);
-    --gray-bg: rgba(28,28,35,.05);
-    --block: #f54a45;
-    --block-bg: #feeceb;
-    --block-border: #f8cfcc;
-    --danger: #f54a45;
-    --tag-doing: #0056a3;
-    --tag-review: #985700;
-    --tag-done: #1a7a40;
-    --tag-block: #ad1f17;
-    --tag-todo: rgba(28,28,35,.6);
-    --agent: #7f3bf5;
-    --agent-tint: #f4eefe;
-    --agent-border: #e4d5fb;
-    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-    --shadow: 0 1px 2px rgba(28,28,35,.05), 0 4px 14px rgba(28,28,35,.04);
-    --surface-page: #f5f6f7;
-    --surface-work: #ffffff;
-    --surface-panel: #fbfbfc;
-    --surface-card: #ffffff;
-    --surface-popover: #ffffff;
-    --surface-hover: rgba(28,28,35,.055);
-    --hairline: rgba(28,28,35,.095);
-    --hairline-soft: rgba(28,28,35,.055);
-    --hairline-strong: rgba(28,28,35,.16);
-    --shadow-card: 0 1px 1px rgba(28,28,35,.04), 0 5px 14px rgba(28,28,35,.045);
-    --shadow-card-hover: 0 1px 1px rgba(28,28,35,.05), 0 8px 18px rgba(28,28,35,.065);
-    --shadow-popover: 0 14px 34px rgba(28,28,35,.14), 0 0 0 1px rgba(28,28,35,.07);
-    --shadow-drag: 0 18px 44px rgba(28,28,35,.18), 0 0 0 1px rgba(28,28,35,.10);
-    --focus-ring: 0 0 0 3px rgba(10,124,255,.16);
+    --bg: var(--wk-bg-base);
+    --panel: var(--wk-bg-surface);
+    --border: rgba(var(--ink),.10);
+    --border-soft: var(--wk-brand-tint-06);
+    --text: var(--wk-text-primary);
+    --text-2: rgba(var(--ink),.66);
+    --text-3: rgba(var(--ink),.50);
+    --text-4: rgba(var(--ink),.38);
+    --text-5: rgba(var(--ink),.28);
+    --text-1: rgba(var(--ink),.80);
+    --hover: var(--wk-brand-tint-06);
+    --fill-1: rgba(var(--ink),.025);
+    --fill-2: rgba(var(--ink),.045);
+    --fill-3: var(--wk-brand-tint-06);
+    --accent: var(--wk-color-info);
+    --accent-2: #4e9bff;            /* [0.4] info hover,无 --wk- */
+    --accent-tint: var(--wk-color-info-bg);
+    --accent-tint-2: #dcecff;       /* [0.4] */
+    --accent-border: #bfdcff;       /* [0.4] */
+    --progress: var(--wk-color-info);
+    --progress-bg: var(--wk-status-active-bg);
+    --amber: var(--wk-color-warning);
+    --amber-bg: var(--wk-color-warning-bg);
+    --amber-border: #ffe1bf;        /* [0.4] */
+    --amber-text: #b06d00;          /* [0.4] */
+    --done: var(--wk-color-success);
+    --done-bg: var(--wk-color-success-bg);
+    --done-border: #bfe8cb;         /* [0.4] */
+    --gray: rgba(var(--ink),.5);
+    --gray-bg: rgba(var(--ink),.05);
+    --block: var(--wk-color-error);
+    --block-bg: var(--wk-color-error-bg);
+    --block-border: #f8cfcc;        /* [0.4] */
+    --danger: var(--wk-color-error);
+    --tag-doing: var(--wk-status-active-text);
+    --tag-review: #985700;          /* [0.4] 品牌无对应 status-text */
+    --tag-done: var(--wk-status-done-text);
+    --tag-block: #ad1f17;           /* [0.4] 品牌无对应 status-text */
+    --tag-todo: rgba(var(--ink),.6);
+    --agent: var(--wk-color-accent);
+    --agent-tint: var(--wk-accent-tint-08);
+    --agent-border: #e4d5fb;        /* [0.4] */
+    --mono: var(--wk-font-mono);
+    --shadow: 0 1px 2px rgba(var(--ink),.05), 0 4px 14px rgba(var(--ink),.04);
+    --surface-page: var(--wk-bg-base);
+    --surface-work: var(--wk-bg-surface);
+    --surface-panel: #fbfbfc;       /* [0.4] 近白,品牌 elevated #f2f3f4 偏暗,S5 再定 */
+    --surface-card: var(--wk-bg-surface);
+    --surface-popover: var(--wk-bg-surface);
+    --surface-hover: var(--wk-brand-tint-06);
+    --hairline: rgba(var(--ink),.095);
+    --hairline-soft: var(--wk-brand-tint-06);
+    --hairline-strong: rgba(var(--ink),.16);
+    --shadow-card: 0 1px 1px rgba(var(--ink),.04), 0 5px 14px rgba(var(--ink),.045);
+    --shadow-card-hover: 0 1px 1px rgba(var(--ink),.05), 0 8px 18px rgba(var(--ink),.065);
+    --shadow-popover: 0 14px 34px rgba(var(--ink),.14), 0 0 0 1px rgba(var(--ink),.07);
+    --shadow-drag: 0 18px 44px rgba(var(--ink),.18), 0 0 0 1px rgba(var(--ink),.10);
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--wk-color-info) 16%, transparent);
   }
   html, body {
     height: 100%;
@@ -2176,75 +2180,7 @@
     border: 1px solid rgba(0,119,250,.12); border-radius: 7px; background: rgba(0,119,250,.045);
     color: var(--text-3); font-size: 11.5px; line-height: 1.5; padding: 7px 9px; overflow-wrap: anywhere;
   }
-  .modal.pref-manager { max-width: 760px; }
-  .pref-tabs { display: flex; gap: 6px; border-bottom: 1px solid rgba(28,28,35,.08); padding-bottom: 10px; margin-bottom: 10px; }
-  .pref-tab {
-    min-height: 30px; border: 1px solid rgba(28,28,35,.10); border-radius: 7px; background: #fff;
-    color: var(--text-2); font-family: inherit; font-size: 12px; font-weight: 700; padding: 0 11px; cursor: pointer;
-  }
-  .pref-tab.on { border-color: rgba(0,119,250,.24); background: rgba(0,119,250,.07); color: var(--accent); }
-  .pref-manager-tools { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
-  .pref-manager-search {
-    min-width: 0; flex: 1 1 auto; height: 34px; border: 1px solid var(--border); border-radius: 8px;
-    background: #fff; padding: 0 10px; color: var(--text); font: inherit; font-size: 12.5px;
-  }
-  .pref-manager-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,119,250,.10); }
-  .pref-manager-count { flex: 0 0 auto; font-size: 11.5px; color: var(--text-3); font-weight: 650; }
-  .pref-manager-list { display: grid; gap: 8px; max-height: min(58vh, 560px); overflow: auto; padding-right: 2px; }
-  .pref-manager-row {
-    border: 1px solid rgba(28,28,35,.09); border-radius: 8px; background: #fff; padding: 10px 11px;
-    display: grid; gap: 7px;
-  }
-  .pref-manager-row.discarded { opacity: .78; }
-  .pmr-top { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
-  .pmr-human { flex: 1; min-width: 0; display: grid; gap: 3px; }
-  .pmr-title {
-    min-width: 0; font-size: 13px; line-height: 18px; font-weight: 780; color: var(--text);
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  }
-  .pmr-explain {
-    font-size: 12px; line-height: 1.45; color: var(--text-2);
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  }
-  .pmr-context { display: flex; flex-wrap: wrap; gap: 6px; color: var(--text-3); font-size: 11.5px; line-height: 1.5; }
-  .pmr-context span { border: 1px solid rgba(28,28,35,.07); border-radius: 6px; background: rgba(28,28,35,.018); padding: 1px 6px; }
-  .pmr-context b { color: var(--text-2); font-weight: 750; }
-  .pmr-source-id { font-family: var(--mono); color: var(--text-3); font-weight: 700; margin-right: 5px; }
-  .pmr-status { font-size: 10.5px; font-weight: 750; border-radius: 999px; padding: 1px 7px; color: var(--done); background: var(--done-bg); border: 1px solid var(--done-border); }
-  .pmr-status.discarded { color: var(--text-3); background: var(--fill-1); border-color: var(--border-soft); }
-  .pmr-dup { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 1px 7px; color: #8a4b00; background: #fff3d6; border: 1px solid #f0ca83; }
-  .pmr-keep { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 1px 7px; color: #14603a; background: #e8f8ef; border: 1px solid #a8dfbf; }
-  .pmr-meta { display: flex; flex-wrap: wrap; gap: 6px; color: var(--text-3); font-size: 11.5px; }
-  .pmr-meta span { border: 1px solid rgba(28,28,35,.08); border-radius: 6px; background: rgba(28,28,35,.025); padding: 1px 6px; }
-  .pmr-evidence {
-    border: 1px solid rgba(28,28,35,.07); border-radius: 8px; background: rgba(28,28,35,.018);
-  }
-  .pmr-evidence summary {
-    min-height: 30px; display: flex; align-items: center; padding: 0 9px;
-    color: var(--text-3); font-size: 11.5px; font-weight: 750; cursor: pointer;
-  }
-  .pmr-evidence[open] summary { border-bottom: 1px solid rgba(28,28,35,.06); color: var(--text-2); }
-  .pmr-evidence-body { display: grid; gap: 7px; padding: 9px; }
-  .pmr-evidence-row { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 8px; font-size: 11.5px; line-height: 1.5; color: var(--text-2); }
-  .pmr-evidence-row b { color: var(--text-3); font-weight: 750; }
-  .pmr-evidence-raw { max-height: 96px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 11px; color: var(--text-2); }
-  .pmr-rule { font-size: 12.5px; line-height: 1.55; color: var(--text-2); overflow-wrap: anywhere; }
-  .pref-manager-alert {
-    border: 1px solid #f0ca83; border-radius: 8px; background: #fff8e8; color: #744500;
-    padding: 8px 10px; margin-bottom: 10px; font-size: 12px; line-height: 1.45; font-weight: 650;
-  }
-  .pref-manager-empty.empty-state.actionable {
-    width: auto; margin: 8px 0 0; padding: 26px 18px; border-radius: 10px;
-    background: rgba(255,255,255,.78);
-  }
-  .pmr-open {
-    min-height: 24px; border: 1px solid rgba(28,28,35,.10); border-radius: 6px; background: #fff;
-    color: var(--text-3); font-family: inherit; font-size: 11px; font-weight: 700; padding: 0 8px; cursor: pointer;
-  }
-  .pmr-open:hover { border-color: var(--accent-border); background: var(--accent-tint); color: var(--accent); }
-  .pmr-actions { display: flex; justify-content: flex-end; gap: 6px; }
-  .pmr-action-status { display: none; align-self: center; color: var(--text-3); font-size: 11.5px; font-weight: 650; }
-  .pmr-action-status:not(:empty) { display: inline; }
+  /* prefManager modal CSS removed — dead code after inspector "管理" button deletion */
 
 
   /* ============ 键盘帮助 ============ */
@@ -8604,160 +8540,7 @@ function compactOneLine(text){
     return s.replace(/^\s*[-•*]\s*/, "").trim();
   }).filter(Boolean).slice(0, 2).join(" / ");
 }
-function duplicatePreferenceGroupCount(rows){
-  var seen = {};
-  (rows || []).forEach(function(row){
-    if (Number(row && row.duplicate_count || 0) <= 1) return;
-    var key = row.duplicate_group_key || row.summary_id || "";
-    if (key) seen[key] = true;
-  });
-  return Object.keys(seen).length;
-}
-function sortDuplicatePreferenceRows(rows){
-  return (rows || []).slice().sort(function(a, b){
-    var ak = String((a && a.duplicate_group_key) || "");
-    var bk = String((b && b.duplicate_group_key) || "");
-    if (ak < bk) return -1;
-    if (ak > bk) return 1;
-    if (!!(a && a.duplicate_preferred) !== !!(b && b.duplicate_preferred)) return (a && a.duplicate_preferred) ? -1 : 1;
-    var ah = Number((a && a.hit_count) || 0);
-    var bh = Number((b && b.hit_count) || 0);
-    if (ah !== bh) return bh - ah;
-    var ac = Number((a && a.confidence) || 0);
-    var bc = Number((b && b.confidence) || 0);
-    if (ac !== bc) return bc - ac;
-    return Date.parse((b && b.updated_at) || 0) - Date.parse((a && a.updated_at) || 0);
-  });
-}
-function prefManagerEmptyHTML(status){
-  var copy = {
-    all: { t: "还没有经验记录", s: "完成回路后,从验收、圈点或手动授权里总结可复用经验。" },
-    authorized: { t: "还没有已生效的经验", s: "授权后才会在后续回路中被召回;草稿和建议不会自动生效。" },
-    discarded: { t: "还没有撤销记录", s: "被撤销的经验会留在这里,方便恢复或审计为什么不用。" },
-    duplicates: { t: "暂无重复经验", s: "系统会把同内容或高度相似的经验聚在这里,优先保留证据更强的一条。" }
-  }[status] || { t: "还没有经验记录", s: "真实验收和圈点之后才应该沉淀。" };
-  return '<div class="empty-state actionable pref-manager-empty"><div class="es-t">' + esc(copy.t) + '</div><div class="es-s">' + esc(copy.s) + "</div></div>";
-}
-function prefManagerBody(botUID, status, res){
-  var allRows = listData(res);
-  var rows = status === "duplicates" ? allRows.filter(function(row){
-    return Number(row && row.duplicate_count || 0) > 1;
-  }) : allRows;
-  if (status === "duplicates") rows = sortDuplicatePreferenceRows(rows);
-  var stats = (res && res.stats) || {};
-  var total = Number(stats.authorized || 0) + Number(stats.discarded || 0);
-  var dupGroups = duplicatePreferenceGroupCount(allRows);
-  var dupRows = allRows.filter(function(row){ return Number(row && row.duplicate_count || 0) > 1; }).length;
-  var tab = function(v, label, n){
-    return '<button class="pref-tab' + (status === v ? " on" : "") + '" type="button" data-pref-manager-status="' + esc(v) + '">' + esc(label) + (n !== undefined ? " " + Number(n || 0) : "") + "</button>";
-  };
-  return '<div class="pref-tabs">'
-    + tab("all", "全部", total || rows.length)
-    + tab("authorized", "已授权", stats.authorized)
-    + tab("discarded", "已撤销", stats.discarded)
-    + tab("duplicates", "重复", dupRows)
-    + "</div>"
-    + '<div class="pref-manager-tools"><input class="pref-manager-search" id="prefManagerSearch" type="search" placeholder="搜索规则、来源、范围、状态" autocomplete="off">'
-    + '<span class="pref-manager-count" id="prefManagerCount">' + rows.length + " 条</span></div>"
-    + (dupGroups ? '<div class="pref-manager-alert">发现 ' + dupGroups + ' 组重复经验。优先保留标记为“建议保留”的一条,其余可以收窄或撤销。</div>' : "")
-    + (rows.length
-      ? '<div class="pref-manager-list">' + rows.map(prefManagerRowHTML).join("") + "</div>"
-      : prefManagerEmptyHTML(status));
-}
-function bindPreferenceManagerSearch(mo){
-  var input = $("#prefManagerSearch", mo);
-  if (!input) return;
-  var rows = $$(".pref-manager-row", mo);
-  var count = $("#prefManagerCount", mo);
-  var empty = document.createElement("div");
-  empty.className = "empty-state actionable pref-manager-empty";
-  empty.id = "prefManagerNoMatch";
-  empty.innerHTML = '<div class="es-t">没有匹配的经验</div><div class="es-s">换个关键词,或清空搜索回到当前列表。</div><button class="es-action" id="prefManagerClearSearch" type="button">清空搜索</button>';
-  empty.style.display = "none";
-  var list = $(".pref-manager-list", mo);
-  if (list && list.parentNode) list.parentNode.insertBefore(empty, list.nextSibling);
-  var clear = $("#prefManagerClearSearch", empty);
-  if (clear) clear.addEventListener("click", function(){
-    input.value = "";
-    input.dispatchEvent(new Event("input"));
-    input.focus();
-  });
-  input.addEventListener("input", function(){
-    var q = input.value.trim().toLowerCase();
-    var shown = 0;
-    rows.forEach(function(row){
-      var hit = !q || (row.getAttribute("data-pref-search") || "").indexOf(q) >= 0;
-      row.style.display = hit ? "" : "none";
-      if (hit) shown++;
-    });
-    if (count) count.textContent = q ? (shown + "/" + rows.length + " 条") : (rows.length + " 条");
-    if (empty) empty.style.display = shown || !rows.length ? "none" : "";
-  });
-}
-function resolvePreferenceRecord(botUID, summaryId, action, btn, status){
-  if (!botUID || !summaryId) return;
-  var reset = setPreferenceRecordPending(btn, action);
-  api("/bots/" + encodeURIComponent(botUID) + "/preferences/" + encodeURIComponent(summaryId), { method: "PUT", body: { action: action } }).then(function(){
-    toast(action === "restore" ? "已恢复这条经验" : (action === "scope_source" ? "已收窄到来源回路" : "已撤销这条经验"));
-    openPreferenceManager(botUID, status || "all");
-    render();
-  }).catch(function(e){
-    reset();
-    errToast(e);
-  });
-}
-function setPreferenceRecordPending(btn, action){
-  if (!btn) return function(){};
-  var row = btn.closest(".pref-manager-row");
-  var pending = action === "restore" ? "恢复中…" : (action === "scope_source" ? "收窄中…" : "撤销中…");
-  return setPendingButtonGroup(row ? $$("[data-pref-record-action]", row) : [btn], btn, pending, row ? $(".pmr-action-status", row) : null);
-}
-function openPreferenceManager(botUID, status){
-  status = status || "all";
-  var mo = $("#modal");
-  var botName = uname(botUID);
-  if (!botName || botName === botUID) botName = "这个 bot";
-  mo.className = "modal pref-manager";
-  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">经验管理 ·' + esc(botName) + '</div>'
-    + '<div class="modal-sub">owner</div></div>'
-    + '<button class="modal-x" id="mx" type="button">×</button></div>'
-    + '<div class="modal-body"><div class="ap-loading">读取经验…</div></div>'
-    + '<div class="modal-foot"><button class="ff-cancel" id="pmClose" type="button">关闭</button></div>';
-  openModal();
-  $("#mx").onclick = closeModal;
-  $("#pmClose").onclick = closeModal;
-  var apiStatus = status === "duplicates" ? "all" : status;
-  api("/bots/" + encodeURIComponent(botUID) + "/preferences", { params: { status: apiStatus, limit: 100 } }).then(function(res){
-    if (!$("#modalScrim").classList.contains("open")) return;
-    mo.className = "modal pref-manager";
-    var body = $(".modal-body", mo);
-    if (body) body.innerHTML = prefManagerBody(botUID, status, res);
-    bindPreferenceManagerSearch(mo);
-    $$("[data-pref-manager-status]", mo).forEach(function(btn){
-      btn.addEventListener("click", function(){
-        openPreferenceManager(botUID, btn.getAttribute("data-pref-manager-status") || "all");
-      });
-    });
-    $$("[data-pref-source-matter]", mo).forEach(function(btn){
-      btn.addEventListener("click", function(){
-        var id = btn.getAttribute("data-pref-source-matter");
-        if (!id) return;
-        closeModal();
-        location.hash = "#/matter/" + id;
-      });
-    });
-    $$("[data-pref-record-action]", mo).forEach(function(btn){
-      btn.addEventListener("click", function(){
-        resolvePreferenceRecord(botUID, btn.getAttribute("data-pref-summary") || "", btn.getAttribute("data-pref-record-action") || "", btn, status);
-      });
-    });
-  }).catch(function(e){
-    var body = $(".modal-body", mo);
-    if (body) body.innerHTML = '<div class="err-state"><b>经验读取失败</b> — ' + esc(e.message || "") + '<br><button class="retry" id="prefManagerRetry" type="button">重试读取</button></div>';
-    var retry = $("#prefManagerRetry", mo);
-    if (retry) retry.addEventListener("click", function(){ openPreferenceManager(botUID, status); });
-  });
-}
+/* prefManager modal removed — inspector “管理” button deleted, global management in 经验 nav page */
 function prefHeadHTML(sub){
   return '<div class="modal-h"><div><div class="modal-title">总结经验</div>'
     + '<div class="modal-sub">' + esc(sub) + "</div></div>"
