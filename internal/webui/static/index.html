@@ -8191,6 +8191,14 @@ function fetchIterations(matterId){
       return;
     }
     el.className = "";
+    var summaryLine = "";
+    if (cur && cur.summary){
+      var ss = cur.summary;
+      var ssLabel = ss.status === "authorized" ? "已总结经验" : (ss.status === "draft" ? "经验待确认" : "经验已弃用");
+      var ssDate = ss.updated_at ? fmtShortDate(ss.updated_at) : "";
+      summaryLine = '<div class="iter-round"><div class="iter-head">经验总结' + (ssDate ? ' · ' + esc(ssDate) : '') + '</div>'
+        + '<div class="iter-line"><span class="iter-outcome ' + (ss.status === "authorized" ? "confirmed" : "pending_review") + '">' + esc(ssLabel) + '</span></div></div>';
+    }
     el.innerHTML = rounds.map(function(rd, idx){
       var isCurrent = idx === rounds.length - 1;
       var dateStr = rd.submitted_at ? fmtShortDate(rd.submitted_at) : (rd.started_at ? fmtShortDate(rd.started_at) : "");
@@ -8212,7 +8220,7 @@ function fetchIterations(matterId){
       }
       html += '</div>';
       return html;
-    }).join("");
+    }).join("") + summaryLine;
   }).catch(function(){
     if (matterId !== (cur && cur.m && cur.m.id)) return;
     var el = $("#iterBody");
