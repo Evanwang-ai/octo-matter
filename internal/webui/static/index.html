@@ -5320,7 +5320,16 @@ function paintCards(my){
     var discardBtn = e.target.closest("[data-discard]");
     if (discardBtn){
       e.stopPropagation();
-      api("/preference-cards/" + discardBtn.getAttribute("data-discard"), { method: "PUT", body: { status: "discarded" } }).then(function(){
+      var cardId = discardBtn.getAttribute("data-discard");
+      var card = cardsCache ? cardsCache.find(function(x){ return x.id === cardId; }) : null;
+      api("/preference-cards/" + cardId, { method: "PUT", body: { status: "discarded" } }).then(function(){
+        if (card && card.matter_id){
+          settle(api("/matters/" + card.matter_id + "/summary", { method: "GET" })).then(function(got){
+            if (got.ok && got.v && got.v.id){
+              api("/matters/" + card.matter_id + "/summary/" + got.v.id, { method: "PUT", body: { action: "discard" } }).catch(function(){});
+            }
+          });
+        }
         toast("已弃用"); renderCards(my);
       }).catch(function(er){ errToast(er); });
       return;
@@ -8141,6 +8150,7 @@ function paintInspector(){
     + '<div class="status-menu" id="statusMenu" role="menu">' + opts + "</div></div>"
     + '<div class="props-divider"></div>'
     + '<div class="prow"><span class="pk">编号</span><span class="pv">M-' + (m.seq_no || m.seq_no === 0 ? m.seq_no : "–") + "</span></div>"
+    + '<div class="prow"><span class="pk">优先级</span><span class="pv">' + priorityButtonHTML(m) + "</span></div>"
     + '<div class="prow"><span class="pk">发起人</span><span class="pv">' + avChip(m.creator_id) + "</span></div>"
     + '<div class="prow"><span class="pk">领队</span><span class="pv">' + (m.leader ? avChip(m.leader) : '<span class="pv-none">没定</span>') + "</span></div>"
     + assigneesHTML
