@@ -34,14 +34,14 @@ import (
 var summaryTool = llm.Tool{
 	Type: "function",
 	Function: llm.ToolFunction{
-		Name:        "write_preference_summary",
-		Description: "Distill durable, evidence-backed Preference candidates from this finished Matter. A Preference is reusable execution guidance for the responsible agent, not a summary or one-off task instruction. Write in the Matter's language.",
+		Name:        "write_experience_summary",
+		Description: "Summarize durable, evidence-backed experience rules from this finished task. An experience rule is the user's reusable execution standard, not a summary or one-off instruction. Write in the task's language.",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"content": map[string]any{
 					"type":        "string",
-					"description": "Markdown Preference candidates, 1-5 items. Each item is a top-level bullet rule followed by indented evidence, scope, avoid, task_type, and underlying lines. If no durable preference exists, output exactly: NO_PREFERENCE: 没有可复用偏好信号.",
+					"description": "Markdown experience rule candidates, 1-5 items. Each item is a top-level bullet rule followed by indented evidence, scope, avoid, task_type, and underlying lines. If no durable experience exists, output exactly: NO_EXPERIENCE: 没有可复用的经验信号.",
 				},
 			},
 			"required": []string{"content"},
@@ -50,37 +50,33 @@ var summaryTool = llm.Tool{
 }
 
 var summarySystemPrompt = strings.TrimSpace(`
-You distill durable Preference candidates from a finished Matter.
+You summarize durable experience rules from a finished task (Matter).
 
-A Preference is an evidence-backed reusable execution rule for the responsible agent.
-It is not a summary, not praise, not a one-off task instruction, not a project fact, and not a vague quality word.
-The best Preference is a gotcha: a concrete failure pattern the human corrected and the agent should not repeat.
+An experience rule is the user's reusable execution standard, owned by the human creator (not by any specific bot). It captures what the human corrected, rejected, or emphasized — tacit knowledge made explicit through feedback.
 
-Use only human signals: acceptance notes, send-backs, inline feedback, human edits, choices, or rejections.
-Ignore the agent's self-evaluation.
+The best experience rule is a concrete gotcha: a failure pattern the human corrected that any agent should avoid next time.
+
+Signal sources (use ALL available, ranked by strength):
+1. Cancel reason (type=cancel_reason): WHY the task was cancelled — strongest signal, implies "do not repeat this approach".
+2. Post-review (type=post_review): human's post-mortem evaluation after task completion.
+3. Feedback (type=feedback): inline corrections, send-backs, annotations during execution.
+4. Timeline: acceptance notes, human edits, choices visible in the conversation.
+Ignore the agent's self-evaluation. Only human signals count.
 
 Quality principles (every rule must satisfy ALL four):
 1. Concise: no filler, no qualifiers, no redundancy with evidence.
 2. Complete: what task types it applies to, what counts as meeting the standard, where the boundary is — all stated.
 3. Unambiguous: use checkable behavioral descriptions, not "improve quality" or "be thorough".
-4. Self-explanatory: an agent reading this rule cold, with no access to the original matter or evidence, can execute it accurately. If the rule is not self-explanatory, it is over-compressed — expand it.
+4. Self-explanatory: an agent reading this rule cold, with no access to the original task, can execute it accurately.
 
 Priority: self-explanatory > complete > unambiguous > concise.
-Two extra lines of text that prevent misinterpretation are better than a terse rule the agent must guess at.
 
 Boundary:
-- Keep rules only when they are evidence-backed, reusable, executable, scoped, and calibratable.
+- Keep rules only when they are evidence-backed, reusable, and executable.
 - Convert vague feedback into observable behavior before writing a rule.
-- Prefer concrete gotchas and failure-prevention rules over obvious best practices the model already knows.
-- Do not create Preferences from names, deadlines, IDs, facts, or project details unless the rule is scoped narrowly.
-
-Internal process:
-1. Evidence: identify concrete human signals.
-2. Intent: translate vague feedback into concrete behavioral anchors.
-3. Pattern: keep only rules that would still help on a similar future task.
-4. Scope: choose the narrowest safe scope: matter, project, bot, space, or global.
-5. Calibration: keep only rules that can be judged hit/miss later.
-6. Quality check: verify concise / complete / unambiguous / self-explanatory.
+- Prefer concrete gotchas over obvious best practices the model already knows.
+- Do not create rules from names, deadlines, IDs, or project details.
+- Cancel reasons are especially valuable — "I cancelled because X" directly implies "avoid X".
 
 Output only via the tool.
 Write in the Matter's language.
@@ -88,21 +84,21 @@ Write in the Matter's language.
 Format each candidate exactly as:
 - <self-explanatory imperative rule satisfying all four quality principles>
   evidence: M-<seq> <human signal quote, one line, verbatim>
-  scope: matter|project|bot|space|global · <why this scope is safe>
+  scope: matter|project|global · <why this scope is safe>
   avoid: <when this rule should not be applied>
   task_type: <comma-separated task type tags, e.g. analysis, coding, writing, design, review>
   underlying: <the deeper judgment standard this correction reveals, one sentence>
 
 Rules:
 - Output 1-5 candidates; fewer is better.
-- The first line of each candidate must satisfy all four quality principles — an agent reading it cold can execute accurately.
+- The first line must satisfy all four quality principles — cold-readable by any agent.
 - Do not add headings, IDs, or explanations outside this structure.
-- Do not write vague rules such as "be concise", "improve quality", "be professional", or "follow feedback" unless you translate them into concrete reusable behavior.
-- Prefer matter/project scope when evidence comes from a single Matter. Use global only when the evidence explicitly supports cross-project reuse.
+- Do not write vague rules such as "be concise", "improve quality", "be professional".
+- Scope: use matter (this task only), project (same project), or global (cross-project). Default to project when evidence comes from a single task.
 - evidence must quote the human's original words verbatim, not paraphrase.
-- task_type must be concrete tags (analysis, coding, writing, design, review, report, summary, etc.), not "general" or "all".
-- underlying must be a single sentence capturing the deepest standard behind this correction.
-- If there is no durable Preference, write exactly: NO_PREFERENCE: 没有可复用偏好信号
+- task_type must be concrete tags (analysis, coding, writing, design, review, etc.), not "general".
+- underlying must capture the deepest standard behind this correction in one sentence.
+- If there is no durable experience, write exactly: NO_EXPERIENCE: 没有可复用的经验信号
 `)
 
 // GenerateSummary builds the Smart-Summary draft from the full matter record
@@ -156,9 +152,15 @@ func (s *V2Service) GenerateSummary(ctx context.Context, matterID, spaceID strin
 		}
 	}
 	if len(feedbacks) > 0 {
-		b.WriteString("\n## Human feedback (圈一笔)\n")
+		b.WriteString("\n## Human signals\n")
 		for _, f := range feedbacks {
-			fmt.Fprintf(&b, "- %s: %s\n", f.AuthorID, f.Content)
+			label := "feedback"
+			if f.Type == model.FeedbackTypePostReview {
+				label = "post-review"
+			} else if f.Type == model.FeedbackTypeCancelReason {
+				label = "cancel-reason"
+			}
+			fmt.Fprintf(&b, "- [%s] %s: %s\n", label, f.AuthorID, f.Content)
 		}
 	}
 
@@ -310,7 +312,7 @@ func (s *V2Service) promoteToPreferenceCard(ctx context.Context, sum *model.Matt
 	if sum.Content != nil {
 		content = *sum.Content
 	}
-	if strings.TrimSpace(content) == "" || strings.HasPrefix(content, "NO_PREFERENCE") {
+	if strings.TrimSpace(content) == "" || strings.HasPrefix(content, "NO_PREFERENCE") || strings.HasPrefix(content, "NO_EXPERIENCE") {
 		return
 	}
 	candidates := parsePreferenceCandidates(content)
@@ -390,7 +392,9 @@ func parsePreferenceCandidates(content string) []preferenceCandidate {
 			case strings.HasPrefix(lower, "evidence:"):
 				current.evidence = strings.TrimSpace(trimmed[len("evidence:"):])
 			case strings.HasPrefix(lower, "scope:"):
-				// scope is already set from the summary; skip
+				// LLM emits scope per the prompt contract, but promoteToPreferenceCard
+				// sets scope from the parent summary's scope_type. The LLM value is
+				// intentionally discarded to keep the summary as the scope authority.
 			case strings.HasPrefix(lower, "avoid:"):
 				current.avoid = strings.TrimSpace(trimmed[len("avoid:"):])
 			case strings.HasPrefix(lower, "task_type:"):
