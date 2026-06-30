@@ -284,7 +284,10 @@ func (s *V2Service) ResolveSummary(ctx context.Context, matterID, spaceID, summa
 		return nil, err
 	}
 	if action == "authorize" && s.prefCards != nil && prevStatus == model.SummaryDraft {
+		log.Printf("[INFO] promoteToPreferenceCard triggered summary=%s matter=%s actor=%s", sum.ID, m.ID, actorUID)
 		s.promoteToPreferenceCard(ctx, sum, m, actorUID)
+	} else if action == "authorize" {
+		log.Printf("[INFO] promoteToPreferenceCard SKIPPED prefCards=%v prevStatus=%s", s.prefCards != nil, prevStatus)
 	}
 	if action == "discard" && s.prefCards != nil {
 		s.syncDiscardToCards(ctx, sum.MatterID, m.SpaceID)
@@ -322,8 +325,10 @@ func (s *V2Service) promoteToPreferenceCard(ctx context.Context, sum *model.Matt
 		content = *sum.Content
 	}
 	if strings.TrimSpace(content) == "" || strings.HasPrefix(content, "NO_PREFERENCE") || strings.HasPrefix(content, "NO_EXPERIENCE") {
+		log.Printf("[INFO] promoteToPreferenceCard: no content or NO_EXPERIENCE sentinel, skipping")
 		return
 	}
+	log.Printf("[INFO] promoteToPreferenceCard: parsing %d bytes of content", len(content))
 	candidates := parsePreferenceCandidates(content)
 	if len(candidates) == 0 {
 		return

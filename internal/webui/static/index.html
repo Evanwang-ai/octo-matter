@@ -3843,14 +3843,17 @@ function manualSortValue(row, index, rows){
   var min = real.length ? Math.min.apply(Math, real) : 0;
   return min - (index + 1) * 1000;
 }
-function myManualGroupRows(status, excludeId){
-  var rows = myMattersFilteredRows().filter(function(m){ return m.status === status && m.id !== excludeId; });
+function myManualGroupRows(groupKey, excludeId){
+  var gf = myMattersViewSpec ? myMattersViewSpec.groupBy : "status";
+  var rows = myMattersFilteredRows().filter(function(m){
+    return groupKeyForMatter(m, gf) === groupKey && m.id !== excludeId;
+  });
   return rows.map(function(m, i){
     return { matter: m, order: manualSortValue(m, i, rows) };
   });
 }
-function calcMyManualSortOrder(status, id, insertIndex){
-  var rows = myManualGroupRows(status, id);
+function calcMyManualSortOrder(groupKey, id, insertIndex){
+  var rows = myManualGroupRows(groupKey, id);
   var before = insertIndex > 0 && rows[insertIndex - 1] ? rows[insertIndex - 1].order : null;
   var after = insertIndex < rows.length && rows[insertIndex] ? rows[insertIndex].order : null;
   var desc = myMattersOrderDir === "desc";
@@ -3865,12 +3868,12 @@ function calcMyManualSortOrder(status, id, insertIndex){
   if (after == null) return before - 1000;
   return (before + after) / 2;
 }
-function commitMyManualSort(id, status, insertIndex, my){
+function commitMyManualSort(id, groupKey, insertIndex, my){
   if (!myMattersState || myMattersOrdering !== "manual") return;
   var row = myMattersState.rows.find(function(m){ return m.id === id; });
-  if (!row || row.status !== status) return;
+  if (!row) return;
   var prev = row.sort_order;
-  var next = calcMyManualSortOrder(status, id, insertIndex);
+  var next = calcMyManualSortOrder(groupKey, id, insertIndex);
   if (!isFinite(next)) return;
   row.sort_order = next;
   paintMyMatters(my);
@@ -3905,21 +3908,23 @@ function showMyDropLine(container, idx, selector){
 }
 function bindMyManualSorting(my){
   if (myMattersOrdering !== "manual") return;
-  var drag = { id: "", status: "" };
-  function startDrag(el, status){
+  var drag = { id: "", group: "" };
+  function startDrag(el, group){
     drag.id = el.getAttribute("data-id") || "";
-    drag.status = status || el.getAttribute("data-status") || "";
+    drag.group = group || "";
     el.classList.add("dragging");
   }
   function endDrag(el){
     el.classList.remove("dragging");
-    drag = { id: "", status: "" };
+    drag = { id: "", group: "" };
     $$(".my-drop-line").forEach(function(l){ l.remove(); });
     $$(".drop-over").forEach(function(c){ c.classList.remove("drop-over"); });
   }
   $$(".mrow[draggable='true'][data-id]").forEach(function(el){
     el.addEventListener("dragstart", function(e){
-      startDrag(el, el.getAttribute("data-status"));
+      var list = el.closest("[data-mm-list-status]");
+      var groupKey = list ? list.getAttribute("data-mm-list-status") : (el.getAttribute("data-status") || "");
+      startDrag(el, groupKey);
       e.dataTransfer.setData("text/plain", drag.id);
       e.dataTransfer.effectAllowed = "move";
     });
@@ -3927,18 +3932,18 @@ function bindMyManualSorting(my){
   });
   $$("[data-mm-list-status]").forEach(function(list){
     list.addEventListener("dragover", function(e){
-      if (!drag.id || drag.status !== list.getAttribute("data-mm-list-status")) return;
+      if (!drag.id || drag.group !== list.getAttribute("data-mm-list-status")) return;
       e.preventDefault();
       showMyDropLine(list, myDropIndex(list, e.clientY, ".mrow[data-id]"), ".mrow[data-id]");
     });
     list.addEventListener("drop", function(e){
       if (!drag.id) return;
       e.preventDefault();
-      var status = list.getAttribute("data-mm-list-status");
-      if (drag.status !== status) return;
+      var groupKey = list.getAttribute("data-mm-list-status");
+      if (drag.group !== groupKey) return;
       var idx = myDropIndex(list, e.clientY, ".mrow[data-id]");
       $$(".my-drop-line").forEach(function(l){ l.remove(); });
-      commitMyManualSort(drag.id, status, idx, my);
+      commitMyManualSort(drag.id, groupKey, idx, my);
     });
   });
   $$(".my-board-shell .bcard[draggable='true'][data-id]").forEach(function(el){
@@ -3954,7 +3959,7 @@ function bindMyManualSorting(my){
     var cards = $(".board-cards", col);
     if (!cards) return;
     col.addEventListener("dragover", function(e){
-      if (!drag.id || drag.status !== col.getAttribute("data-status")) return;
+      if (!drag.id || drag.group !== col.getAttribute("data-status")) return;
       e.preventDefault();
       col.classList.add("drop-over");
       showMyDropLine(cards, myDropIndex(cards, e.clientY, ".bcard[data-id]"), ".bcard[data-id]");
@@ -3969,7 +3974,7 @@ function bindMyManualSorting(my){
       e.preventDefault();
       col.classList.remove("drop-over");
       var status = col.getAttribute("data-status");
-      if (drag.status !== status) return;
+      if (drag.group !== status) return;
       var idx = myDropIndex(cards, e.clientY, ".bcard[data-id]");
       $$(".my-drop-line").forEach(function(l){ l.remove(); });
       commitMyManualSort(drag.id, status, idx, my);
