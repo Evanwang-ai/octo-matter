@@ -18,6 +18,28 @@ type MatterProject struct {
 	UpdatedAt        time.Time `db:"updated_at" json:"updated_at"`
 }
 
+type ProjectMember struct {
+	ID        string    `db:"id" json:"id"`
+	ProjectID string    `db:"project_id" json:"project_id"`
+	UserUID   string    `db:"user_uid" json:"user_uid"`
+	Role      string    `db:"role" json:"role"`
+	AddedBy   string    `db:"added_by" json:"added_by"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
+const (
+	ProjectRoleCreator = "creator"
+	ProjectRoleMember  = "member"
+)
+
+type ProjectBot struct {
+	ID        string    `db:"id" json:"id"`
+	ProjectID string    `db:"project_id" json:"project_id"`
+	BotUID    string    `db:"bot_uid" json:"bot_uid"`
+	OwnerUID  string    `db:"owner_uid" json:"owner_uid"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
 // Outbox states. A row is born pending inside the transition transaction,
 // turns delivered after the notify POST succeeds, consumed once the target
 // uid touches the matter through the API, dead after the retry budget.
