@@ -1292,9 +1292,9 @@
   .issue-title { font-size: 23px; font-weight: 650; letter-spacing: 0; line-height: 1.28; margin-bottom: 8px; overflow-wrap: anywhere; }
   .issue-sub { display: flex; align-items: center; gap: 9px; margin-bottom: 18px; flex-wrap: wrap; }
   .brief {
-    background: #fff; border: 1px solid rgba(28,28,35,.10); border-radius: 8px;
+    background: var(--wk-bg-surface); border: 1px solid var(--wk-border-default); border-radius: 12px;
     padding: 0; overflow: hidden;
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--wk-shadow-sm);
   }
   .brief-main { padding: 16px 18px 18px; min-width: 0; }
   .wo-label {
@@ -1304,7 +1304,7 @@
   .brief .free-text { font-size: 14px; line-height: 1.75; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 10px; }
   .brief .free-text.none { color: var(--text-4); font-size: 13px; }
   .brief-meta { display: grid; gap: 6px; font-size: 12px; color: var(--text-3); margin-top: 12px; }
-  .brief-meta .bm { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding-top: 6px; border-top: 1px solid rgba(28,28,35,.07); }
+  .brief-meta .bm { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding-top: 6px; border-top: 1px solid var(--wk-brand-tint-06); }
   .brief-meta .bm b { color: var(--text-2); font-weight: 600; }
   .brief-meta .bm.overdue b { color: var(--tag-block); }
   .blocker-note, .review-note {
@@ -1585,7 +1585,7 @@
   .props.collapsed { width: 0 !important; flex: 0 0 0 !important; min-width: 0; padding: 0; border-width: 0; overflow: hidden; opacity: 0; }
   /* Multica/Linear-style rail: no boxes — sections separated by hairlines only. */
   .panel { background: transparent; border: 0; border-radius: 0; margin-bottom: 0; }
-  .panel + .panel { border-top: 1px solid rgba(28,28,35,.085); }
+  .panel + .panel { border-top: 1px solid var(--wk-brand-tint-08); }
   .panel-h {
     display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 750; color: rgba(28,28,35,.50);
     letter-spacing: 0; padding: 14px 0 9px; cursor: pointer; user-select: none;
@@ -5202,7 +5202,7 @@ function paintTimeline(my){
 /* ================= PREFERENCE CARDS (Zettelkasten) ================= */
 var cardsCache = null;
 var cardsFullCache = null;
-var CARD_STATUS_LABEL = { draft: "草稿", authorized: "已授权", hit: "命中", miss: "未命中", discarded: "已弃" };
+var CARD_STATUS_LABEL = { draft: "草稿", authorized: "已生效", hit: "命中", miss: "未命中", discarded: "已弃用" };
 var CARD_SCOPE_LABEL = { matter: "回路", project: "项目", bot: "Bot", space: "空间", global: "全局" };
 var CARD_STATUS_CLS = { draft: "gray", authorized: "done", hit: "progress", miss: "block", discarded: "cancel" };
 
@@ -5225,9 +5225,9 @@ function renderCards(my){
 }
 
 function cardFirstLine(content){
-  var lines = String(content || "").split(/\n/).map(function(l){ return l.replace(/^\s*[-•*]\s*/, "").trim(); }).filter(Boolean);
+  var lines = String(content || "").split(/\n/).map(function(l){ return l.replace(/^\s*[-•*]\s*/, "").replace(/^P-(?:new|\d+)\s*\[?[a-z]*\]?\s*/i, "").trim(); }).filter(Boolean);
   var first = lines[0] || "";
-  return first.length > 80 ? first.slice(0, 80) + "…" : first;
+  return first.length > 120 ? first.slice(0, 120) + "…" : first;
 }
 function cardSourceInfo(c){
   var parts = [];
@@ -5352,11 +5352,14 @@ function paintCards(my){
       // Build expand content on first click
       var c = cardsCache.find(function(x){ return x.id === row.getAttribute("data-card-id"); });
       if (c){
-        var expandHTML = '<div class="pref-expand">'
-          + '<div class="pref-expand-content">' + esc(c.content) + '</div>'
-          + (c.evidence ? '<div class="pref-expand-evidence">' + esc(c.evidence) + '</div>' : '')
-          + (c.avoid ? '<div class="pref-expand-avoid">不适用: ' + esc(c.avoid) + '</div>' : '')
-          + '<div style="margin-top:6px"><button class="pref-act pref-edit-btn" data-edit-card="' + esc(c.id) + '" onclick="event.stopPropagation()">编辑</button></div>'
+        var details = [];
+        if (c.evidence) details.push('<div style="font-size:11.5px;color:var(--text-3);line-height:1.5"><b>依据:</b> ' + esc(c.evidence) + '</div>');
+        if (c.avoid) details.push('<div style="font-size:11.5px;color:var(--text-3);line-height:1.5"><b>不适用:</b> ' + esc(c.avoid) + '</div>');
+        if (c.task_type) details.push('<div style="font-size:11.5px;color:var(--text-3)"><b>类型:</b> ' + esc(c.task_type) + '</div>');
+        if (c.underlying) details.push('<div style="font-size:11.5px;color:var(--text-3);line-height:1.5"><b>深层标准:</b> ' + esc(c.underlying) + '</div>');
+        var expandHTML = '<div class="pref-expand" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--hairline-soft)">'
+          + (details.length ? details.join('') : '<div style="font-size:11.5px;color:var(--text-4)">暂无详细信息</div>')
+          + '<div style="margin-top:6px"><button class="pref-act pref-edit-btn" data-edit-card="' + esc(c.id) + '">编辑</button></div>'
           + '</div>';
         row.classList.add("expanded");
         row.querySelector(".pref-main").insertAdjacentHTML("beforeend", expandHTML);
@@ -7982,7 +7985,7 @@ function experiencePanelHTML(){
     var shown = truncated ? content.substring(0, 120) + "…" : content;
     body = '<div class="exp-status" style="color:var(--amber-text)">● 待确认</div>'
       + '<div class="exp-content" id="expContent">' + mdInline(shown) + '</div>'
-      + (row.scope_type ? '<div class="exp-meta">范围: ' + esc(expScopeLabel(row)) + (row.task_type ? ' · 类型: ' + esc(row.task_type) : '') + '</div>' : '')
+      + '<div class="exp-meta" style="color:var(--text-4)">点击「生效」后可选择适用范围</div>'
       + (truncated ? '<button class="exp-toggle" id="expToggle" type="button" data-full="' + esc(content) + '" data-short="' + esc(shown) + '" data-expanded="0">▾ 展开全部</button>' : '')
       + '<div style="display:flex;gap:8px;margin-top:8px"><button class="pref-act" id="prefAuthBtn" type="button" style="color:var(--done)">生效</button><button class="pref-act pref-act-warn" id="prefDiscardBtn" type="button">弃用</button></div>';
   } else if (row && row.status === "discarded"){
