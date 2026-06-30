@@ -5373,7 +5373,6 @@ function paintCards(my){
         if (c.underlying) details.push('<div style="font-size:11.5px;color:var(--text-3);line-height:1.5"><b>深层标准:</b> ' + esc(c.underlying) + '</div>');
         var expandHTML = '<div class="pref-expand" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--hairline-soft)">'
           + (details.length ? details.join('') : '<div style="font-size:11.5px;color:var(--text-4)">暂无详细信息</div>')
-          + '<div style="margin-top:6px"><button class="pref-act pref-edit-btn" data-edit-card="' + esc(c.id) + '">编辑</button></div>'
           + '</div>';
         row.classList.add("expanded");
         row.querySelector(".pref-main").insertAdjacentHTML("beforeend", expandHTML);
@@ -5388,9 +5387,9 @@ function paintCardRow(c){
   var srcInfo = cardSourceInfo(c);
   var matterId = c.matter_id;
   var srcLink = matterId ? '<a href="#/matter/' + esc(matterId) + '" class="pref-src" onclick="event.stopPropagation()">来源</a>' : '';
-  var actions = '';
+  var actions = '<button class="pref-act" data-edit-card="' + esc(c.id) + '" title="编辑">编辑</button>';
   if (c.status === "draft"){
-    actions = '<button class="pref-act" data-auth="' + esc(c.id) + '" title="确认">确认</button>'
+    actions += '<button class="pref-act" data-auth="' + esc(c.id) + '" title="确认">确认</button>'
       + '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" title="弃用">弃用</button>';
   } else if (c.status === "authorized" || c.status === "hit"){
     actions = '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" title="弃用">弃用</button>';
