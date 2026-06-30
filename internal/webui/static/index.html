@@ -33,6 +33,7 @@
     --amber: #ff8800;
     --amber-bg: #fff5eb;
     --amber-border: #ffe1bf;
+    --amber-text: #b06d00;
     --done: #21a953;
     --done-bg: #e9f8ee;
     --done-border: #bfe8cb;
@@ -513,7 +514,7 @@
   .my-pop-zone { position: relative; display: inline-flex; }
 
   /* ---- Display Panel ---- */
-  .display-panel { position: absolute; right: 0; top: 100%; margin-top: 6px; z-index: 50; min-width: 260px; max-width: 320px; background: var(--surface-popover); border-radius: 12px; box-shadow: var(--shadow-popover); padding: 12px; display: none; }
+  .display-panel { position: absolute; right: 0; top: 100%; margin-top: 6px; z-index: 50; min-width: 260px; max-width: min(320px, calc(100vw - 24px)); background: var(--surface-popover); border-radius: 12px; box-shadow: var(--shadow-popover); padding: 12px; display: none; }
   .display-panel.open { display: block; }
   .dp-row { display: flex; align-items: center; gap: 8px; min-height: 32px; }
   .dp-row + .dp-row { margin-top: 4px; }
@@ -1095,7 +1096,7 @@
   .ibx-toggle svg { width: 18px; height: 18px; }
   .ibx-expand-float { position: absolute; top: 10px; left: 10px; z-index: 10; background: var(--surface-card); border: 1px solid var(--hairline-soft); box-shadow: var(--shadow-card); }
   .mailbox-matters-shell { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-  .inbox-source-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; padding: 8px 16px; border-bottom: 1px solid var(--hairline-soft); background: rgba(255,255,255,.92); }
+  .inbox-source-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; padding: 8px 16px; border-bottom: 1px solid var(--hairline-soft); background: rgba(255,255,255,.92); overflow-x: auto; scrollbar-width: none; }
   .source-pill { border: 1px solid var(--hairline); border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 500; color: var(--text-3); background: transparent; cursor: pointer; }
   .source-pill:hover { background: var(--hover); color: var(--text-2); }
   .source-pill.active { background: var(--accent-tint); border-color: var(--accent-border); color: var(--accent); font-weight: 600; }
@@ -2141,7 +2142,6 @@
   .pref-record-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .pref-record-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--text-4); flex: 0 0 7px; }
   .pref-record.authorized .pref-record-dot { background: var(--done); }
-  .pref-record.hint .pref-record-dot { background: var(--accent); }
   .pref-record.draft .pref-record-dot { background: var(--amber); }
   .pref-record.discarded .pref-record-dot { background: #c2c6cf; }
   .pref-record-title { font-size: 12.5px; font-weight: 700; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2150,13 +2150,6 @@
     font-size: 12px; line-height: 1.55; color: var(--text-2); background: rgba(28,28,35,.035);
     border-radius: 7px; padding: 7px 9px; overflow-wrap: anywhere;
   }
-  .pref-context {
-    display: grid; gap: 4px; padding: 7px 9px; border-radius: 7px;
-    background: rgba(0,119,250,.055); border: 1px solid rgba(0,119,250,.10);
-  }
-  .pref-context-row { font-size: 11.5px; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
-  .pref-context-row b { color: var(--text); font-weight: 750; margin-right: 4px; }
-  .pref-hint-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; padding-top: 1px; }
   .pref-mini {
     min-width: 54px; min-height: 32px; padding: 0 11px; border: 1px solid rgba(28,28,35,.10); border-radius: 7px;
     background: #fff; color: var(--text-3); font-family: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer;
@@ -3501,7 +3494,6 @@ var myMattersMode = "list";
 var myMattersState = null;
 var myMattersFilters = { statuses: [], creator: "", project: "" };
 var myMattersFilterOpen = false;
-var myMattersOrderingOpen = false;
 var myMattersCollapsed = {};
 var myMattersOrdering = "created";
 var myMattersOrderDir = "desc";
@@ -4045,7 +4037,6 @@ function bindMyMatters(my){
   var fb = $("#myFilterBtn");
   if (fb) fb.addEventListener("click", function(e){
     e.stopPropagation();
-    myMattersOrderingOpen = false;
     myMattersFilterOpen = !myMattersFilterOpen;
     paintMyMatters(my);
   });
@@ -8203,7 +8194,7 @@ function bindInspector(){
   var prefAuth = $("#prefAuthBtn");
   if (prefAuth && cur.summary) prefAuth.addEventListener("click", function(){
     prefAuth.disabled = true;
-    api("/matters/" + cur.id + "/summary/" + cur.summary.id, { method: "PUT", body: { action: "authorize" } }).then(function(){
+    api("/matters/" + cur.id + "/summary/" + cur.summary.id, { method: "PUT", body: { action: "authorize", target_bot_uid: cur.summary.target_bot_uid || cur.m.leader || "" } }).then(function(){
       toast("已授权"); render();
     }).catch(errToast);
   });
