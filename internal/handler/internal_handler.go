@@ -270,7 +270,8 @@ func (h *InternalHandler) ClaimBotTasks(c *gin.Context) {
 		}
 		row := gin.H{
 			"id": t.ID, "matter_id": t.MatterID, "space_id": t.SpaceID,
-			"bot_uid": t.BotUID, "title": t.Title, "prompt": prompt,
+			"bot_uid": t.BotUID, "requester_uid": t.RequesterUID,
+			"title": t.Title, "prompt": prompt,
 			"claim_token": claim, "status": t.Status,
 		}
 		var matter *model.Matter

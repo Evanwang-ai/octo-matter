@@ -32,6 +32,7 @@ func (r *PreferenceCardRepo) Create(ctx context.Context, c *model.PreferenceCard
 	_, err := r.runner.InsertInto("preference_cards").
 		Columns("id", "space_id", "matter_id", "project_id", "agent_uid",
 			"creator_id", "status", "scope", "content", "evidence", "avoid",
+			"task_type", "underlying", "source_cards", "layer",
 			"keywords", "links", "created_at", "updated_at").
 		Record(c).ExecContext(ctx)
 	return err

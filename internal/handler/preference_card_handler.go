@@ -115,6 +115,10 @@ func (h *PreferenceCardHandler) Update(c *gin.Context) {
 		respondErr(c, err)
 		return
 	}
+	if card.CreatorID != uid(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "FORBIDDEN", "message": "only the card creator can update"}})
+		return
+	}
 	if req.Status != nil {
 		card.Status = *req.Status
 	}
@@ -191,6 +195,15 @@ func (h *PreferenceCardHandler) Render(c *gin.Context) {
 
 func (h *PreferenceCardHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
+	card, err := h.repo.GetByID(c.Request.Context(), id, spaceID(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	if card.CreatorID != uid(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "FORBIDDEN", "message": "only the card creator can delete"}})
+		return
+	}
 	if err := h.repo.Delete(c.Request.Context(), id, spaceID(c)); err != nil {
 		respondErr(c, err)
 		return
