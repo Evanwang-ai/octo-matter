@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -367,6 +368,15 @@ func (s *V2Service) promoteToPreferenceCard(ctx context.Context, sum *model.Matt
 	}
 }
 
+var pnnnPattern = regexp.MustCompile(`(?i)^P-(?:new|\d+)\b`)
+
+func stripPNNNPrefix(s string) string {
+	s = pnnnPattern.ReplaceAllString(s, "")
+	s = strings.TrimSpace(s)
+	s = strings.TrimLeft(s, ":")
+	return strings.TrimSpace(s)
+}
+
 // preferenceCandidate holds a single parsed candidate from the markdown blob.
 type preferenceCandidate struct {
 	rule       string
@@ -377,8 +387,10 @@ type preferenceCandidate struct {
 }
 
 // parsePreferenceCandidates splits the markdown blob into individual candidates.
-// Each candidate starts with `- ` at the beginning of a line (the rule),
+// Each candidate starts with `- ` or `* ` at the beginning of a line (the rule),
 // followed by indented lines for evidence, scope, avoid, task_type, underlying.
+// Fallback: if no bullet-prefixed candidates found, treat each non-indented line
+// (stripped of P-NNN prefix) as a standalone candidate.
 func parsePreferenceCandidates(content string) []preferenceCandidate {
 	lines := strings.Split(content, "\n")
 	var candidates []preferenceCandidate
@@ -389,14 +401,20 @@ func parsePreferenceCandidates(content string) []preferenceCandidate {
 		if trimmed == "" {
 			continue
 		}
-		// A new candidate starts with "- " at the beginning of a line
+		// A new candidate starts with "- " or "* " at the beginning of a line
 		if strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") {
 			if current != nil {
 				candidates = append(candidates, *current)
 			}
-			current = &preferenceCandidate{
-				rule: strings.TrimSpace(line[2:]),
-			}
+			rule := strings.TrimSpace(line[2:])
+			rule = stripPNNNPrefix(rule)
+			current = &preferenceCandidate{rule: rule}
+			continue
+		}
+		// Also accept lines starting with P-NNN as candidates (bot output format)
+		if current == nil && pnnnPattern.MatchString(trimmed) {
+			rule := stripPNNNPrefix(trimmed)
+			current = &preferenceCandidate{rule: rule}
 			continue
 		}
 		// Indented lines belong to the current candidate
@@ -420,6 +438,16 @@ func parsePreferenceCandidates(content string) []preferenceCandidate {
 	}
 	if current != nil {
 		candidates = append(candidates, *current)
+	}
+	if len(candidates) == 0 {
+		rule := strings.TrimSpace(content)
+		rule = stripPNNNPrefix(rule)
+		if first, _, ok := strings.Cut(rule, "\n"); ok && len(first) > 10 {
+			rule = strings.TrimSpace(first)
+		}
+		if rule != "" {
+			candidates = append(candidates, preferenceCandidate{rule: rule})
+		}
 	}
 	return candidates
 }

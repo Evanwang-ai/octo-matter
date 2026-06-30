@@ -5392,7 +5392,9 @@ function paintCardRow(c){
     actions += '<button class="pref-act" data-auth="' + esc(c.id) + '" title="确认">确认</button>'
       + '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" title="弃用">弃用</button>';
   } else if (c.status === "authorized" || c.status === "hit"){
-    actions = '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" title="弃用">弃用</button>';
+    actions += '<button class="pref-act pref-act-warn" data-discard="' + esc(c.id) + '" title="弃用">弃用</button>';
+  } else if (c.status === "discarded"){
+    actions += '<button class="pref-act" data-auth="' + esc(c.id) + '" title="恢复">恢复</button>';
   }
   return '<div class="pref-row" data-card-id="' + esc(c.id) + '" role="button" tabindex="0">'
     + '<span class="pref-chev">&#x25B8;</span>'
