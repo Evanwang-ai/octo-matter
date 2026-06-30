@@ -370,26 +370,34 @@ func (s *V2Service) verifyProject(ctx context.Context, projectID, spaceID string
 	return s.projects.GetByID(ctx, projectID, spaceID)
 }
 
+func (s *V2Service) isProjectMemberOrCreator(ctx context.Context, projectID, userUID string, p *model.MatterProject) bool {
+	if p != nil && p.CreatorID == userUID {
+		return true
+	}
+	ok, _ := s.projMembers.IsMember(ctx, projectID, userUID)
+	return ok
+}
+
 func (s *V2Service) ListProjectMembers(ctx context.Context, projectID, spaceID, callerUID string) ([]*model.ProjectMember, error) {
-	if _, err := s.verifyProject(ctx, projectID, spaceID); err != nil {
+	p, err := s.verifyProject(ctx, projectID, spaceID)
+	if err != nil {
 		return nil, err
 	}
-	ok, _ := s.projMembers.IsMember(ctx, projectID, callerUID)
-	if !ok {
+	if !s.isProjectMemberOrCreator(ctx, projectID, callerUID, p) {
 		return nil, apperr.Forbidden(i18n.KeyMatterView)
 	}
 	return s.projMembers.List(ctx, projectID)
 }
 
 func (s *V2Service) AddProjectMember(ctx context.Context, projectID, spaceID, callerUID, targetUID string) (*model.ProjectMember, error) {
-	if _, err := s.verifyProject(ctx, projectID, spaceID); err != nil {
+	p, err := s.verifyProject(ctx, projectID, spaceID)
+	if err != nil {
 		return nil, err
 	}
 	if strings.HasSuffix(targetUID, "_bot") {
 		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
 	}
-	ok, _ := s.projMembers.IsMember(ctx, projectID, callerUID)
-	if !ok {
+	if !s.isProjectMemberOrCreator(ctx, projectID, callerUID, p) {
 		return nil, apperr.Forbidden(i18n.KeyMatterView)
 	}
 	m := &model.ProjectMember{ProjectID: projectID, UserUID: targetUID, AddedBy: callerUID}
@@ -418,22 +426,22 @@ func (s *V2Service) RemoveProjectMember(ctx context.Context, projectID, spaceID,
 // ---------------------------------------------------------------------------
 
 func (s *V2Service) ListProjectBots(ctx context.Context, projectID, spaceID, callerUID string) ([]*model.ProjectBot, error) {
-	if _, err := s.verifyProject(ctx, projectID, spaceID); err != nil {
+	p, err := s.verifyProject(ctx, projectID, spaceID)
+	if err != nil {
 		return nil, err
 	}
-	ok, _ := s.projMembers.IsMember(ctx, projectID, callerUID)
-	if !ok {
+	if !s.isProjectMemberOrCreator(ctx, projectID, callerUID, p) {
 		return nil, apperr.Forbidden(i18n.KeyMatterView)
 	}
 	return s.projBots.List(ctx, projectID)
 }
 
 func (s *V2Service) AddProjectBot(ctx context.Context, projectID, spaceID, callerUID, botUID string, callerOwnedBots []string) (*model.ProjectBot, error) {
-	if _, err := s.verifyProject(ctx, projectID, spaceID); err != nil {
+	p, err := s.verifyProject(ctx, projectID, spaceID)
+	if err != nil {
 		return nil, err
 	}
-	ok, _ := s.projMembers.IsMember(ctx, projectID, callerUID)
-	if !ok {
+	if !s.isProjectMemberOrCreator(ctx, projectID, callerUID, p) {
 		return nil, apperr.Forbidden(i18n.KeyMatterView)
 	}
 	if !containsUID(callerOwnedBots, botUID) {
@@ -447,11 +455,11 @@ func (s *V2Service) AddProjectBot(ctx context.Context, projectID, spaceID, calle
 }
 
 func (s *V2Service) RemoveProjectBot(ctx context.Context, projectID, spaceID, callerUID, botUID string) error {
-	if _, err := s.verifyProject(ctx, projectID, spaceID); err != nil {
+	p, err := s.verifyProject(ctx, projectID, spaceID)
+	if err != nil {
 		return err
 	}
-	ok, _ := s.projMembers.IsMember(ctx, projectID, callerUID)
-	if !ok {
+	if !s.isProjectMemberOrCreator(ctx, projectID, callerUID, p) {
 		return apperr.Forbidden(i18n.KeyMatterView)
 	}
 	existing, err := s.projBots.GetByBotUID(ctx, projectID, botUID)

@@ -337,9 +337,13 @@ func (h *V2Handler) AddProjectMember(c *gin.Context) {
 
 func (h *V2Handler) RemoveProjectMember(c *gin.Context) {
 	id := c.Param("id")
-	targetUID := c.Param("uid")
-	if !validUUID(id) {
+	targetUID := strings.TrimSpace(c.Param("uid"))
+	if !validUUID(id) || targetUID == "" {
 		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if c.GetString("role") == "bot" {
+		failKey(c, http.StatusForbidden, "FORBIDDEN", i18n.KeyFeedbackUsersOnly, nil)
 		return
 	}
 	if err := h.v2.RemoveProjectMember(c.Request.Context(), id, spaceID(c), uid(c), targetUID); err != nil {
@@ -396,9 +400,13 @@ func (h *V2Handler) AddProjectBot(c *gin.Context) {
 
 func (h *V2Handler) RemoveProjectBot(c *gin.Context) {
 	id := c.Param("id")
-	botUID := c.Param("bot_uid")
-	if !validUUID(id) {
+	botUID := strings.TrimSpace(c.Param("bot_uid"))
+	if !validUUID(id) || botUID == "" {
 		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if c.GetString("role") == "bot" {
+		failKey(c, http.StatusForbidden, "FORBIDDEN", i18n.KeyFeedbackUsersOnly, nil)
 		return
 	}
 	if err := h.v2.RemoveProjectBot(c.Request.Context(), id, spaceID(c), uid(c), botUID); err != nil {
