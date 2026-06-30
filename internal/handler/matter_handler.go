@@ -266,6 +266,12 @@ func (h *MatterHandler) Create(c *gin.Context) {
 		return
 	}
 	if h.v2 != nil {
+		if req.ProjectID != nil && *req.ProjectID != "" {
+			inherited := h.v2.InheritProjectResources(c.Request.Context(), matter, req.AssigneeIDs)
+			if len(inherited) > 0 {
+				req.AssigneeIDs = append(req.AssigneeIDs, inherited...)
+			}
+		}
 		h.v2.AfterCreate(c.Request.Context(), matter, userID, req.AssigneeIDs)
 	}
 	actorName := userName(c)

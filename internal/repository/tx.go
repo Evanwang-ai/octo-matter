@@ -19,6 +19,9 @@ type TxRepos struct {
 	ProjectOutbox      *ProjectOutboxRepo
 	Feedback           *FeedbackRepo
 	ProjectSource      *ProjectSourceRepo
+	Project            *ProjectRepo
+	ProjectMember      *ProjectMemberRepo
+	ProjectBot         *ProjectBotRepo
 }
 
 // TxManager coordinates writes that must succeed or fail atomically.
@@ -50,6 +53,9 @@ func (m *TxManager) Do(ctx context.Context, fn func(r *TxRepos) error) error {
 		ProjectOutbox:      &ProjectOutboxRepo{runner: tx},
 		Feedback:           &FeedbackRepo{runner: tx},
 		ProjectSource:      &ProjectSourceRepo{runner: tx},
+		Project:            &ProjectRepo{runner: tx},
+		ProjectMember:      &ProjectMemberRepo{runner: tx},
+		ProjectBot:         &ProjectBotRepo{runner: tx},
 	}
 	if err := fn(repos); err != nil {
 		return err

@@ -116,6 +116,12 @@ func (s *V2Service) PrepareCreate(ctx context.Context, m *model.Matter, callerUI
 			return nil, err
 		}
 		m.ProjectID = &dp.ID
+		if s.projMembers != nil {
+			_ = s.projMembers.Add(ctx, &model.ProjectMember{
+				ProjectID: dp.ID, UserUID: m.CreatorID,
+				Role: model.ProjectRoleCreator, AddedBy: m.CreatorID,
+			})
+		}
 	}
 	if m.ParentMatterID == nil || *m.ParentMatterID == "" {
 		return nil, nil
@@ -250,6 +256,49 @@ func (s *V2Service) requireDispatchableChildLeader(ctx context.Context, parentMa
 		return apperr.Forbidden(i18n.KeyMatterAccess)
 	}
 	return nil
+}
+
+// InheritProjectResources copies project-level members and bots into the
+// matter's assignees and bot_resources. Best-effort, deduplicates against
+// already-supplied IDs. Returns newly inherited assignee UIDs.
+func (s *V2Service) InheritProjectResources(ctx context.Context, m *model.Matter, suppliedAssigneeIDs []string) []string {
+	if m.ProjectID == nil || *m.ProjectID == "" || s.projMembers == nil {
+		return nil
+	}
+	projectID := *m.ProjectID
+	existing := map[string]bool{m.CreatorID: true}
+	if m.LeaderUID != nil {
+		existing[*m.LeaderUID] = true
+	}
+	for _, a := range suppliedAssigneeIDs {
+		existing[a] = true
+	}
+	var inherited []string
+	members, err := s.projMembers.UserUIDs(ctx, projectID)
+	if err != nil {
+		log.Printf("[WARN] inherit project members failed project=%s: %v", projectID, err)
+	}
+	for _, uid := range members {
+		if existing[uid] {
+			continue
+		}
+		existing[uid] = true
+		if err := s.assignees.Create(ctx, &model.MatterAssignee{MatterID: m.ID, UserID: uid}); err != nil {
+			log.Printf("[WARN] inherit assignee failed matter=%s uid=%s: %v", m.ID, uid, err)
+			continue
+		}
+		inherited = append(inherited, uid)
+	}
+	bots, err := s.projBots.List(ctx, projectID)
+	if err != nil {
+		log.Printf("[WARN] inherit project bots failed project=%s: %v", projectID, err)
+	}
+	for _, b := range bots {
+		if _, err := s.botResources.Add(ctx, m.ID, b.BotUID, b.OwnerUID); err != nil {
+			log.Printf("[WARN] inherit bot resource failed matter=%s bot=%s: %v", m.ID, b.BotUID, err)
+		}
+	}
+	return inherited
 }
 
 // AfterCreate records the parent-side dispatch activity and — only for

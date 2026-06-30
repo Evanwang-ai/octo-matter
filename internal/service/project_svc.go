@@ -35,7 +35,16 @@ func (s *V2Service) CreateProject(ctx context.Context, p *model.MatterProject) (
 	if strings.TrimSpace(p.Name) == "" {
 		return nil, apperr.InvalidInput(i18n.KeyInvalidRequest)
 	}
-	if err := s.projects.Create(ctx, p); err != nil {
+	err := s.tx.Do(ctx, func(r *repository.TxRepos) error {
+		if err := r.Project.Create(ctx, p); err != nil {
+			return err
+		}
+		return r.ProjectMember.Add(ctx, &model.ProjectMember{
+			ProjectID: p.ID, UserUID: p.CreatorID,
+			Role: model.ProjectRoleCreator, AddedBy: p.CreatorID,
+		})
+	})
+	if err != nil {
 		return nil, err
 	}
 	return p, nil
