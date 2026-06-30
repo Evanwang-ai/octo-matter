@@ -27,6 +27,10 @@ embed.go:                          //go:embed 显式文件列表, 新增迁移�
 019_project_outbox.sql:            项目级 outbox (结构性门铃)
 020_bot_resources.sql:             matter_bot_resources 表 (哪些 bot 可被调度, 主人主权)
 021_mode_config.sql:               mode_config JSON 字段 (协作模式配置)
+022_preference_card_fields.sql:    Preference Card 扩展: task_type, underlying, source_cards, layer
+023_timeline_parent_entry.sql:     Timeline parent entry 引用
+024_matter_priority.sql:           matters.priority TINYINT (0=none,1=urgent,2=high,3=medium,4=low)
+025_archived_to_cancelled.sql:     archived→cancelled 终态合并 (UPDATE matters)
 
 ## 关键约束
 
