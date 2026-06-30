@@ -53,6 +53,7 @@ func (h *PreferenceCardHandler) Create(c *gin.Context) {
 		Evidence:  req.Evidence,
 		Avoid:     req.Avoid,
 		Keywords:  kw,
+		Layer:     1,
 	}
 	if err := h.repo.Create(c.Request.Context(), card); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL", "message": err.Error()}})
