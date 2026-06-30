@@ -427,7 +427,7 @@
     color: var(--text-4); font-size: 11.5px; font-weight: 650; border-bottom: 1px solid var(--border);
   }
   .inbox-table-head span:last-child { text-align: right; }
-  .mlist { display: flex; flex-direction: column; gap: 0; border-top: 1px solid rgba(28,28,35,.08); border-bottom: 1px solid rgba(28,28,35,.08); }
+  .mlist { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--wk-brand-tint-08); border-bottom: 1px solid var(--wk-brand-tint-08); }
   .mrow {
     position: relative; display: grid;
     grid-template-columns: 68px minmax(200px, 1fr) minmax(80px, 140px) 90px minmax(120px, 160px) 72px;
@@ -1279,7 +1279,7 @@
   .am-runsbox { border: 1px solid var(--border); border-radius: 10px; background: #fff; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
   .am-foot { display: flex; gap: 10px; justify-content: flex-end; align-items: center; padding: 13px 24px; border-top: 1px solid var(--border-soft); flex: 0 0 auto; background: #fff; }
   .ff-save.blue { background: var(--wk-brand-primary); }
-  .ff-save.blue:hover { background: var(--accent-2); opacity: 1; }
+  .ff-save.blue:hover { background: var(--wk-brand-primary-hover); opacity: 1; }
   @media (max-width: 860px) {
     .am-body { flex-direction: column; overflow-y: auto; }
     .am-left { overflow: visible; padding: 16px; }
@@ -1448,10 +1448,10 @@
   .tl-reply-ta:focus { border-color: var(--accent); }
   .tl-reply-send {
     flex: 0 0 auto; height: 34px; padding: 0 14px; border-radius: 8px; border: none;
-    background: var(--accent, #2563eb); color: #fff; font-size: 12.5px; font-weight: 650;
-    cursor: pointer; transition: .15s;
+    background: var(--wk-brand-primary); color: var(--wk-text-on-brand); font-size: 12.5px; font-weight: 650;
+    cursor: pointer; transition: background var(--wk-dur-fast) var(--wk-ease);
   }
-  .tl-reply-send:hover { filter: brightness(.92); }
+  .tl-reply-send:hover { background: var(--wk-brand-primary-hover); }
   .tl-reply-send:disabled { opacity: .5; cursor: default; }
   .tl-reply-cancel {
     flex: 0 0 auto; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border);
@@ -1739,7 +1739,7 @@
   .ff-cancel { color: rgba(28,28,35,.68); border: 1px solid rgba(28,28,35,.12); background: #fff; transition: background .15s, transform .1s; }
   .ff-cancel:hover { background: var(--fill-2); }
   .ff-cancel:active { transform: scale(.97); }
-  .ff-save { color: #fff; background: #1c1c23; box-shadow: 0 1px 2px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.06); }
+  .ff-save { color: var(--wk-text-on-brand); background: var(--wk-brand-primary); box-shadow: 0 1px 2px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.06); }
   .ff-save:hover { opacity: .92; }
   .ff-save:active { transform: scale(.97); }
   .ff-save:disabled, .ff-danger:disabled { opacity: .5; cursor: default; }
@@ -7969,15 +7969,15 @@ function experiencePanelHTML(){
   var isCreator = isMe(m.creator_id);
   var body = "";
   if (row && row.status === "authorized"){
-    var content = row.content || "";
-    var truncated = content.length > 120;
-    var shown = truncated ? content.substring(0, 120) + "…" : content;
+    var content = cardFirstLine(row.content || "");
+    var truncated = content.length > 100;
+    var shown = truncated ? content.substring(0, 100) + "…" : content;
     body = '<div class="exp-status" style="color:var(--done)">✓ 已生效</div>'
       + '<div class="exp-content" id="expContent">' + mdInline(shown) + '</div>'
       + (row.scope_type ? '<div class="exp-meta">范围: ' + esc(expScopeLabel(row)) + (row.task_type ? ' · 类型: ' + esc(row.task_type) : '') + '</div>' : '')
       + (truncated ? '<button class="exp-toggle" id="expToggle" type="button" data-full="' + esc(content) + '" data-short="' + esc(shown) + '" data-expanded="0">▾ 展开全部</button>' : '');
   } else if (row && row.status === "draft" && isCreator){
-    var content = row.content || "";
+    var content = cardFirstLine(row.content || "");
     var truncated = content.length > 120;
     var shown = truncated ? content.substring(0, 120) + "…" : content;
     body = '<div class="exp-status" style="color:var(--amber-text)">● 待确认</div>'
@@ -8011,9 +8011,10 @@ function experiencePanelHTML(){
 function expScopeLabel(row){
   if (!row) return "";
   var t = row.scope_type || "";
+  if (t === "matter") return "当前回路";
   if (t === "project") return "项目";
   if (t === "global" || t === "space") return "普适";
-  return t || "普适";
+  return "普适";
 }
 /* ---- simple inline markdown renderer (no external deps) ---- */
 function isSafeHref(href){
