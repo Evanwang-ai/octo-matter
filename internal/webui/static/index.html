@@ -7891,57 +7891,23 @@ function preferencePanelHTML(){
   if (!cur || !cur.m) return "";
   var m = cur.m;
   var row = cur.summary;
-  var hints = (cur.prefHints && cur.prefHints.ok) ? listData(cur.prefHints.v) : [];
   var canDistill = isMe(m.creator_id) || (m.leader && isMe(m.leader));
-  var status = row && row.status ? row.status : "empty";
-  var title, sub, preview = "", actions = "";
-  if (!row){
-    title = hints.length ? "召回 " + hints.length + " 条偏好" : "暂无偏好记录";
-    sub = m.status === "done" ? "可以沉淀这次的经验" : "验收完成后可提炼偏好";
-  } else if (row.status === "authorized"){
-    title = "已生效";
-    sub = prefScopeLabel(m.id, row);
-    preview = prefPreview(row);
-  } else if (row.status === "draft"){
-    title = "草稿待确认";
-    sub = draftCount(row.content) + " 条待确认";
-    preview = prefPreview(row);
-    if (canDistill) actions = '<div style="display:flex;gap:8px;margin-top:8px"><button class="pref-act" id="prefAuthBtn" type="button" style="color:var(--done)">生效</button><button class="pref-act pref-act-warn" id="prefDiscardBtn" type="button">弃用</button></div>';
-  } else {
-    title = "已弃用";
-    sub = "";
-  }
+  var statusText = row
+    ? (row.status === "authorized" ? "偏好已生效" : row.status === "draft" ? "草稿待确认" : "已弃用")
+    : (m.status === "done" ? "可以沉淀这次的经验" : "暂无偏好记录");
+  var actions = "";
+  if (row && row.status === "draft" && canDistill)
+    actions = '<div style="display:flex;gap:8px;margin-top:8px"><button class="pref-act" id="prefAuthBtn" type="button" style="color:var(--done)">生效</button><button class="pref-act pref-act-warn" id="prefDiscardBtn" type="button">弃用</button></div>';
   var distillBtn = canDistill && !row && m.status === "done"
     ? '<button class="pref-open" id="prefPanelOpen" type="button">沉淀偏好</button>' : "";
   var viewBtn = row ? '<button class="pref-open" id="prefPanelOpen" type="button">查看详情</button>' : "";
-  var manageBtn = canDistill && row ? '<button class="pref-open" id="prefManageOpen" type="button" data-pref-bot="' + esc((row && row.target_bot_uid) || m.leader || "") + '">管理</button>' : "";
-  var body = '<div class="pref-inspector"><div class="pref-record ' + esc(status) + '">'
-    + '<div class="pref-record-top"><span class="pref-record-dot"></span><span class="pref-record-title">' + esc(title) + "</span></div>"
-    + '<div class="pref-record-sub">' + esc(sub) + "</div>"
-    + (row && row.status === "authorized" ? prefHealthHTML(row) : "")
-    + (preview ? '<div class="pref-preview">' + esc(preview) + "</div>" : "")
+  var manageBtn = '<button class="pref-open" id="prefManageOpen" type="button" data-pref-bot="' + esc((row && row.target_bot_uid) || m.leader || "") + '">管理</button>';
+  return '<section class="panel"><div class="panel-h" data-fold>'
+    + '<span class="chev">▾</span><span class="ph-title">Preference</span></div>'
+    + '<div class="panel-body"><div class="pref-inspector">'
+    + '<div class="pref-status" style="font-size:13px;color:var(--text-2);margin-bottom:8px">' + esc(statusText) + '</div>'
     + actions + distillBtn + viewBtn + manageBtn
-    + "</div>"
-    + hints.slice(0, 4).map(function(h){
-        var rule = prefRulePreview(h.content) || h.content || "";
-        var label = h.match_label || h.match || h.scope_type || "匹配";
-        return '<div class="pref-record hint">'
-          + '<div class="pref-record-top"><span class="pref-record-dot"></span><span class="pref-record-title">召回 · ' + esc(label) + "</span></div>"
-          + '<div class="pref-record-sub">' + esc(prefHintScoreText(h)) + "</div>"
-          + '<div class="pref-context">'
-          + '<div class="pref-context-row"><b>匹配</b>' + esc(prefHintReason(h)) + "</div>"
-          + '<div class="pref-context-row"><b>影响</b>' + esc(prefHintImpact(h, m.leader || "")) + "</div>"
-          + "</div>"
-          + (rule ? '<div class="pref-preview">' + esc(rule) + "</div>" : "")
-          + '<div class="pref-hint-actions">'
-          + '<button class="pref-mini good" type="button" data-pref-hint-action="hit" data-pref-summary="' + esc(h.summary_id || "") + '">有用</button>'
-          + '<button class="pref-mini warn" type="button" data-pref-hint-action="miss" data-pref-summary="' + esc(h.summary_id || "") + '">失准</button>'
-          + "</div></div>";
-      }).join("")
-    + "</div>";
-  return '<section class="panel">'
-    + '<div class="panel-h" data-fold><span class="chev">▾</span><span class="ph-title">Preference</span><span class="ph-count">(' + ((row ? 1 : 0) + hints.length) + ")</span></div>"
-    + '<div class="panel-body">' + body + "</div></section>";
+    + '</div></div></section>';
 }
 /* ---- simple inline markdown renderer (no external deps) ---- */
 function isSafeHref(href){
@@ -8245,11 +8211,6 @@ function bindInspector(){
       toast("已弃用"); render();
     }).catch(errToast);
   });
-  $$("[data-pref-hint-action]", $("#props")).forEach(function(btn){
-    btn.addEventListener("click", function(){
-      calibratePreferenceHint(btn.getAttribute("data-pref-summary"), btn.getAttribute("data-pref-hint-action"), btn);
-    });
-  });
   var srcSend = $("#srcSendBtn");
   if (srcSend) srcSend.addEventListener("click", function(){
     srcSend.disabled = true;
@@ -8479,29 +8440,6 @@ function prefPreview(row){
 function prefScopeTypeName(t){
   return ({ matter: "本回路", project: "当前项目", bot: "负责人", space: "空间", global: "通用" })[String(t || "").toLowerCase()] || "范围";
 }
-function prefHintScoreText(h){
-  var parts = ["信心 " + prefConfidence(h)];
-  parts.push("命中 " + Number((h && h.hit_count) || 0));
-  parts.push("失准 " + Number((h && h.miss_count) || 0));
-  if (h && h.last_applied_at) parts.push("最近 " + fmtShortDate(h.last_applied_at));
-  return parts.join(" · ");
-}
-function prefHintReason(h){
-  var label = (h && (h.match_label || h.match)) || "匹配";
-  var scope = (h && h.scope) || prefScopeTypeName(h && h.scope_type);
-  return label + (scope ? " · " + scope : "");
-}
-function prefHintImpact(h, targetBot){
-  var bot = uname(targetBot || "") || "当前负责人";
-  switch (String((h && (h.match || h.scope_type)) || "").toLowerCase()){
-    case "matter": return "只影响当前回路";
-    case "project": return "当前项目里交给 " + bot + " 的回路会召回";
-    case "bot": return "交给 " + bot + " 的回路会召回";
-    case "space": return "这个空间里交给 " + bot + " 的回路会召回";
-    case "global": return "这个空间里的通用协作会召回";
-    default: return "匹配到当前回路时召回";
-  }
-}
 function prefHealthHTML(row){
   var conf = prefConfidence(row);
   var cls = conf >= 70 ? " strong" : (conf < 45 ? " warn" : "");
@@ -8527,49 +8465,6 @@ function calibrateSummary(matterId, row, action, btn){
     })
     .catch(function(e){
       if (btn){ btn.disabled = false; btn.textContent = action === "hit" ? "这条有用" : "失准一次"; }
-      errToast(e);
-    });
-}
-function preferenceHintRow(json){
-  var r = json && (json.data || json);
-  return (r && r.summary_id) ? r : null;
-}
-function replacePreferenceHint(next){
-  if (!next || !cur || !cur.prefHints || !cur.prefHints.ok || !cur.prefHints.v) return false;
-  var rows = listData(cur.prefHints.v);
-  for (var i = 0; i < rows.length; i++){
-    if (rows[i] && rows[i].summary_id === next.summary_id){
-      rows[i] = next;
-      if (Array.isArray(cur.prefHints.v.data)) cur.prefHints.v.data[i] = next;
-      else if (Array.isArray(cur.prefHints.v)) cur.prefHints.v[i] = next;
-      return true;
-    }
-  }
-  return false;
-}
-function removePreferenceHint(summaryId){
-  if (!summaryId || !cur || !cur.prefHints || !cur.prefHints.ok || !cur.prefHints.v) return false;
-  var rows = listData(cur.prefHints.v);
-  var nextRows = rows.filter(function(r){ return !r || r.summary_id !== summaryId; });
-  if (nextRows.length === rows.length) return false;
-  if (Array.isArray(cur.prefHints.v.data)) cur.prefHints.v.data = nextRows;
-  else if (Array.isArray(cur.prefHints.v)) cur.prefHints.v = nextRows;
-  return true;
-}
-function calibratePreferenceHint(summaryId, action, btn){
-  if (!cur || !cur.id || !summaryId) return;
-  var old = btn ? btn.textContent : "";
-  if (btn){ btn.disabled = true; btn.textContent = action === "hit" ? "记录中…" : (action === "discard" ? "撤销中…" : (action === "scope_matter" ? "收窄中…" : "标记中…")); }
-  api("/matters/" + cur.id + "/preference-hints/" + summaryId, { method: "PUT", body: { action: action } })
-    .then(function(json){
-      var next = preferenceHintRow(json);
-      if (next && next.status === "discarded") removePreferenceHint(next.summary_id);
-      else if (next) replacePreferenceHint(next);
-      paintInspector();
-      toast(action === "hit" ? "已记录召回有用" : (action === "discard" ? "已撤销这条 Preference" : (action === "scope_matter" ? "已收窄到当前回路" : "已标记召回失准")));
-    })
-    .catch(function(e){
-      if (btn){ btn.disabled = false; btn.textContent = old || (action === "hit" ? "有用" : (action === "discard" ? "撤销" : (action === "scope_matter" ? "仅本回路" : "失准"))); }
       errToast(e);
     });
 }
