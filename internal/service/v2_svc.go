@@ -201,6 +201,9 @@ func validateModeConfig(m *model.Matter) error {
 		if len(cfg.Steps) < 2 {
 			return apperr.InvalidInput(i18n.KeyModeNeedsMultiAgent)
 		}
+	case model.ModeSplit:
+		// split does not require pre-configured mode_config;
+		// sub-matters are created at runtime by the leader.
 	case model.ModeSwarm:
 		var cfg struct {
 			Participants []string `json:"participants"`

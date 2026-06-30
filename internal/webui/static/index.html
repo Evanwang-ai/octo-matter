@@ -9226,7 +9226,8 @@ function buildNewMatterModal(opts){
     + '<div class="matter-field" id="fDl"><label>截止日期</label>'
     + '<div class="dl-box" id="nmDl" role="button" tabindex="0"></div></div>'
     + '<div class="matter-field"><label>协作模式</label><select class="matter-select" id="nmMode">' + modeOpts + '</select>'
-    + '<div id="nmModeWarn" class="f-warn" style="display:none;color:#c06030;font-size:12px;margin-top:4px"></div></div>'
+    + '<div id="nmModeWarn" class="f-warn" style="display:none;color:#c06030;font-size:12px;margin-top:4px"></div>'
+    + '<div id="nmModeConfig" style="display:none;margin-top:8px"></div></div>'
     + "</details>"
     + "</div></div>"
     + '<div class="modal-foot"><div class="matter-error" id="nmErr" style="margin-right:auto"></div>'
@@ -9266,11 +9267,46 @@ function buildNewMatterModal(opts){
   });
   var leaderPicker = bindMemberPicker($("#nmLeader"), leaderSt, { ph: "选择领队", single: true, ownedBotsOnly: true });
   var collabPicker = bindMemberPicker($("#nmCollab"), collabSt, { ph: "添加协作者", humansAndOwnBots: true });
-  var MULTI_AGENT_MODES = { critic: true, roundtable: true, swarm: true };
+  var MULTI_AGENT_MODES = { critic: true, roundtable: true, swarm: true, pipeline: true };
   var syncModeWarn = function(){
     var w = $("#nmModeWarn");
+    var mcfg = $("#nmModeConfig");
     if (!w) return;
     var md = ($("#nmMode") || {}).value || "";
+    if (mcfg){
+      if (md === "critic"){
+        mcfg.innerHTML = '<div style="font-size:12px;color:var(--text-3);margin-bottom:6px">Critic 模式：指定生成者和验证者</div>'
+          + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+          + '<div><label style="font-size:11px;color:var(--text-4)">生成者 (Generator)</label><select class="matter-select" id="nmCriticGen"><option value="">选择…</option></select></div>'
+          + '<div><label style="font-size:11px;color:var(--text-4)">验证者 (Verifier)</label><select class="matter-select" id="nmCriticVer"><option value="">选择…</option></select></div></div>'
+          + '<div style="margin-top:6px"><label style="font-size:11px;color:var(--text-4)">最大轮次</label><input type="number" class="matter-input" id="nmCriticRounds" value="3" min="1" max="10" style="width:80px"></div>';
+        mcfg.style.display = "block";
+        setTimeout(function(){
+          var allBots = [].concat(leaderSt.sel, collabSt.sel).filter(function(u){ return u && isBot(u); });
+          ["#nmCriticGen", "#nmCriticVer"].forEach(function(sel){
+            var el = $(sel); if (!el) return;
+            allBots.forEach(function(uid){ el.insertAdjacentHTML("beforeend", '<option value="' + esc(uid) + '">' + esc(uname(uid)) + '</option>'); });
+          });
+        }, 0);
+      } else if (md === "pipeline"){
+        mcfg.innerHTML = '<div style="font-size:12px;color:var(--text-3);margin-bottom:6px">Pipeline 模式：定义执行步骤（按顺序）</div>'
+          + '<div id="nmPipeSteps"></div>'
+          + '<button type="button" class="pref-act" id="nmPipeAdd" style="margin-top:4px">+ 添加步骤</button>';
+        mcfg.style.display = "block";
+        var stepN = 0;
+        var addStep = function(){
+          stepN++;
+          var allBots = [].concat(leaderSt.sel, collabSt.sel).filter(function(u){ return u && isBot(u); });
+          var opts = allBots.map(function(uid){ return '<option value="' + esc(uid) + '">' + esc(uname(uid)) + '</option>'; }).join("");
+          $("#nmPipeSteps").insertAdjacentHTML("beforeend", '<div style="display:flex;gap:8px;align-items:center;margin-bottom:4px"><span style="font-size:11px;color:var(--text-4);min-width:40px">步骤 ' + stepN + '</span><select class="matter-select nm-pipe-step"><option value="">选择…</option>' + opts + '</select></div>');
+        };
+        addStep(); addStep();
+        $("#nmPipeAdd").addEventListener("click", addStep);
+      } else {
+        mcfg.innerHTML = "";
+        mcfg.style.display = "none";
+      }
+    }
     if (!MULTI_AGENT_MODES[md]){ w.style.display = "none"; return; }
     var participants = new Set();
     if (leaderSt.sel.length) participants.add(leaderSt.sel[0]);
@@ -9362,6 +9398,19 @@ function buildNewMatterModal(opts){
     if (collabSt.sel.length) body.assignee_ids = collabSt.sel;
     var md = $("#nmMode").value;
     if (md) body.mode = md;
+    if (md === "critic"){
+      var gen = ($("#nmCriticGen") || {}).value || "";
+      var ver = ($("#nmCriticVer") || {}).value || "";
+      var rounds = parseInt(($("#nmCriticRounds") || {}).value || "3", 10) || 3;
+      if (gen && ver && gen !== ver) body.mode_config = JSON.stringify({ generator: gen, verifier: ver, max_rounds: rounds });
+    } else if (md === "pipeline"){
+      var steps = [];
+      $$(".nm-pipe-step").forEach(function(sel){ if (sel.value) steps.push({ assignee: sel.value }); });
+      if (steps.length >= 2) body.mode_config = JSON.stringify({ steps: steps });
+    } else if (md === "roundtable" || md === "swarm"){
+      var parts = [].concat(leaderSt.sel, collabSt.sel).filter(function(u){ return u && isBot(u); });
+      if (parts.length >= 2) body.mode_config = JSON.stringify({ participants: parts });
+    }
     var btn = asDraft ? $("#nmDraft") : $("#nmOk");
     btn.disabled = true; btn.textContent = fileSt.length ? "上传附件…" : (asDraft ? "保存中…" : "发送中…");
     var uploadP = fileSt.length
