@@ -2122,6 +2122,9 @@
   .pref-feedback:disabled { opacity: .55; cursor: default; }
   .pref-label { font-size: 11px; font-weight: 700; color: var(--text-3); letter-spacing: .3px; margin: 0 0 6px; display: flex; justify-content: space-between; align-items: center; }
   .pref-count { font-family: var(--mono); font-size: 11px; color: var(--text-3); font-weight: 500; }
+  .pref-scope-choice { display: flex; gap: 8px; }
+  .pref-scope-opt { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text-2); cursor: pointer; padding: 4px 0; }
+  .pref-scope-opt input { accent-color: var(--accent); }
   .pref-who { display: grid; gap: 5px; margin-bottom: 12px; }
   .pref-bot { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border-soft); border-radius: 9px; padding: 7px 10px; cursor: pointer; transition: .15s; font-size: 12.5px; color: var(--text); }
   .pref-bot:hover { border-color: var(--accent-border); }
@@ -8410,19 +8413,14 @@ function prefScopeChoiceLabel(scopeType, m){
   return "本回路";
 }
 function prefScopeSelectHTML(m, row){
-  var curType = (row && row.scope_type) || "matter";
+  var curType = (row && row.scope_type) || "global";
   var hasProject = !!(m && m.project_id);
-  if (curType === "project" && !hasProject) curType = "matter";
-  var opt = function(v, label, disabled){
-    return '<option value="' + v + '"' + (curType === v ? " selected" : "") + (disabled ? " disabled" : "") + ">" + esc(label) + "</option>";
-  };
-  return '<select class="matter-select" id="prefScopeType">'
-    + opt("matter", "本回路")
-    + opt("project", hasProject ? "当前项目" : "当前项目(无项目)", !hasProject)
-    + opt("bot", "这个 bot")
-    + opt("space", "整个空间")
-    + opt("global", "通用")
-    + "</select>";
+  if (curType === "project" && !hasProject) curType = "global";
+  if (curType === "matter" || curType === "bot" || curType === "space") curType = "global";
+  return '<div class="pref-scope-choice" id="prefScopeType" data-value="' + curType + '">'
+    + '<label class="pref-scope-opt' + (curType !== "project" ? " active" : "") + '"><input type="radio" name="prefScope" value="global"' + (curType !== "project" ? " checked" : "") + '> 通用</label>'
+    + '<label class="pref-scope-opt' + (curType === "project" ? " active" : "") + '"' + (hasProject ? "" : ' style="opacity:.4;pointer-events:none"') + '><input type="radio" name="prefScope" value="project"' + (curType === "project" ? " checked" : "") + (hasProject ? "" : " disabled") + '> 当前项目</label>'
+    + '</div>';
 }
 function prefEvidenceLabel(row){
   var entries = Array.isArray(row && row.evidence_entry_ids) ? row.evidence_entry_ids.length : 0;
@@ -8438,7 +8436,7 @@ function prefPreview(row){
   }).filter(Boolean).slice(0, 2).join(" / ");
 }
 function prefScopeTypeName(t){
-  return ({ matter: "本回路", project: "当前项目", bot: "负责人", space: "空间", global: "通用" })[String(t || "").toLowerCase()] || "范围";
+  return ({ project: "当前项目", global: "通用", matter: "通用", bot: "通用", space: "通用" })[String(t || "").toLowerCase()] || "通用";
 }
 function prefHealthHTML(row){
   var conf = prefConfidence(row);
@@ -8951,7 +8949,7 @@ function summaryEditStep(matterId, row){
   var x = $(".modal-x", mo);
   if (x) x.onclick = closeModal;
   var syncConfirm = function(){
-    var scopeType = $("#prefScopeType") ? $("#prefScopeType").value : ((row && row.scope_type) || "matter");
+    var scopeType = $("input[name=prefScope]:checked") ? $("input[name=prefScope]:checked").value : ((row && row.scope_type) || "matter");
     $("#prefConfirm").textContent = selBot
       ? "确认后授权给 " + uname(selBot) + " · " + prefScopeChoiceLabel(scopeType, m)
       : "";
@@ -8982,7 +8980,7 @@ function summaryEditStep(matterId, row){
     if (!selBot){ $("#smErr2").textContent = "得选一个写给谁"; return; }
     var btn = $("#smAuth");
     var edited = $("#smDraft").value;
-    var scopeType = $("#prefScopeType") ? $("#prefScopeType").value : "matter";
+    var scopeType = $("input[name=prefScope]:checked") ? $("input[name=prefScope]:checked").value : "matter";
     btn.disabled = true; btn.textContent = "授权中…";
     api("/matters/" + matterId + "/summary/" + row.id, {
       method: "PUT",
