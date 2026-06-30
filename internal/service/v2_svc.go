@@ -44,6 +44,8 @@ type V2Service struct {
 	cards          *repository.AgentCardRepo
 	prefCards      *repository.PreferenceCardRepo
 	botResources   botResourceStore
+	projMembers    *repository.ProjectMemberRepo
+	projBots       *repository.ProjectBotRepo
 	tx             *repository.TxManager
 	transition     *TransitionService
 	matterSvc      *MatterService
@@ -71,6 +73,8 @@ func NewV2Service(
 	cards *repository.AgentCardRepo,
 	prefCards *repository.PreferenceCardRepo,
 	botResources botResourceStore,
+	projMembers *repository.ProjectMemberRepo,
+	projBots *repository.ProjectBotRepo,
 	tx *repository.TxManager,
 	transition *TransitionService,
 	matterSvc *MatterService,
@@ -81,7 +85,7 @@ func NewV2Service(
 		projects: projects, projectSources: projectSources,
 		feedbacks: feedbacks, outbox: outbox, prefCards: prefCards,
 		summaries: summaries, activity: activity, cards: cards,
-		botResources: botResources, tx: tx,
+		botResources: botResources, projMembers: projMembers, projBots: projBots, tx: tx,
 		transition: transition, matterSvc: matterSvc, llm: llmCaller,
 	}
 }

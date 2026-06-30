@@ -157,6 +157,12 @@ func SetupRouter(
 			projects.GET("/:id/sources", v2H.ListProjectSources)
 			projects.POST("/:id/sources", v2H.AddProjectSource)
 			projects.DELETE("/:id/sources/:sid", v2H.DeleteProjectSource)
+			projects.GET("/:id/members", v2H.ListProjectMembers)
+			projects.POST("/:id/members", v2H.AddProjectMember)
+			projects.DELETE("/:id/members/:uid", v2H.RemoveProjectMember)
+			projects.GET("/:id/bots", v2H.ListProjectBots)
+			projects.POST("/:id/bots", v2H.AddProjectBot)
+			projects.DELETE("/:id/bots/:bot_uid", v2H.RemoveProjectBot)
 		}
 		// automation target picker: which conversations can this bot post into
 		api.GET("/bots/:uid/channels", matterH.BotChannels)

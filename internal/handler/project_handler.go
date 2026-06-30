@@ -289,3 +289,121 @@ func (h *V2Handler) DeleteProjectSource(c *gin.Context) {
 	}
 	ok(c, nil)
 }
+
+// ---------------------------------------------------------------------------
+// Project Members
+// ---------------------------------------------------------------------------
+
+func (h *V2Handler) ListProjectMembers(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	members, err := h.v2.ListProjectMembers(c.Request.Context(), id, spaceID(c), uid(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, gin.H{"data": members})
+}
+
+type addProjectMemberReq struct {
+	UserUID string `json:"user_uid" binding:"required,max=64"`
+}
+
+func (h *V2Handler) AddProjectMember(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if c.GetString("role") == "bot" {
+		failKey(c, http.StatusForbidden, "FORBIDDEN", i18n.KeyFeedbackUsersOnly, nil)
+		return
+	}
+	var req addProjectMemberReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	m, err := h.v2.AddProjectMember(c.Request.Context(), id, spaceID(c), uid(c), strings.TrimSpace(req.UserUID))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	created(c, m)
+}
+
+func (h *V2Handler) RemoveProjectMember(c *gin.Context) {
+	id := c.Param("id")
+	targetUID := c.Param("uid")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if err := h.v2.RemoveProjectMember(c.Request.Context(), id, spaceID(c), uid(c), targetUID); err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, nil)
+}
+
+// ---------------------------------------------------------------------------
+// Project Bots
+// ---------------------------------------------------------------------------
+
+func (h *V2Handler) ListProjectBots(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	bots, err := h.v2.ListProjectBots(c.Request.Context(), id, spaceID(c), uid(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, gin.H{"data": bots})
+}
+
+type addProjectBotReq struct {
+	BotUID string `json:"bot_uid" binding:"required,max=64"`
+}
+
+func (h *V2Handler) AddProjectBot(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if c.GetString("role") == "bot" {
+		failKey(c, http.StatusForbidden, "FORBIDDEN", i18n.KeyFeedbackUsersOnly, nil)
+		return
+	}
+	var req addProjectBotReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	b, err := h.v2.AddProjectBot(c.Request.Context(), id, spaceID(c), uid(c), strings.TrimSpace(req.BotUID), ownedBots(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	created(c, b)
+}
+
+func (h *V2Handler) RemoveProjectBot(c *gin.Context) {
+	id := c.Param("id")
+	botUID := c.Param("bot_uid")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if err := h.v2.RemoveProjectBot(c.Request.Context(), id, spaceID(c), uid(c), botUID); err != nil {
+		respondErr(c, err)
+		return
+	}
+	ok(c, nil)
+}
