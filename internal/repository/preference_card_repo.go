@@ -79,6 +79,23 @@ func (r *PreferenceCardRepo) ListByMatter(ctx context.Context, matterID, spaceID
 	return out, err
 }
 
+func (r *PreferenceCardRepo) ListBySpaceAndCreator(ctx context.Context, spaceID, creatorID, status string, limit int) ([]*model.PreferenceCard, error) {
+	q := r.runner.Select("*").From("preference_cards").
+		Where("space_id = ? AND creator_id = ?", spaceID, creatorID)
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	var out []*model.PreferenceCard
+	_, err := q.OrderBy("created_at DESC").Limit(uint64(limit)).LoadContext(ctx, &out)
+	if out == nil {
+		out = []*model.PreferenceCard{}
+	}
+	return out, err
+}
+
 func (r *PreferenceCardRepo) ListAuthorizedByCreator(ctx context.Context, spaceID, creatorID string, limit int) ([]*model.PreferenceCard, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50

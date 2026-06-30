@@ -64,7 +64,8 @@ func (h *PreferenceCardHandler) Create(c *gin.Context) {
 
 func (h *PreferenceCardHandler) List(c *gin.Context) {
 	status := c.Query("status")
-	cards, err := h.repo.ListBySpace(c.Request.Context(), spaceID(c), status, 100)
+	creatorID := uid(c)
+	cards, err := h.repo.ListBySpaceAndCreator(c.Request.Context(), spaceID(c), creatorID, status, 100)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL", "message": err.Error()}})
 		return
