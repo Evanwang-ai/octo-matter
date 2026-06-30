@@ -24,6 +24,7 @@ static/index.html:  单文件 SPA (~10480 行), 全部 JS/CSS 内联, 无构建�
 - 偏好卡: Preference 页独立 .cards-toolbar CSS; 行展开有 chevron 指示器; 搜索清空走内存缓存
 - 偏好面板: 从9条件5按钮简化为2条件(has data + can distill); stray检测和导入已删除
 - 蒸馏流程: openSummaryFlow从6分支简化为3步, 用ownedBotInfo查全空间bot(不限matter参与者)
+- 偏好隐形化: hint召回/信心/命中/失准/校准按钮全部从Inspector删除, 偏好默默注入不展示
 - 收件箱 detail: inboxDetailCache 按 matter ID 缓存已加载详情, 切换时即时展示
 - 已读/未读: localStorage readIds Set(上限 2000), .unread 蓝点+粗体, markRead() 在选中时触发
 - Tab 切换: paintMyInbox(my, preserveRight=true) 快路径只刷左侧列表, 右侧详情保留
