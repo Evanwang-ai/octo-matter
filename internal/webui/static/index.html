@@ -321,18 +321,23 @@
   .inbox-toolbar, .cards-toolbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; flex-wrap: wrap; }
   .batch-bar {
     position: sticky; top: 0; z-index: 10;
-    display: flex; align-items: center; gap: 10px; padding: 8px 14px;
-    background: var(--accent-tint); border: 1px solid var(--accent-border); border-radius: 10px;
+    display: flex; align-items: center; gap: var(--wk-sp-2); padding: var(--wk-sp-1-5) var(--wk-sp-3);
+    background: var(--accent-tint); border: 1px solid var(--accent-border); border-radius: var(--wk-r-md);
     margin-bottom: 10px; font-size: 13px; font-weight: 600; color: var(--text);
   }
-  .batch-bar .bb-count { color: var(--accent); font-weight: 700; }
+  .batch-bar .bb-count { color: var(--accent); font-weight: 700; white-space: nowrap; flex: 0 0 auto; }
+  .batch-bar select { flex: 0 1 220px; min-width: 0; }
   .batch-bar button {
-    min-height: 30px; padding: 0 12px; border: 1px solid var(--hairline); border-radius: 7px;
-    background: var(--surface-card); font: inherit; font-size: 12.5px; font-weight: 650;
-    color: var(--text-2); cursor: pointer; transition: .15s;
+    min-height: 30px; padding: 0 14px; border: 1px solid var(--hairline); border-radius: var(--wk-r-sm);
+    background: var(--surface-card); font: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--text-2); cursor: pointer; transition: all var(--wk-dur-fast) var(--wk-ease);
+    white-space: nowrap; flex: 0 0 auto;
   }
-  .batch-bar button:hover { background: #fff; border-color: var(--hairline-strong); color: var(--text); }
+  .batch-bar button:hover { background: var(--panel); border-color: var(--hairline-strong); color: var(--text); }
+  .my-batch-bar button:not(.bb-cancel) { background: var(--wk-brand-primary); border-color: transparent; color: var(--wk-text-on-brand); }
+  .my-batch-bar button:not(.bb-cancel):hover { background: var(--wk-brand-primary-hover); border-color: transparent; color: var(--wk-text-on-brand); }
   .batch-bar .bb-cancel { margin-left: auto; border: 0; background: transparent; color: var(--text-3); }
+  .batch-bar .bb-cancel:hover { background: var(--hover); border-color: transparent; color: var(--text-2); }
   .mrow .m-check-zone {
     position: absolute; left: 0; top: 0; bottom: 0; width: 44px;
     display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2;
@@ -349,17 +354,14 @@
     display: flex; align-items: center; justify-content: center;
     color: #fff; font-size: 11px; font-weight: 800;
   }
-  .mrow.is-checked { background: rgba(0,119,250,.05); }
+  .mrow.is-checked { background: var(--wk-bg-selected); }
   .priority-btn {
     width: 24px; height: 24px; flex: 0 0 24px; display: inline-flex; align-items: center; justify-content: center;
-    border: 1px solid transparent; border-radius: 6px; background: transparent;
-    color: var(--text-4); font: 800 11px/1 var(--mono); cursor: pointer; transition: .15s;
+    border: 1px solid transparent; border-radius: var(--wk-r-sm); background: transparent;
+    cursor: pointer; transition: background var(--wk-dur-fast) var(--wk-ease);
   }
-  .priority-btn:hover, .priority-btn.active { background: #fff; border-color: var(--hairline-strong); color: var(--text); }
-  .priority-btn.p1 { color: var(--block); }
-  .priority-btn.p2 { color: var(--amber); }
-  .priority-btn.p3 { color: var(--accent); }
-  .priority-btn.p4 { color: var(--done); }
+  .priority-btn:hover, .priority-btn.active { background: var(--hover); }
+  .priority-btn .pri-svg, .priority-option .po-mark .pri-svg { display: block; }
   .priority-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .priority-menu {
     position: fixed; z-index: 2000; min-width: 200px; padding: 6px;
@@ -429,11 +431,12 @@
   .mrow {
     position: relative; display: grid;
     grid-template-columns: 68px minmax(200px, 1fr) minmax(80px, 140px) 90px minmax(120px, 160px) 72px;
-    align-items: center; column-gap: 12px; min-height: 44px; padding: 8px 18px 8px 48px;
-    background: var(--panel); border: 0; border-bottom: 1px solid rgba(28,28,35,.065);
-    cursor: pointer; transition: background .12s; overflow: hidden;
+    align-items: center; column-gap: var(--wk-sp-3); min-height: 40px; padding: 6px 18px 6px 48px;
+    margin: 0 8px; border-radius: var(--wk-r-md);
+    background: var(--panel); border: 0;
+    cursor: pointer; transition: background var(--wk-dur-fast) var(--wk-ease); overflow: hidden;
   }
-  .mrow:hover { background: var(--surface-hover); }
+  .mrow:hover { background: var(--wk-brand-tint-06); }
   .mrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .mrow[data-status="cancelled"] { opacity: .6; }
   .mrow.dragging { opacity: .55; }
@@ -470,10 +473,10 @@
   }
   .mrow .m-codecol {
     display: inline-flex; align-items: center; justify-content: center;
-    min-width: 0; height: 24px; border-radius: 7px; background: transparent; border: 1px solid rgba(28,28,35,.085);
-    color: var(--text-3); font-family: var(--mono); font-size: 11.5px; font-weight: 700; white-space: nowrap;
+    min-width: 0; height: 24px; background: transparent; border: 0;
+    color: var(--text-4); font-family: var(--mono); font-size: 11px; font-weight: 500; white-space: nowrap;
   }
-  .mrow:hover .m-codecol { color: var(--text-2); border-color: rgba(28,28,35,.16); background: #fff; }
+  .mrow:hover .m-codecol { color: var(--text-3); }
   .mrow .m-assignee {
     min-width: 0; display: inline-flex; align-items: center; gap: 5px;
     font-size: 12px; font-weight: 550; color: var(--text-2); overflow: hidden;
@@ -582,11 +585,11 @@
   .mm-pill.active { background: var(--accent-tint); color: var(--accent); border-color: var(--accent-border); }
   .matter-group { border-bottom: 1px solid var(--hairline-soft); }
   .matter-group-head {
-    width: 100%; min-height: 42px; display: flex; align-items: center; gap: 8px;
-    border: 0; border-radius: 10px; background: var(--fill-1); color: var(--text);
-    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; padding: 0 14px; margin: 6px 0;
+    width: 100%; min-height: 32px; display: flex; align-items: center; gap: 8px;
+    border: 0; border-radius: var(--wk-r-sm); background: transparent; color: var(--text-2);
+    font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; padding: 0 14px; margin: 8px 0 2px;
   }
-  .matter-group-head:hover { background: var(--fill-2); }
+  .matter-group-head:hover { background: var(--wk-brand-tint-04); }
   .mg-caret { color: var(--text-3); width: 14px; text-align: center; }
   .mg-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 18px; }
   .mg-icon svg { width: 18px; height: 18px; display: block; }
@@ -1275,7 +1278,7 @@
   .am-advhint { margin-top: 2px; color: var(--text-4); font-size: 11.5px; line-height: 1.45; }
   .am-runsbox { border: 1px solid var(--border); border-radius: 10px; background: #fff; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
   .am-foot { display: flex; gap: 10px; justify-content: flex-end; align-items: center; padding: 13px 24px; border-top: 1px solid var(--border-soft); flex: 0 0 auto; background: #fff; }
-  .ff-save.blue { background: var(--accent); }
+  .ff-save.blue { background: var(--wk-brand-primary); }
   .ff-save.blue:hover { background: var(--accent-2); opacity: 1; }
   @media (max-width: 860px) {
     .am-body { flex-direction: column; overflow-y: auto; }
@@ -1571,9 +1574,9 @@
   .composer-input::placeholder { color: var(--text-3); }
   .composer-send {
     flex: 0 0 auto; min-height: 28px; padding: 0 14px; border: 0; border-radius: 7px;
-    background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s;
+    background: var(--wk-brand-primary); color: var(--wk-text-on-brand); font-size: 13px; font-weight: 600; cursor: pointer; transition: background var(--wk-dur-fast) var(--wk-ease);
   }
-  .composer-send:hover { background: var(--accent-2); }
+  .composer-send:hover { background: var(--wk-brand-primary-hover); }
   .composer-send:active { transform: scale(.97); }
   .composer-send:disabled { opacity: .6; cursor: default; }
 
@@ -2001,8 +2004,8 @@
     font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-2); cursor: pointer; transition: .15s;
   }
   .ac-btn:hover { background: var(--fill-2); }
-  .ac-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .ac-btn.primary:hover { background: var(--accent-2); }
+  .ac-btn.primary { background: var(--wk-brand-primary); border-color: transparent; color: var(--wk-text-on-brand); }
+  .ac-btn.primary:hover { background: var(--wk-brand-primary-hover); }
   .ac-tagline { font-size: 14px; font-weight: 600; margin: 4px 0 6px; }
   .ac-desc { font-size: 12.5px; color: rgba(28,28,35,.72); line-height: 1.6; margin-bottom: 8px; }
   .ac-perm {
@@ -2997,10 +3000,24 @@ function priorityRank(m){
   var p = priorityValue(m);
   return p === 0 ? 5 : p;
 }
+function priIconSVG(p){
+  // Linear-style priority icon. urgent=amber !-square; else 3 ascending bars (dark count by level)
+  if (p === 1) {
+    return '<svg class="pri-svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">'
+      + '<rect x="1.5" y="1.5" width="13" height="13" rx="3.5" style="fill:var(--wk-color-warning)"/>'
+      + '<rect x="7.1" y="4" width="1.8" height="5" rx="0.9" style="fill:var(--wk-text-on-brand)"/>'
+      + '<rect x="7.1" y="10.4" width="1.8" height="1.8" rx="0.9" style="fill:var(--wk-text-on-brand)"/></svg>';
+  }
+  var on = p === 2 ? 3 : p === 3 ? 2 : p === 4 ? 1 : 0; // High/Medium/Low/None
+  var bars = [[2, 5], [6.5, 8.5], [11, 12]].map(function(b, i){
+    return '<rect x="' + b[0] + '" y="' + (13 - b[1]) + '" width="3" height="' + b[1] + '" rx="1" style="fill:' + (i < on ? 'var(--text-1)' : 'var(--text-5)') + '"/>';
+  }).join("");
+  return '<svg class="pri-svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">' + bars + '</svg>';
+}
 function priorityButtonHTML(m){
   var p = priorityValue(m);
   var meta = PRIORITY[p] || PRIORITY[0];
-  return '<button type="button" class="priority-btn ' + meta.cls + '" data-priority-id="' + esc(m.id) + '" title="' + esc(meta.label) + '" aria-label="Priority: ' + esc(meta.label) + '">' + esc(meta.mark) + "</button>";
+  return '<button type="button" class="priority-btn ' + meta.cls + '" data-priority-id="' + esc(m.id) + '" title="' + esc(meta.label) + '" aria-label="Priority: ' + esc(meta.label) + '">' + priIconSVG(p) + "</button>";
 }
 function closePriorityMenu(){
   var pop = $("#priorityMenu");
@@ -3017,7 +3034,7 @@ function openPriorityMenu(anchor, currentPriority, onSelect){
     + PRIORITY_VALUES.map(function(p){
       var meta = PRIORITY[p];
       return '<button type="button" class="priority-option ' + meta.cls + '" data-priority-value="' + p + '">'
-        + '<span class="po-mark">' + esc(meta.mark) + '</span><span>' + esc(meta.label) + '</span><span class="po-check">' + (p === currentPriority ? "✓" : "") + "</span></button>";
+        + '<span class="po-mark">' + priIconSVG(p) + '</span><span>' + esc(meta.label) + '</span><span class="po-check">' + (p === currentPriority ? "✓" : "") + "</span></button>";
     }).join("");
   document.body.appendChild(pop);
   var r = anchor.getBoundingClientRect();
@@ -5639,8 +5656,46 @@ function openProjectModal(p){
 }
 
 /* ---- 项目详情:回路 / 上下文 两个 tab ---- */
-var projState = null; // { id, project, rows, page, sources, srcErr, tab, adding }
+var projState = null; // { id, project, rows, page, sources, srcErr, tab, adding, members, bots }
 var projViewSpec = null;
+function projectMembersHTML(st){
+  if (!st || !st.project) return "";
+  var ms = st.members || [];
+  var bs = st.bots || [];
+  var isCreator = st.project && isMe(st.project.creator_id);
+  var html = '<div class="proj-members" style="margin:8px 0 12px;border:1px solid var(--border-soft);border-radius:8px;padding:10px 12px">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:12px;font-weight:700;color:var(--text-2)">成员 (' + ms.length + ')</span>'
+    + '<button class="pref-open" id="projAddMember" type="button" style="font-size:11px">+ 加人</button></div>';
+  if (ms.length){
+    html += '<div style="display:grid;gap:4px">';
+    ms.forEach(function(m){
+      var canRemove = m.role !== "creator" && (isCreator || isMe(m.user_uid));
+      html += '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text)">'
+        + av(m.user_uid, "mav-sm") + '<span>' + esc(uname(m.user_uid) || m.user_uid) + '</span>'
+        + (m.role === "creator" ? '<span style="font-size:10px;color:var(--text-3)">(创建者)</span>' : '')
+        + (canRemove ? '<button class="pmr-open proj-rm-member" data-rm-uid="' + esc(m.user_uid) + '" style="margin-left:auto;font-size:10px">移除</button>' : '')
+        + '</div>';
+    });
+    html += '</div>';
+  }
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0 4px"><span style="font-size:12px;font-weight:700;color:var(--text-2)">可调度 Bot (' + bs.length + ')</span>'
+    + '<button class="pref-open" id="projAddBot" type="button" style="font-size:11px">+ 加 Bot</button></div>';
+  if (bs.length){
+    html += '<div style="display:grid;gap:4px">';
+    bs.forEach(function(b){
+      var canRemove = isMe(b.owner_uid);
+      html += '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text)">'
+        + av(b.bot_uid, "mav-sm") + '<span>' + esc(uname(b.bot_uid) || b.bot_uid) + '</span>'
+        + '<span class="ai-tag">AI</span>'
+        + '<span style="font-size:10px;color:var(--text-3)">(' + esc(uname(b.owner_uid) || "?") + ')</span>'
+        + (canRemove ? '<button class="pmr-open proj-rm-bot" data-rm-bot="' + esc(b.bot_uid) + '" style="margin-left:auto;font-size:10px">移除</button>' : '')
+        + '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
 function renderProjectDetail(my, id){
   setNav("projects");
   hideInspector();
@@ -5652,7 +5707,9 @@ function renderProjectDetail(my, id){
     getProjects().catch(function(){ return []; }),
     loadMembers().catch(function(){ return []; }),
     api("/matters", { params: { project_id: id, limit: 50 } }),
-    settle(api("/projects/" + id + "/sources"))
+    settle(api("/projects/" + id + "/sources")),
+    settle(api("/projects/" + id + "/members")),
+    settle(api("/projects/" + id + "/bots"))
   ]).then(function(res){
     if (my !== renderToken) return;
     var p = projById(id);
@@ -5662,6 +5719,8 @@ function renderProjectDetail(my, id){
       rows: listData(res[2]).map(normMatter), page: pageInfo(res[2]),
       sources: res[3].ok ? listData(res[3].v) : null,
       srcErr: res[3].ok ? null : res[3].e,
+      members: res[4].ok ? listData(res[4].v) : [],
+      bots: res[5].ok ? listData(res[5].v) : [],
       tab: keepTab, adding: false, sourceKind: "link", sourceFile: null
     };
     paintProjectDetail(my);
@@ -5857,6 +5916,7 @@ function paintProjectDetail(my){
     + (p ? '<button class="pc-more" id="projMoreBtn" type="button" aria-label="项目操作" title="分享 / 重命名 / 归档">⋯</button>' : "")
     + "</div></div>"
     + '<div class="list-sub">' + rows.length + " 个回路 · " + scopeLabel(p) + (p && p.archived ? " · 已归档" : "") + "</div>"
+    + projectMembersHTML(st)
     + body
     + "</div></div>";
   // Restore board scroll position
@@ -6287,6 +6347,71 @@ function paintProjectDetail(my){
       setTimeout(function(){ document.addEventListener("click", closeCtxMenu, { once: true }); }, 0);
     }, true);
   }
+  var addMemberBtn = $("#projAddMember");
+  if (addMemberBtn) addMemberBtn.addEventListener("click", function(){
+    var existing = (st.members || []).map(function(m){ return m.user_uid; });
+    var humans = members.list.filter(function(m){ return m && !m.robot && m.uid && existing.indexOf(m.uid) < 0; });
+    if (!humans.length){ toast("没有可添加的成员"); return; }
+    var mo = $("#modal");
+    mo.className = "modal";
+    mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">添加项目成员</div></div><button class="modal-x" type="button">×</button></div>'
+      + '<div class="modal-body"><div class="pref-who">' + humans.map(function(h){
+        return '<div class="pref-bot" data-add-uid="' + esc(h.uid) + '" tabindex="0">' + av(h.uid) + '<span class="nm">' + esc(h.name || h.uid) + '</span></div>';
+      }).join("") + '</div></div>';
+    openModal();
+    $(".modal-x", mo).onclick = closeModal;
+    $$("[data-add-uid]", mo).forEach(function(el){
+      el.addEventListener("click", function(){
+        var uid = el.getAttribute("data-add-uid");
+        api("/projects/" + st.id + "/members", { method: "POST", body: { user_uid: uid } }).then(function(){
+          closeModal(); toast("已添加"); renderProjectDetail(my, st.id);
+        }).catch(errToast);
+      });
+    });
+  });
+  var addBotBtn = $("#projAddBot");
+  if (addBotBtn) addBotBtn.addEventListener("click", function(){
+    var ob = ownedBotInfo();
+    var existing = (st.bots || []).map(function(b){ return b.bot_uid; });
+    var myBots = members.list.filter(function(m){ return m && m.robot && m.uid && ob.owned && ob.owned[m.uid] && existing.indexOf(m.uid) < 0; });
+    if (!myBots.length){ toast("没有可添加的 Bot"); return; }
+    var mo = $("#modal");
+    mo.className = "modal";
+    mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">添加项目 Bot</div></div><button class="modal-x" type="button">×</button></div>'
+      + '<div class="modal-body"><div class="pref-who">' + myBots.map(function(b){
+        return '<div class="pref-bot" data-add-bot="' + esc(b.uid) + '" tabindex="0">' + av(b.uid) + '<span class="nm">' + esc(b.name || b.uid) + '</span><span class="ai-tag">AI</span></div>';
+      }).join("") + '</div></div>';
+    openModal();
+    $(".modal-x", mo).onclick = closeModal;
+    $$("[data-add-bot]", mo).forEach(function(el){
+      el.addEventListener("click", function(){
+        var botUid = el.getAttribute("data-add-bot");
+        api("/projects/" + st.id + "/bots", { method: "POST", body: { bot_uid: botUid } }).then(function(){
+          closeModal(); toast("已添加"); renderProjectDetail(my, st.id);
+        }).catch(errToast);
+      });
+    });
+  });
+  $$(".proj-rm-member").forEach(function(btn){
+    btn.addEventListener("click", function(e){
+      e.stopPropagation();
+      var uid = btn.getAttribute("data-rm-uid");
+      if (!confirm("确定移除 " + (uname(uid) || uid) + "？")) return;
+      api("/projects/" + st.id + "/members/" + encodeURIComponent(uid), { method: "DELETE" }).then(function(){
+        toast("已移除"); renderProjectDetail(my, st.id);
+      }).catch(errToast);
+    });
+  });
+  $$(".proj-rm-bot").forEach(function(btn){
+    btn.addEventListener("click", function(e){
+      e.stopPropagation();
+      var botUid = btn.getAttribute("data-rm-bot");
+      if (!confirm("确定移除 " + (uname(botUid) || botUid) + "？")) return;
+      api("/projects/" + st.id + "/bots/" + encodeURIComponent(botUid), { method: "DELETE" }).then(function(){
+        toast("已移除"); renderProjectDetail(my, st.id);
+      }).catch(errToast);
+    });
+  });
 }
 
 /* ================= AUTOMATION ================= */
