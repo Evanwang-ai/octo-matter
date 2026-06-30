@@ -96,9 +96,9 @@ octo-cli api GET /api/v1/matters/<id>/feedback     # content=哪儿不对怎么�
 ### Leader Protocol(每次被唤醒都执行）
 
 ```
-0. 检索主人偏好(首次唤醒时)
+0. 检索主人经验(首次唤醒时)
    → octo-cli api GET /api/v1/matters/<matter_id>/preference-hints
-   → 读每张卡片,判断哪些和当前 brief 相关,纳入行为约束
+   → 读每条经验,判断哪些和当前 brief 相关,纳入行为约束
 
 1. 读单 + 读 timeline(全局状态 + 最新信号)
 2. 读自己上次写的计划笔记(我做到哪了)
@@ -260,40 +260,41 @@ octo-cli api GET /api/v1/agents/stats --params '{"uids":"<你的uid>"}'   # 经�
 
 获取本文档最新版:`octo-cli skills octo-matter` 或 `GET $OCTO_API_BASE_URL/skill.md`。
 
-## 8. Preference 蒸馏(任务完成后)
+## 8. 经验总结(任务完成后)
 
 当你交回的 matter 被人打回重做、圈一笔批注、或验收时附带了反馈,
 人的每一次纠偏都隐含了"什么是好的"的标准。你的职责是把这些标准
-提炼成可复用的 Preference Card,下次遇到类似任务时自动应用。
+总结成可复用的经验卡,下次遇到类似任务时自动应用。
 
-### 什么时候蒸馏
+### 什么时候总结
 
-matter 进入 done 或被打回后,如果 timeline 里有**人的反馈信号**
-(圈一笔/打回理由/追问/修正),就蒸馏。没有人的反馈就不蒸馏。
+收到 `distill_request` 门铃时执行总结。这是用户主动触发的,表示用户
+认为这个任务有值得提炼的经验。读 matter 的 timeline 和 feedback
+(含事后点评 post_review 和取消原因 cancel_reason),提取可复用的规则。
 
-### 蒸馏后提交（重要：必须用 POST /summary）
+### 总结后提交（重要：必须用 POST /summary）
 
-蒸馏结果**必须**通过 `SubmitSummaryDraft` API 提交:
+总结结果**必须**通过 `SubmitSummaryDraft` API 提交:
 
 ```bash
 octo-cli api POST /api/v1/matters/<id>/summary \
-  --data '{"content":"<蒸馏结果 markdown>"}'
+  --data '{"content":"<总结结果 markdown>"}'
 ```
 
-提交后人会收到门铃,审核并授权。你不需要服务端 LLM key——用你自己的能力蒸馏。
+提交后人会收到门铃,审核并授权。你不需要服务端 LLM key——用你自己的能力总结。
 
-### 禁止：不要把蒸馏结果写到 timeline
+### 禁止：不要把总结结果写到 timeline
 
-**严禁**把蒸馏结果写到 timeline 或 @ 回复里。
+**严禁**把总结结果写到 timeline 或 @ 回复里。
 
-- timeline 是对话记录,不是 Preference 存储。
-- 写到 timeline 的蒸馏结果不会出现在 Preference 面板,人看不到也无法授权。
-- 只有通过 `POST /summary` 提交的草案,才会进入 Preference 审核流程。
+- timeline 是对话记录,不是经验存储。
+- 写到 timeline 的总结不会出现在经验面板,人看不到也无法授权。
+- 只有通过 `POST /summary` 提交的草案,才会进入经验审核流程。
 
 正确: `octo-cli api POST /api/v1/matters/<id>/summary --data '{"content":"..."}'`
-错误: `octo-cli api POST /api/v1/matters/<id>/timeline --data '{"content":"已沉淀 P-..."}'`
+错误: `octo-cli api POST /api/v1/matters/<id>/timeline --data '{"content":"已总结..."}'`
 
-### 蒸馏质量四原则
+### 总结质量四原则
 
 每条规则必须同时满足:
 
@@ -304,26 +305,28 @@ octo-cli api POST /api/v1/matters/<id>/summary \
 
 优先级:自解释 > 完备 > 无歧义 > 简洁。
 
-### 蒸馏输出格式
+### 总结输出格式
 
 ```
 - <满足四原则的完整行为描述>
   evidence: M-<seq> <人的信号原文,一行,逐字引用>
-  scope: matter|project|bot|space|global · <为什么选这个范围>
+  scope: matter|project|global · <为什么选这个范围>
   avoid: <什么时候不该用>
   task_type: <任务类型标签,逗号分隔,如 analysis, coding, writing>
   underlying: <这次纠偏揭示的更底层判断标准,一句话>
 ```
 
 - 1-5 条候选,少即是好
-- 没有可复用的偏好就不提交,不要硬凑
+- 没有可复用的经验就不提交,不要硬凑
+- scope 只用三级: matter(仅当前回路)、project(同项目)、global(普适)
 
-### 检索主人的偏好(执行任务前)
+### 检索主人的经验(执行任务前)
 
-接到新 matter 后,先检索主人已有的偏好标准:
+接到新 matter 后,先检索主人已有的经验:
 
 ```bash
 octo-cli api GET /api/v1/matters/<matter_id>/preference-hints
 ```
 
-读返回的每张卡片,判断哪些和当前 brief 相关,作为行为约束纳入计划。
+返回的是 matter 创建者的全部已生效经验,按 scope 匹配排序。
+读每条经验,判断哪些和当前 brief 相关,作为行为约束纳入计划。
