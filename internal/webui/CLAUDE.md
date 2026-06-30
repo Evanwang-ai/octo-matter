@@ -6,7 +6,7 @@
 ## 成员清单
 
 webui.go:           //go:embed static 指令, FS() 返回 fs.FS 供 router 挂载
-static/index.html:  单文件 SPA (~10580 行), 全部 JS/CSS 内联, 无构建工具
+static/index.html:  单文件 SPA (~10480 行), 全部 JS/CSS 内联, 无构建工具
 
 ## UI 架构
 
