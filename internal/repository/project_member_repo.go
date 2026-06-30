@@ -2,9 +2,10 @@ package repository
 
 /**
  * [INPUT]: depends on model.ProjectMember, model.ProjectBot, model.ProjectRoleCreator,
- *          model.ProjectRoleMember, gocraft/dbr, google/uuid, apperr
- * [OUTPUT]: provides ProjectMemberRepo, ProjectBotRepo
- * [POS]: project-level membership CRUD, parallel to bot_resource_repo (per-matter)
+ *          model.ProjectRoleMember, gocraft/dbr, google/uuid, apperr, isDuplicateKeyErr
+ * [OUTPUT]: provides ProjectMemberRepo, NewProjectMemberRepo, ProjectBotRepo, NewProjectBotRepo
+ * [POS]: project-level membership CRUD, parallel to bot_resource_repo (per-matter).
+ *        Space scoping is enforced via project_id FK to matter_projects (which has space_id).
  * [PROTOCOL]: update this header on change, then check CLAUDE.md
  */
 
@@ -18,6 +19,10 @@ import (
 	"github.com/gocraft/dbr/v2"
 	"github.com/google/uuid"
 )
+
+// ---------------------------------------------------------------------------
+// Project Members
+// ---------------------------------------------------------------------------
 
 type ProjectMemberRepo struct{ runner dbr.SessionRunner }
 
@@ -34,17 +39,24 @@ func (r *ProjectMemberRepo) Add(ctx context.Context, m *model.ProjectMember) err
 	_, err := r.runner.InsertInto("project_members").
 		Columns("id", "project_id", "user_uid", "role", "added_by", "created_at").
 		Record(m).ExecContext(ctx)
-	if err != nil && isDuplicateEntry(err) {
+	if isDuplicateKeyErr(err) {
 		return apperr.Conflict("MEMBER_ALREADY_ADDED", "err.project.member_already_added")
 	}
 	return err
 }
 
 func (r *ProjectMemberRepo) Remove(ctx context.Context, projectID, userUID string) error {
-	_, err := r.runner.DeleteFrom("project_members").
+	result, err := r.runner.DeleteFrom("project_members").
 		Where("project_id = ? AND user_uid = ?", projectID, userUID).
 		ExecContext(ctx)
-	return err
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return apperr.MatterNotFound()
+	}
+	return nil
 }
 
 func (r *ProjectMemberRepo) List(ctx context.Context, projectID string) ([]*model.ProjectMember, error) {
@@ -90,6 +102,8 @@ func (r *ProjectMemberRepo) UserUIDs(ctx context.Context, projectID string) ([]s
 }
 
 // ---------------------------------------------------------------------------
+// Project Bots
+// ---------------------------------------------------------------------------
 
 type ProjectBotRepo struct{ runner dbr.SessionRunner }
 
@@ -103,17 +117,24 @@ func (r *ProjectBotRepo) Add(ctx context.Context, b *model.ProjectBot) error {
 	_, err := r.runner.InsertInto("project_bots").
 		Columns("id", "project_id", "bot_uid", "owner_uid", "created_at").
 		Record(b).ExecContext(ctx)
-	if err != nil && isDuplicateEntry(err) {
+	if isDuplicateKeyErr(err) {
 		return apperr.Conflict("BOT_ALREADY_ADDED", "err.project.bot_already_added")
 	}
 	return err
 }
 
 func (r *ProjectBotRepo) Remove(ctx context.Context, projectID, botUID string) error {
-	_, err := r.runner.DeleteFrom("project_bots").
+	result, err := r.runner.DeleteFrom("project_bots").
 		Where("project_id = ? AND bot_uid = ?", projectID, botUID).
 		ExecContext(ctx)
-	return err
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return apperr.MatterNotFound()
+	}
+	return nil
 }
 
 func (r *ProjectBotRepo) List(ctx context.Context, projectID string) ([]*model.ProjectBot, error) {
@@ -148,26 +169,4 @@ func (r *ProjectBotRepo) GetByBotUID(ctx context.Context, projectID, botUID stri
 		return nil, err
 	}
 	return &b, nil
-}
-
-func isDuplicateEntry(err error) bool {
-	return err != nil && (errors.Is(err, dbr.ErrNotSupported) ||
-		containsDuplicateMsg(err.Error()))
-}
-
-func containsDuplicateMsg(msg string) bool {
-	return len(msg) > 0 && (contains(msg, "Duplicate entry") || contains(msg, "UNIQUE constraint"))
-}
-
-func contains(s, sub string) bool {
-	return len(s) >= len(sub) && searchStr(s, sub)
-}
-
-func searchStr(s, sub string) bool {
-	for i := 0; i <= len(s)-len(sub); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }
