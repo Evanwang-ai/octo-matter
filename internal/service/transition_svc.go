@@ -458,6 +458,16 @@ func (s *TransitionService) route(ctx context.Context, r *repository.TxRepos, m,
 			} else {
 				eff.doorbells = append(eff.doorbells, s.leaderBell(parent, params))
 			}
+			// max_rounds enforcement: count review submissions from children
+			if maxR := criticMaxRounds(parent); maxR > 0 {
+				reviewCount, _ := r.Activity.CountByMatterAndAction(ctx, parent.ID, "status_changed_review")
+				if reviewCount >= maxR {
+					eff.doorbells = append(eff.doorbells, doorbell{
+						target: parent.CreatorID, event: DoorbellHandedBack,
+						messageKey: i18n.KeyDoorbellHandedBack, params: params,
+					})
+				}
+			}
 		default:
 			// split / swarm / roundtable / unset: 子交回只 @ 父 Leader (互盲)
 			eff.doorbells = append(eff.doorbells, s.leaderBell(parent, params))
@@ -547,6 +557,17 @@ func (s *TransitionService) leaderBell(parent *model.Matter, params map[string]a
 		target: target, event: DoorbellChildHandedBack,
 		messageKey: i18n.KeyDoorbellChildHandedBack, params: params,
 	}
+}
+
+func criticMaxRounds(parent *model.Matter) int {
+	if parent == nil || parent.ModeConfig == nil || *parent.ModeConfig == "" {
+		return 10 // default cap
+	}
+	var cfg struct{ MaxRounds int `json:"max_rounds"` }
+	if json.Unmarshal([]byte(*parent.ModeConfig), &cfg) != nil || cfg.MaxRounds <= 0 {
+		return 10
+	}
+	return cfg.MaxRounds
 }
 
 // nextSibling returns the sibling with the next step_order after m (pipeline /

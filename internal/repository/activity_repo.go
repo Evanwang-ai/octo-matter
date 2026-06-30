@@ -93,6 +93,20 @@ func (r *ActivityRepo) ListByMatter(ctx context.Context, matterID string, cursor
 }
 
 // ListAllByMatter returns activities for a matter in chronological order
+func (r *ActivityRepo) CountByMatterAndAction(ctx context.Context, parentMatterID, action string) (int, error) {
+	var count int
+	err := r.runner.Select("COUNT(*)").
+		From("matter_activities").
+		Where("matter_id IN (SELECT id FROM matters WHERE parent_matter_id = ?)", parentMatterID).
+		Where("action = ?", "status_changed").
+		Where("detail LIKE ?", "%"+action+"%").
+		LoadOneContext(ctx, &count)
+	if err != nil && !errors.Is(err, dbr.ErrNotFound) {
+		return 0, err
+	}
+	return count, nil
+}
+
 // (oldest first), up to `limit` rows. Used by the iterations API which needs
 // to walk the full status-change history without cursor pagination.
 func (r *ActivityRepo) ListAllByMatter(ctx context.Context, matterID string, limit int) ([]*model.MatterActivity, error) {
