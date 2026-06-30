@@ -117,7 +117,7 @@ func (h *V2Handler) MatterContext(c *gin.Context) {
 		respondErr(c, err)
 		return
 	}
-	hints, hintsErr := h.v2.PreferenceHints(ctx, id, spaceID(c), relatedUIDs(c), callerToken(c), 5)
+	hints, hintsErr := h.v2.ExperienceForTaskChecked(ctx, id, spaceID(c), relatedUIDs(c), callerToken(c))
 	summary, summaryErr := h.v2.LatestSummary(ctx, id, spaceID(c), relatedUIDs(c), callerToken(c))
 	feedbackCount, _ := h.v2.FeedbackCount(ctx, id)
 	ok(c, gin.H{
@@ -164,8 +164,7 @@ func (h *V2Handler) PreferenceHints(c *gin.Context) {
 		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
 		return
 	}
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
-	res, err := h.v2.PreferenceHints(c.Request.Context(), id, spaceID(c), relatedUIDs(c), callerToken(c), limit)
+	res, err := h.v2.ExperienceForTaskChecked(c.Request.Context(), id, spaceID(c), relatedUIDs(c), callerToken(c))
 	if err != nil {
 		respondErr(c, err)
 		return

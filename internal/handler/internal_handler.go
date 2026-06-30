@@ -301,7 +301,7 @@ func (h *InternalHandler) ClaimBotTasks(c *gin.Context) {
 					projectContext = projectCtx.Context
 				}
 			}
-			hints, err := h.v2.PreferenceHintsForBotTask(c.Request.Context(), t.MatterID, t.SpaceID, t.BotUID, 5)
+			hints, err := h.v2.ExperienceForTask(c.Request.Context(), t.MatterID, t.SpaceID)
 			if err != nil {
 				log.Printf("[WARN] bot-task preference context skipped task=%d matter=%s bot=%s: %v", t.ID, t.MatterID, t.BotUID, err)
 			} else {

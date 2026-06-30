@@ -5,7 +5,8 @@ package service
  *          repository.ActivityRepo, model.MatterSummary, model.Matter, model.SummaryAuthorized,
  *          model.SummaryDiscarded, apperr, i18n
  * [OUTPUT]: provides PreferenceHint, PreferenceHintsResult, PreferenceRecord, PreferenceRecordsResult,
- *           ConsumeDoorbells, PreferenceHints, PreferenceHintsForBotTask, preferenceHintsForTarget,
+ *           ConsumeDoorbells, ExperienceForTask, experienceScopeMatch, experienceHintFromCard,
+ *           PreferenceHints (legacy), PreferenceHintsForBotTask (legacy), preferenceHintsForTarget (legacy),
  *           PreferenceRecordsForBot, ResolvePreferenceRecordForBot, CalibratePreferenceHint,
  *           preferenceHintFromSummary, buildPreferenceContext, compactPreferenceContent,
  *           preferenceRecordFromSummary, preferenceDuplicateGroupKey, normalizePreferenceDuplicateText,
@@ -95,6 +96,121 @@ type PreferenceRecordsResult struct {
 	Status       string             `json:"status"`
 	Stats        map[string]int     `json:"stats"`
 	Data         []PreferenceRecord `json:"data"`
+}
+
+// ExperienceForTaskChecked is the access-guarded variant for public endpoints.
+func (s *V2Service) ExperienceForTaskChecked(ctx context.Context, matterID, spaceID string, callerUIDs []string, callerToken string) (*PreferenceHintsResult, error) {
+	m, err := s.matters.GetByID(ctx, matterID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	ok, err := s.matterSvc.CanAccessMatter(ctx, m, callerUIDs, "", callerToken)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, apperr.Forbidden(i18n.KeyMatterView)
+	}
+	return s.experienceForMatter(ctx, m)
+}
+
+// ExperienceForTask is the trusted internal variant (no access check).
+func (s *V2Service) ExperienceForTask(ctx context.Context, matterID, spaceID string) (*PreferenceHintsResult, error) {
+	m, err := s.matters.GetByID(ctx, matterID, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	return s.experienceForMatter(ctx, m)
+}
+
+func (s *V2Service) experienceForMatter(ctx context.Context, m *model.Matter) (*PreferenceHintsResult, error) {
+	res := &PreferenceHintsResult{MatterID: m.ID, Data: []PreferenceHint{}}
+	if m.CreatorID == "" || s.prefCards == nil {
+		return res, nil
+	}
+	cards, err := s.prefCards.ListAuthorizedByCreator(ctx, m.SpaceID, m.CreatorID, 50)
+	if err != nil {
+		return nil, err
+	}
+	type ranked struct {
+		rank int
+		hint PreferenceHint
+	}
+	var matched []ranked
+	for _, c := range cards {
+		rank, match, label, ok := experienceScopeMatch(c, m)
+		if !ok {
+			continue
+		}
+		matched = append(matched, ranked{rank: rank, hint: experienceHintFromCard(c, match, label)})
+	}
+	sort.SliceStable(matched, func(i, j int) bool {
+		if matched[i].rank != matched[j].rank {
+			return matched[i].rank < matched[j].rank
+		}
+		return matched[i].hint.UpdatedAt.After(matched[j].hint.UpdatedAt)
+	})
+	limit := 5
+	for i, item := range matched {
+		if i >= limit {
+			break
+		}
+		res.Data = append(res.Data, item.hint)
+	}
+	res.PreferenceContext = buildPreferenceContext(res.Data)
+	return res, nil
+}
+
+func experienceScopeMatch(c *model.PreferenceCard, m *model.Matter) (int, string, string, bool) {
+	scope := strings.ToLower(strings.TrimSpace(c.Scope))
+	switch scope {
+	case "matter":
+		if c.MatterID != nil && *c.MatterID == m.ID {
+			return 0, "matter", "当前回路", true
+		}
+	case "project":
+		if c.ProjectID != nil && m.ProjectID != nil && *c.ProjectID == *m.ProjectID {
+			return 1, "project", "同项目", true
+		}
+	case "global":
+		return 2, "global", "普适", true
+	case "space":
+		return 2, "space", "普适", true
+	case "bot":
+		// bot scope is legacy — skip for user-level recall
+	}
+	return 0, "", "", false
+}
+
+func experienceHintFromCard(c *model.PreferenceCard, match, label string) PreferenceHint {
+	matterID := ""
+	if c.MatterID != nil {
+		matterID = *c.MatterID
+	}
+	scopeKey := ""
+	switch c.Scope {
+	case "matter":
+		if c.MatterID != nil {
+			scopeKey = *c.MatterID
+		}
+	case "project":
+		if c.ProjectID != nil {
+			scopeKey = *c.ProjectID
+		}
+	}
+	return PreferenceHint{
+		SummaryID:  c.ID,
+		MatterID:   matterID,
+		Status:     c.Status,
+		Scope:      c.Scope,
+		ScopeType:  c.Scope,
+		ScopeKey:   scopeKey,
+		Content:    c.Content,
+		Confidence: 50,
+		UpdatedAt:  c.UpdatedAt,
+		Match:      match,
+		MatchLabel: label,
+	}
 }
 
 func (s *V2Service) PreferenceHints(ctx context.Context, matterID, spaceID string, callerUIDs []string, callerToken string, limit int) (*PreferenceHintsResult, error) {
