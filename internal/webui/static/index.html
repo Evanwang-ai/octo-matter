@@ -767,12 +767,12 @@
   .board-shell[data-density="compact"] .board-cards { gap: 9px; padding: 8px; }
   .bcard {
     flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; padding: 12px;
-    border-radius: 8px; border: 1px solid rgba(28,31,35,.08); background: var(--surface-card);
+    border-radius: var(--wk-r-md); border: 1px solid var(--wk-border-default); background: var(--surface-card);
     box-shadow: var(--shadow-card);
     cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s;
   }
   .board-shell[data-density="compact"] .bcard { min-height: 0; padding: 9px; gap: 6px; }
-  .bcard:hover { border-color: rgba(28,28,35,.16); box-shadow: var(--shadow-card-hover); }
+  .bcard:hover { border-color: var(--hairline-strong); box-shadow: var(--shadow-card-hover); }
   .bcard:focus-visible { outline: none; box-shadow: var(--focus-ring), var(--shadow-card-hover); }
   .bcard.dragging { opacity: .55; box-shadow: var(--shadow-drag); }
   .board-col.drop-over .board-cards { outline: 2px dashed var(--accent-border); outline-offset: 2px; background: var(--accent-tint); transition: background .15s; }
@@ -783,10 +783,10 @@
     border-bottom: 1px solid var(--border-soft); border-radius: 8px 8px 0 0;
   }
   .board-shell[data-density="compact"] .bcard .bc-card-top { min-height: 22px; margin: -9px -9px 0; padding: 3px 9px; }
-  .bcard .bc-card-id { color: rgba(28,28,35,.6); font-size: 12px; font-family: var(--mono); line-height: 20px; white-space: nowrap; }
+  .bcard .bc-card-id { color: var(--text-2); font-size: 12px; font-family: var(--mono); line-height: 20px; white-space: nowrap; }
   .bcard .bc-card-left { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
   .bcard .priority-btn { width: 22px; height: 22px; flex-basis: 22px; background: rgba(255,255,255,.65); }
-  .bcard .bc-date { color: rgba(28,28,35,.6); font-size: 12px; line-height: 18px; white-space: nowrap; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; }
+  .bcard .bc-date { color: var(--text-2); font-size: 12px; line-height: 18px; white-space: nowrap; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; }
   .bcard .bc-src { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-3); min-width: 0; }
   .bcard .bc-date svg, .bcard .bc-src svg, .bcard .bc-project svg { width: 12px; height: 12px; flex: 0 0 12px; }
   .bcard .bc-src .sc-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -818,7 +818,7 @@
     box-shadow: var(--shadow-card);
     cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s, transform .15s;
   }
-  .proj-card:hover { border-color: rgba(28,28,35,.14); background: rgba(255,255,255,.92); box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
+  .proj-card:hover { border-color: var(--hairline-strong); background: var(--wk-bg-surface); box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
   .proj-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .proj-card.archived { opacity: .68; }
   .proj-card .pc-ic {
@@ -1160,7 +1160,7 @@
   .pref-act { height: 28px; padding: 0 10px; border: 1px solid var(--border-soft); border-radius: 6px; background: transparent; color: var(--text-2); font-size: 12px; cursor: pointer; transition: all .15s; }
   .pref-act:hover { background: var(--fill-2); border-color: var(--hairline-strong); }
   .pref-act-warn { color: var(--text-3); }
-  .pref-act-warn:hover { color: #ff3b30; border-color: #ff3b30; background: rgba(255,59,48,.06); }
+  .pref-act-warn:hover { color: var(--block); border-color: var(--block); background: var(--wk-color-error-bg); }
 
   /* ============ automation ============ */
   .auto-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; }
@@ -1170,7 +1170,7 @@
     box-shadow: var(--shadow-card);
     transition: border-color .15s, box-shadow .15s, transform .15s;
   }
-  .auto-card:hover { border-color: rgba(28,28,35,.16); box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
+  .auto-card:hover { border-color: var(--hairline-strong); box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
   .auto-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .auto-card.paused { opacity: .62; }
   .auto-head { display: flex; align-items: center; gap: 10px; }
@@ -1192,7 +1192,7 @@
     content: ""; position: absolute; top: 2px; left: 17px; width: 15px; height: 15px; border-radius: 50%;
     background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: left .15s;
   }
-  .auto-toggle.off { background: rgba(28,28,35,.2); }
+  .auto-toggle.off { background: var(--wk-brand-tint-15); }
   .auto-toggle.off::after { left: 2px; }
   .auto-toggle.pending { opacity: .5; pointer-events: none; }
   .auto-boxes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
@@ -1292,7 +1292,7 @@
   .issue-title { font-size: 23px; font-weight: 650; letter-spacing: 0; line-height: 1.28; margin-bottom: 8px; overflow-wrap: anywhere; }
   .issue-sub { display: flex; align-items: center; gap: 9px; margin-bottom: 18px; flex-wrap: wrap; }
   .brief {
-    background: var(--wk-bg-surface); border: 1px solid var(--wk-border-default); border-radius: 12px;
+    background: var(--wk-bg-surface); border: 1px solid var(--wk-border-default); border-radius: var(--wk-r-md);
     padding: 0; overflow: hidden;
     box-shadow: var(--wk-shadow-sm);
   }
@@ -1663,7 +1663,7 @@
     border: 1px solid rgba(28,28,35,.11); border-radius: 7px; padding: 7px 10px; background: #fff;
     outline: none; transition: .15s; cursor: pointer;
   }
-  .proj-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,119,250,.12); }
+  .proj-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--wk-color-info) 12%, transparent); }
   .assignee-wrap { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
   .htag {
     display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; letter-spacing: .2px;
@@ -2117,7 +2117,7 @@
   .pref-file .pf-name { font-size: 13px; font-weight: 650; color: var(--text); overflow-wrap: anywhere; }
   .pref-file .pf-sub { margin-top: 2px; font-size: 11px; color: var(--text-3); }
   .pref-detail-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-  .pref-detail-meta .pm { border: 1px solid var(--border-soft); border-radius: 9px; padding: 8px 11px; background: #fff; }
+  .pref-detail-meta .pm { border: 1px solid var(--border-soft); border-radius: 9px; padding: 8px 11px; background: var(--wk-bg-surface); }
   .pref-detail-meta .pm .k { font-size: 10.5px; color: var(--text-3); margin-bottom: 3px; }
   .pref-detail-meta .pm .v { font-size: 12.5px; font-weight: 600; color: var(--text); }
   .pref-health { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
@@ -2125,7 +2125,7 @@
   .pref-chip.strong { color: #10723a; background: #eaf8ef; border-color: #cbeed8; }
   .pref-chip.warn { color: #8a4d00; background: #fff6dc; border-color: #f2dfad; }
   .pref-feedback-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-  .pref-feedback { min-height: 34px; border: 1px solid var(--border-soft); border-radius: 8px; background: #fff; color: var(--text-2); font-family: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; }
+  .pref-feedback { min-height: 34px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--wk-bg-surface); color: var(--text-2); font-family: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; }
   .pref-feedback:hover { border-color: var(--accent-border); background: var(--accent-tint); color: var(--accent); }
   .pref-feedback:disabled { opacity: .55; cursor: default; }
   .pref-label { font-size: 11px; font-weight: 700; color: var(--text-3); letter-spacing: .3px; margin: 0 0 6px; display: flex; justify-content: space-between; align-items: center; }
@@ -5427,21 +5427,32 @@ function paintCardsBindSearch(my){
 
 function cardFormHTML(c){
   var isEdit = !!c.id;
-  var scopeOpts = ["project","bot","space","matter","global"].map(function(s){
-    return '<option value="' + s + '"' + (c.scope === s ? " selected" : "") + '>' + (CARD_SCOPE_LABEL[s] || s) + '</option>';
+  var SCOPE_OPTS = [
+    { k: "matter", label: "当前回路" },
+    { k: "project", label: "项目" },
+    { k: "global", label: "普适" }
+  ];
+  var scopeVal = c.scope || "project";
+  if (scopeVal === "bot" || scopeVal === "space") scopeVal = "global";
+  var scopeOpts = SCOPE_OPTS.map(function(s){
+    return '<option value="' + s.k + '"' + (scopeVal === s.k ? " selected" : "") + '>' + s.label + '</option>';
   }).join("");
-  var statusOpts = isEdit ? ["draft","authorized","hit","miss","discarded"].map(function(s){
-    return '<option value="' + s + '"' + (c.status === s ? " selected" : "") + '>' + (CARD_STATUS_LABEL[s] || s) + '</option>';
+  var STATUS_OPTS = [
+    { k: "authorized", label: "已生效" },
+    { k: "discarded", label: "已弃用" }
+  ];
+  var statusOpts = isEdit ? STATUS_OPTS.map(function(s){
+    return '<option value="' + s.k + '"' + (c.status === s.k ? " selected" : "") + '>' + s.label + '</option>';
   }).join("") : "";
   return '<div class="matter-form">'
     + '<div class="matter-field"><label>行为规则<span class="req">*</span></label>'
     + '<textarea class="matter-textarea" id="ncContent" rows="4" placeholder="一条可执行的祈使句">' + esc(c.content || "") + '</textarea></div>'
-    + '<div class="matter-field"><label>证据 (evidence)</label>'
-    + '<textarea class="matter-textarea" id="ncEvidence" rows="2" placeholder="M-123 圈点 先说结论">' + esc(c.evidence || "") + '</textarea></div>'
-    + '<div class="matter-field"><label>不适用场景 (avoid)</label>'
-    + '<textarea class="matter-textarea" id="ncAvoid" rows="2" placeholder="用户明确要求探索式头脑风暴时">' + esc(c.avoid || "") + '</textarea></div>'
+    + '<div class="matter-field"><label>依据</label>'
+    + '<textarea class="matter-textarea" id="ncEvidence" rows="2" placeholder="来自哪次任务的什么反馈">' + esc(c.evidence || "") + '</textarea></div>'
+    + '<div class="matter-field"><label>不适用场景</label>'
+    + '<textarea class="matter-textarea" id="ncAvoid" rows="2" placeholder="什么情况下不应该用这条规则">' + esc(c.avoid || "") + '</textarea></div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-    + '<div class="matter-field"><label>作用域</label><select class="matter-select" id="ncScope">' + scopeOpts + '</select></div>'
+    + '<div class="matter-field"><label>范围</label><select class="matter-select" id="ncScope">' + scopeOpts + '</select></div>'
     + (isEdit ? '<div class="matter-field"><label>状态</label><select class="matter-select" id="ncStatus">' + statusOpts + '</select></div>' : '<div></div>')
     + '</div></div>';
 }
@@ -9302,6 +9313,9 @@ function buildNewMatterModal(opts){
     + '<div class="matter-field" id="fProj"><label>项目</label>'
     + '<select class="matter-select" id="nmProj">' + projOpts + "</select>"
     + '<div id="nmScope"></div></div>'
+    + '<div class="matter-field"><label>优先级</label><select class="matter-select" id="nmPriority">'
+    + '<option value="0">无优先级</option><option value="1">紧急</option><option value="2">高</option><option value="3">中</option><option value="4">低</option>'
+    + '</select></div>'
     + '<div class="matter-field" id="fDl"><label>截止日期</label>'
     + '<div class="dl-box" id="nmDl" role="button" tabindex="0"></div></div>'
     + '<div class="matter-field"><label>协作模式</label><select class="matter-select" id="nmMode">' + modeOpts + '</select>'
@@ -9490,6 +9504,8 @@ function buildNewMatterModal(opts){
       var parts = [].concat(leaderSt.sel, collabSt.sel).filter(function(u){ return u && isBot(u); });
       if (parts.length >= 2) body.mode_config = JSON.stringify({ participants: parts });
     }
+    var pri = parseInt(($("#nmPriority") || {}).value || "0", 10);
+    if (pri > 0) body.priority = pri;
     var btn = asDraft ? $("#nmDraft") : $("#nmOk");
     btn.disabled = true; btn.textContent = fileSt.length ? "上传附件…" : (asDraft ? "保存中…" : "发送中…");
     var uploadP = fileSt.length

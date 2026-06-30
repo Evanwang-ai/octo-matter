@@ -126,6 +126,15 @@ func (r *PreferenceCardRepo) Search(ctx context.Context, spaceID, query string, 
 	return out, err
 }
 
+func (r *PreferenceCardRepo) DiscardByMatter(ctx context.Context, matterID, spaceID string) error {
+	_, err := r.runner.Update("preference_cards").
+		Set("status", "discarded").
+		Set("updated_at", time.Now()).
+		Where("matter_id = ? AND space_id = ? AND status = 'authorized'", matterID, spaceID).
+		ExecContext(ctx)
+	return err
+}
+
 func (r *PreferenceCardRepo) Update(ctx context.Context, c *model.PreferenceCard) error {
 	c.UpdatedAt = time.Now()
 	result, err := r.runner.Update("preference_cards").

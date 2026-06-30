@@ -286,6 +286,9 @@ func (s *V2Service) ResolveSummary(ctx context.Context, matterID, spaceID, summa
 	if action == "authorize" && s.prefCards != nil && prevStatus == model.SummaryDraft {
 		s.promoteToPreferenceCard(ctx, sum, m, actorUID)
 	}
+	if action == "discard" && s.prefCards != nil {
+		s.syncDiscardToCards(ctx, sum.MatterID, m.SpaceID)
+	}
 	if err := s.activity.Record(ctx, m.ID, actorUID, "summary_"+action,
 		map[string]any{"summary_id": sum.ID, "target_bot": sum.TargetBotUID}); err != nil {
 		log.Printf("[WARN] summary activity failed matter=%s: %v", m.ID, err)
@@ -302,6 +305,12 @@ func (s *V2Service) ResolveSummary(ctx context.Context, matterID, spaceID, summa
 		_ = s.transition.EnqueueStandalone(ctx, m, actorUID, *sum.TargetBotUID, event, key, params)
 	}
 	return sum, nil
+}
+
+func (s *V2Service) syncDiscardToCards(ctx context.Context, matterID, spaceID string) {
+	if err := s.prefCards.DiscardByMatter(ctx, matterID, spaceID); err != nil {
+		log.Printf("[WARN] syncDiscardToCards failed matter=%s: %v", matterID, err)
+	}
 }
 
 // promoteToPreferenceCard creates one PreferenceCard per candidate from an
