@@ -31,6 +31,7 @@ embed.go:                          //go:embed 显式文件列表, 新增迁移�
 023_timeline_parent_entry.sql:     Timeline parent entry 引用
 024_matter_priority.sql:           matters.priority TINYINT (0=none,1=urgent,2=high,3=medium,4=low)
 025_archived_to_cancelled.sql:     archived→cancelled 终态合并 (UPDATE matters)
+026_feedback_type.sql:             matter_feedbacks 加 type 字段 (feedback/post_review/cancel_reason)
 
 ## 关键约束
 

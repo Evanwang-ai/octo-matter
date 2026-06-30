@@ -40,7 +40,8 @@ const (
 	DoorbellCancelled     = "matter.doorbell.cancelled"
 	DoorbellReassigned    = "matter.doorbell.reassigned"
 	DoorbellDone          = "matter.doorbell.done"
-	DoorbellReflect       = "matter.doorbell.reflect" // acceptance → 偏好沉淀 prompt
+	DoorbellReflect        = "matter.doorbell.reflect"         // DEPRECATED — replaced by distill_request
+	DoorbellDistillRequest = "matter.doorbell.distill_request" // user-triggered experience summarization
 	DoorbellRevive        = "matter.doorbell.watchdog_revive"
 	DoorbellWatchdogBlock = "matter.doorbell.watchdog_blocked"
 	DoorbellSchedule      = "matter.doorbell.schedule"
@@ -63,6 +64,7 @@ type TransitionInput struct {
 	AssignmentEpoch *uint  // bot writes carry the epoch from their doorbell; stale → 409
 	Reason          string // required for →blocked (kind=agent) / supplied by watchdog (kind=system)
 	Summary         string // optional one-line outcome, recorded in the activity detail
+	CancelReason    string // optional reason for cancellation, stored as cancel_reason feedback
 }
 
 // TransitionService owns the six-state machine: who may write which edge,
@@ -203,6 +205,21 @@ func (s *TransitionService) Apply(ctx context.Context, in TransitionInput) (*mod
 		}
 		if in.Summary != "" {
 			detail["summary"] = in.Summary
+		}
+		if in.CancelReason != "" {
+			detail["cancel_reason"] = in.CancelReason
+		}
+
+		if in.Target == model.MatterStatusCancelled && strings.TrimSpace(in.CancelReason) != "" {
+			fb := &model.MatterFeedback{
+				MatterID: m.ID, SpaceID: m.SpaceID,
+				AuthorID: in.ActorUID,
+				Content:  strings.TrimSpace(in.CancelReason),
+				Type:     model.FeedbackTypeCancelReason,
+			}
+			if err := r.Feedback.Create(ctx, fb); err != nil {
+				return err
+			}
 		}
 		if err := r.Activity.Record(ctx, m.ID, in.ActorUID, "status_changed", detail); err != nil {
 			return err
@@ -529,20 +546,11 @@ func (s *TransitionService) route(ctx context.Context, r *repository.TxRepos, m,
 		}
 
 	case model.MatterStatusDone:
-		// FYI ring to the responsible party; 完成 itself is the human action.
-		// When the responsible party is a bot and the matter carried taste
-		// signals (圈点/打回), the ring becomes the SECI reflection prompt:
-		// distill preferences in the per-matter session (where the whole
-		// conversation already lives) — 偏好沉淀 v1, no server LLM involved.
-		key, event := i18n.KeyDoorbellDone, DoorbellDone
-		if strings.HasSuffix(m.LeaderOrEmpty(), "_bot") {
-			if n, err := r.Feedback.CountByMatter(ctx, m.ID); err == nil && n > 0 {
-				key, event = i18n.KeyDoorbellReflect, DoorbellReflect
-			}
-		}
+		// FYI ring to the responsible party. Experience summarization is now
+		// user-triggered via distill-request, not auto-sent on done.
 		eff.doorbells = append(eff.doorbells, doorbell{
-			target: m.LeaderOrEmpty(), event: event,
-			messageKey: key, params: params,
+			target: m.LeaderOrEmpty(), event: DoorbellDone,
+			messageKey: i18n.KeyDoorbellDone, params: params,
 		})
 	}
 	return eff, nil

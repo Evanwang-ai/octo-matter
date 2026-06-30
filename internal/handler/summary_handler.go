@@ -18,6 +18,30 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type distillRequestReq struct {
+	BotUID string `json:"bot_uid" binding:"required,max=64"`
+}
+
+func (h *V2Handler) DistillRequest(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	var req distillRequestReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	err := h.v2.DistillRequest(c.Request.Context(), id, spaceID(c), uid(c),
+		req.BotUID, relatedUIDs(c), ownedBots(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 func (h *V2Handler) GenerateSummary(c *gin.Context) {
 	id := c.Param("id")
 	if !validUUID(id) {
@@ -95,10 +119,12 @@ func (h *V2Handler) MatterContext(c *gin.Context) {
 	}
 	hints, hintsErr := h.v2.PreferenceHints(ctx, id, spaceID(c), relatedUIDs(c), callerToken(c), 5)
 	summary, summaryErr := h.v2.LatestSummary(ctx, id, spaceID(c), relatedUIDs(c), callerToken(c))
+	feedbackCount, _ := h.v2.FeedbackCount(ctx, id)
 	ok(c, gin.H{
 		"edges":            contextPart(edges, nil),
 		"preference_hints": contextPart(hints, hintsErr),
 		"summary":          contextPart(summary, summaryErr),
+		"feedback_count":   feedbackCount,
 	})
 }
 

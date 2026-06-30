@@ -22,9 +22,13 @@ static/index.html:  单文件 SPA (~10480 行), 全部 JS/CSS 内联, 无构建�
 - 面包屑: 顶级页面不显示(setCrumbText("")), 仅 detail 页显示层级路径, mailbox 来源自动追踪(detailReferrer)
 - Markdown: 统一渲染器 mdHTML(), 支持 heading/list/table/code fence/inline
 - 偏好卡: Preference 页独立 .cards-toolbar CSS; 行展开有 chevron 指示器; 搜索清空走内存缓存
-- 偏好面板: 从9条件5按钮简化为2条件(has data + can distill); stray检测和导入已删除
-- 蒸馏流程: openSummaryFlow从6分支简化为3步, 用ownedBotInfo查全空间bot(不限matter参与者)
-- 偏好隐形化: hint召回/信心/命中/失准/校准按钮全部从Inspector删除, 偏好默默注入不展示
+- 经验面板: experiencePanelHTML 5种状态(done有反馈/done无反馈/草稿待确认/已生效/已弃用), 非终态不渲染
+- 经验总结: openDistillRequestFlow 走 POST distill-request API(专用门铃), 替代旧 triggerDistill(timeline+feedback)
+- 事后点评: expReviewInput + POST post-review API, 不改状态不发门铃
+- 取消原因: showCancelConfirm 替代 confirm(), cancel_reason 传给 transition API
+- 展开/收起: expToggle 按钮切换经验内容全文/截断
+- 命名: 偏好→经验, Preference→经验, 蒸馏→总结, 沉淀→总结, 左侧导航"偏好卡"→"经验"
+- 隐形化: hint召回/信心/命中/失准/校准按钮全部从Inspector删除, "管理"按钮已删除
 - 收件箱 detail: inboxDetailCache 按 matter ID 缓存已加载详情, 切换时即时展示
 - 已读/未读: localStorage readIds Set(上限 2000), .unread 蓝点+粗体, markRead() 在选中时触发
 - Tab 切换: paintMyInbox(my, preserveRight=true) 快路径只刷左侧列表, 右侧详情保留

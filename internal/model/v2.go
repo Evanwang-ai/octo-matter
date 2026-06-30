@@ -81,8 +81,15 @@ type MatterFeedback struct {
 	EntryID   *string   `db:"entry_id" json:"entry_id,omitempty"`
 	Anchor    *string   `db:"anchor" json:"-"` // raw JSON; re-marshalled for the wire
 	Content   string    `db:"content" json:"content"`
+	Type      string    `db:"type" json:"type"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
+
+const (
+	FeedbackTypeFeedback     = "feedback"
+	FeedbackTypePostReview   = "post_review"
+	FeedbackTypeCancelReason = "cancel_reason"
+)
 
 // Summary lifecycle. There is deliberately no `written` state: OCTO has no
 // real interface today that writes preference memory into an agent runtime,

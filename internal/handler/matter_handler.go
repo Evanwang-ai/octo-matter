@@ -465,6 +465,7 @@ type transitionReq struct {
 	AssignmentEpoch *uint  `json:"assignment_epoch"`
 	Reason          string `json:"reason" binding:"omitempty,max=500"`
 	Summary         string `json:"summary" binding:"omitempty,max=2000"`
+	CancelReason    string `json:"cancel_reason" binding:"omitempty,max=2000"`
 }
 
 func (h *MatterHandler) Transition(c *gin.Context) {
@@ -493,6 +494,7 @@ func (h *MatterHandler) Transition(c *gin.Context) {
 		AssignmentEpoch: req.AssignmentEpoch,
 		Reason:          req.Reason,
 		Summary:         req.Summary,
+		CancelReason:    req.CancelReason,
 	})
 	if err != nil {
 		respondErr(c, err)

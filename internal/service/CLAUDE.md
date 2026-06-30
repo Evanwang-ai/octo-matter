@@ -7,11 +7,11 @@
 
 matter_svc.go:               Matter CRUD + 参与者管理 + channel link + 权限检查, 创建默认 backlog
 v2_svc.go:                   v2 核心: V2Service 结构体 + 构造器 + PrepareCreate/AfterCreate + UpdateMeta/ReassignLeader
-feedback_svc.go:             反馈(圈一笔): CreateFeedback/ListFeedback, FeedbackInput/FeedbackResult
+feedback_svc.go:             反馈(圈一笔): CreateFeedback/CreatePostReview/ListFeedback, FeedbackInput/FeedbackResult; post_review 不改状态不发门铃
 tree_svc.go:                 树操作: Touch/Join/Tree/Iterations, TreeNode/TreeResult/IterationRound/IterationsResult
 project_svc.go:              项目: CRUD + ProjectContext/AgentContext 构建 + AgentStats
 preference_svc.go:           偏好检索/校准: PreferenceHints/Records + scope匹配 + 去重 + 校准
-summary_svc.go:              蒸馏: GenerateSummary/LatestSummary/ResolveSummary/SubmitSummaryDraft + summarySystemPrompt
+summary_svc.go:              经验总结: GenerateSummary/LatestSummary/ResolveSummary/SubmitSummaryDraft/DistillRequest + summarySystemPrompt; DistillRequest 发专用门铃不走 feedback
 agent_card_svc.go:           名片: GetAgentCard/PutAgentCard/SendBack/ListAgentCards + BotResource CRUD
 transition_svc.go:           六态状态机守卫: 生产者矩阵, CAS+epoch 围栏, 父→done 守卫, 事务性 outbox doorbell 入队
 engine_svc.go:               两个后台循环: outbox dispatcher(3s) + 两档 watchdog(60s, backfill/revive/block)

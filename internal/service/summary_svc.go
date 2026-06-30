@@ -7,7 +7,7 @@ package service
  *          model.JSONStringSlice, llm.Tool, llm.ToolFunction, llm.WithMaxTokens,
  *          apperr, i18n, TransitionService
  * [OUTPUT]: provides summaryTool, summarySystemPrompt, GenerateSummary, LatestSummary,
- *           ResolveSummary, SubmitSummaryDraft, EnqueueAssignedDoorbell,
+ *           ResolveSummary, SubmitSummaryDraft, DistillRequest, EnqueueAssignedDoorbell,
  *           applySummaryCalibration, collectTimelineEntryIDs, collectFeedbackIDs
  * [POS]: smart-summary (T1) domain, extracted from v2_svc.go
  * [PROTOCOL]: update this header on change, then check CLAUDE.md
@@ -516,6 +516,29 @@ func (s *V2Service) SubmitSummaryDraft(ctx context.Context, matterID, spaceID st
 	_ = s.transition.EnqueueStandalone(ctx, m, actorUID, m.CreatorID,
 		"matter.doorbell.summary_draft", i18n.KeyDoorbellSummaryDraft, params)
 	return sum, nil
+}
+
+// DistillRequest sends a distill_request doorbell to the specified bot,
+// prompting it to read the matter and produce an experience summary draft.
+// Unlike the old triggerDistill path this never writes to timeline or
+// feedback, and never changes matter status.
+func (s *V2Service) DistillRequest(ctx context.Context, matterID, spaceID, actorUID, botUID string, callerUIDs, ownedBots []string) error {
+	m, err := s.matters.GetByID(ctx, matterID, spaceID)
+	if err != nil {
+		return err
+	}
+	if !containsUID(callerUIDs, m.CreatorID) {
+		return apperr.Forbidden(i18n.KeySummaryOnlyCreator)
+	}
+	if !model.IsTerminalStatus(m.Status) {
+		return apperr.InvalidInput(i18n.KeyDistillTerminalOnly)
+	}
+	if botUID == "" || !containsUID(ownedBots, botUID) {
+		return apperr.Forbidden(i18n.KeyDistillNotOwnBot)
+	}
+	params := map[string]any{"Title": m.Title, "Seq": m.SeqNo, "Actor": actorUID}
+	return s.transition.EnqueueStandalone(ctx, m, actorUID, botUID,
+		DoorbellDistillRequest, i18n.KeyDoorbellDistillRequest, params)
 }
 
 // EnqueueAssignedDoorbell lets other services ring the assignment bell.

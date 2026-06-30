@@ -63,6 +63,34 @@ func (h *V2Handler) CreateFeedback(c *gin.Context) {
 	created(c, res)
 }
 
+type postReviewReq struct {
+	Content string `json:"content" binding:"required,max=4000"`
+}
+
+func (h *V2Handler) CreatePostReview(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID(id) {
+		failKey(c, http.StatusBadRequest, "VALIDATION_ERROR", i18n.KeyInvalidID, nil)
+		return
+	}
+	if c.GetString("role") == "bot" {
+		failKey(c, http.StatusForbidden, "FORBIDDEN", i18n.KeyPostReviewUsersOnly, nil)
+		return
+	}
+	var req postReviewReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		bindJSONErr(c, err)
+		return
+	}
+	fb, err := h.v2.CreatePostReview(c.Request.Context(), id, spaceID(c), uid(c),
+		strings.TrimSpace(req.Content), relatedUIDs(c), callerToken(c))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	created(c, fb)
+}
+
 func (h *V2Handler) ListFeedback(c *gin.Context) {
 	id := c.Param("id")
 	if !validUUID(id) {

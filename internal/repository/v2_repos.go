@@ -333,9 +333,12 @@ func NewFeedbackRepo(sess *dbr.Session) *FeedbackRepo { return &FeedbackRepo{run
 func (r *FeedbackRepo) Create(ctx context.Context, f *model.MatterFeedback) error {
 	f.ID = uuid.New().String()
 	f.CreatedAt = time.Now()
+	if f.Type == "" {
+		f.Type = model.FeedbackTypeFeedback
+	}
 	_, err := r.runner.InsertInto("matter_feedbacks").
 		Columns("id", "matter_id", "space_id", "author_id", "target_uid",
-			"entry_id", "anchor", "content", "created_at").
+			"entry_id", "anchor", "content", "type", "created_at").
 		Record(f).ExecContext(ctx)
 	return err
 }

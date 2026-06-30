@@ -141,8 +141,8 @@ func edgeKind(event string) string {
 		return "schedule"
 	case DoorbellRevive, DoorbellWatchdogBlock:
 		return "watchdog"
-	case DoorbellReflect, "matter.doorbell.summary_draft", "matter.doorbell.summary_approved", "matter.doorbell.summary_rejected":
-		return "preference"
+	case DoorbellReflect, DoorbellDistillRequest, "matter.doorbell.summary_draft", "matter.doorbell.summary_approved", "matter.doorbell.summary_rejected":
+		return "experience"
 	default:
 		return "doorbell"
 	}
@@ -199,7 +199,9 @@ func edgeCopy(row model.OutboxRow, kind string) (string, string) {
 	case DoorbellReassigned:
 		return "已通知 " + target + " 接手改派", "旧负责人 epoch 会被围栏挡住"
 	case DoorbellReflect:
-		return "已叫 " + target + " 沉淀 Preference", "验收后把圈点转成可复用偏好"
+		return "已叫 " + target + " 总结经验", "(历史) 验收后自动触发,现已改为手动"
+	case DoorbellDistillRequest:
+		return "已叫 " + target + " 总结经验", "用户主动触发经验总结"
 	case DoorbellRevive:
 		return "超时未回应,已重提 " + target, "自动检查发现长时间没有动静"
 	case DoorbellWatchdogBlock:

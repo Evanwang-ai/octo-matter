@@ -128,6 +128,8 @@ func SetupRouter(
 		if v2H != nil {
 			matters.POST("/:id/feedback", v2H.CreateFeedback)
 			matters.GET("/:id/feedback", v2H.ListFeedback)
+			matters.POST("/:id/post-review", v2H.CreatePostReview)
+			matters.POST("/:id/distill-request", v2H.DistillRequest)
 			matters.POST("/:id/touch", v2H.Touch)
 			matters.GET("/:id/tree", v2H.Tree)
 			matters.GET("/:id/context", v2H.MatterContext)

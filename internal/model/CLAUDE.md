@@ -7,7 +7,7 @@
 
 matter.go:             核心 Matter 结构体(106+字段), 六态状态机常量, 六种协作模式常量, 辅助函数(IsValidStatus/IsTerminalStatus/IsValidMode)
 matter_test.go:        Matter 模型测试
-v2.go:                 v2 领域类型: MatterProject(项目), OutboxRow(doorbell), ProjectOutboxRow, MatterFeedback(圈一笔), MatterSummary(偏好草案), MatterSchedule(cron), MatterBotTask(bot任务队列), MatterAgentCard(名片), MatterProjectSource(共享上下文)
+v2.go:                 v2 领域类型: MatterProject(项目), OutboxRow(doorbell), ProjectOutboxRow, MatterFeedback(圈一笔/事后点评/取消原因, Type字段区分), MatterSummary(经验草案), MatterSchedule(cron), MatterBotTask(bot任务队列), MatterAgentCard(名片), MatterProjectSource(共享上下文)
 activity.go:           MatterActivity 活动流条目
 agent_card.go:         AgentCard 扩展类型 + AgentCardCapabilities 结构
 assignee.go:           MatterAssignee 多对多关系

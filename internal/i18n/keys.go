@@ -141,4 +141,11 @@ const (
 	KeyDoorbellSummaryDraft    = "notify.doorbell.summary_draft"
 	KeyDoorbellSummaryApproved = "notify.doorbell.summary_approved"
 	KeyDoorbellSummaryRejected = "notify.doorbell.summary_rejected"
+
+	// Experience distill-request
+	KeyDoorbellDistillRequest = "notify.doorbell.distill_request"
+	KeyPostReviewUsersOnly    = "err.matter.post_review_users_only"
+	KeyPostReviewTerminalOnly = "err.matter.post_review_terminal_only"
+	KeyDistillNotOwnBot       = "err.matter.distill_not_own_bot"
+	KeyDistillTerminalOnly    = "err.matter.distill_terminal_only"
 )

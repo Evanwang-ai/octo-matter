@@ -2134,6 +2134,12 @@
   .pref-bot.sel .pb-radio { border-color: var(--accent); background: radial-gradient(circle at center, var(--accent) 0 3.5px, transparent 4px); }
   .pref-confirm { font-size: 11.5px; color: var(--text-3); overflow-wrap: anywhere; }
   .pref-inspector { display: grid; gap: 9px; }
+  .exp-status { font-size: 13px; color: var(--text-2); margin-bottom: 4px; }
+  .exp-content { font-size: 12.5px; color: var(--text); background: var(--fill-1); border-radius: 6px; padding: 8px 10px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .exp-meta { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+  .exp-toggle { background: none; border: none; color: var(--accent); font-size: 11px; cursor: pointer; padding: 2px 0; margin-top: 2px; }
+  .exp-toggle:hover { text-decoration: underline; }
+  .exp-review-input { width: 100%; resize: vertical; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; background: var(--bg); color: var(--text); }
   .pref-record {
     border: 1px solid rgba(28,28,35,.09); border-radius: 8px; background: #fff; padding: 10px 11px;
     display: grid; gap: 7px;
@@ -2920,7 +2926,7 @@ var ERR_HUMAN = {
   CHILDREN_NOT_TERMINAL: "还有子任务没收口 — 先把它们确认完成",
   FORBIDDEN: "这一步不归你做(权限不够)",
   MATTER_NOT_FOUND: "这单找不到了,可能已被删除",
-  LLM_NOT_CONFIGURED: "智能提炼还没接入(缺模型钥匙),其他功能不受影响",
+  LLM_NOT_CONFIGURED: "智能总结还没接入(缺模型钥匙),其他功能不受影响",
   UPSTREAM_ERROR: "后台服务暂时没应答,稍等再试",
   AUTH_UNAVAILABLE: "登录服务暂时连不上,稍等再试"
 };
@@ -3171,7 +3177,7 @@ var NAV_ITEMS = [
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5h3l1.6 1.8h5.4A1.5 1.5 0 0 1 16 8.3V15a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 3 15z"/></svg>' },
   { key: "automation", hash: "#/automation", label: "自动化",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="11" r="6"/><path d="M10 8v3l2 1.4M10 5V3M7.5 3.2h5"/></svg>' },
-  { key: "cards", hash: "#/cards", label: "偏好卡",
+  { key: "cards", hash: "#/cards", label: "经验",
     ic: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M7 8h6M7 11h4"/></svg>' }
 ];
 function buildNav(){
@@ -4302,13 +4308,10 @@ function paintMyInbox(my, preserveRight){
     menu.addEventListener("click", function(ce){
       var btn = ce.target.closest("[data-ctx]"); if (!btn) return;
       var act = btn.getAttribute("data-ctx"); closeCtxMenu();
-      var target = "cancelled";
-      if (!confirm("确定要取消这个回路吗？此操作不容易恢复。")) return;
-      api("/matters/" + mid + "/status", { method: "PUT", body: { status: target } }).then(function(){
-        toast("已取消");
-        if (m) m.status = target;
+      showCancelConfirm(mid, function(){
+        if (m) m.status = "cancelled";
         paintMyInbox(my);
-      }).catch(errToast);
+      });
     });
     setTimeout(function(){ document.addEventListener("click", closeCtxMenu, { once: true }); }, 0);
   }, true);
@@ -4738,7 +4741,7 @@ function boardDisplayToggleHTML(key, label, sub, on){
 }
 function boardDisplayPopoverHTML(){
   return '<div class="board-filter-pop board-display-pop' + (boardDisplayOpen ? " open" : "") + '" id="boardDisplayPop" role="menu" aria-label="显示设置">'
-    + '<div class="bf-pop-head"><div><div class="bf-pop-title">显示设置</div><div class="bf-pop-sub">密度 / 空列 / Preference字段</div></div>'
+    + '<div class="bf-pop-head"><div><div class="bf-pop-title">显示设置</div><div class="bf-pop-sub">密度 / 空列 / 经验字段</div></div>'
     + '<button type="button" class="bf-clear" id="boardDisplayReset">重置</button></div>'
     + '<div class="bf-section"><div class="bf-section-title">密度</div><div class="bd-segments">'
     + '<button type="button" class="bd-segment' + (boardDensity !== "compact" ? " is-active" : "") + '" data-board-density="comfortable">舒适</button>'
@@ -4747,9 +4750,9 @@ function boardDisplayPopoverHTML(){
     + '<div class="bf-section"><div class="bf-section-title">列</div><div class="bf-options">'
     + boardDisplayToggleHTML("hideEmpty", "隐藏空列", "筛选后只保留有回路的状态列", boardHideEmpty)
     + "</div></div>"
-    + '<div class="bf-section"><div class="bf-section-title">Preference字段</div><div class="bf-options">'
-    + boardDisplayToggleHTML("showDate", "显示日期", "保留Preference右上角时间信息", boardShowDate)
-    + boardDisplayToggleHTML("showAssignee", "显示负责人", "保留Preference底部负责人", boardShowAssignee)
+    + '<div class="bf-section"><div class="bf-section-title">经验字段</div><div class="bf-options">'
+    + boardDisplayToggleHTML("showDate", "显示日期", "保留经验卡右上角时间信息", boardShowDate)
+    + boardDisplayToggleHTML("showAssignee", "显示负责人", "保留经验卡底部负责人", boardShowAssignee)
     + boardDisplayToggleHTML("showSource", "显示来源", "保留来源会话/材料线索", boardShowSource)
     + "</div></div></div>";
 }
@@ -5264,7 +5267,7 @@ function renderCards(my){
     paintCards(my);
   }).catch(function(e){
     if (my !== renderToken) return;
-    $(".content-inner").innerHTML = '<div class="err-state">Preference 加载失败: ' + esc(e.message || "") + '</div>';
+    $(".content-inner").innerHTML = '<div class="err-state">经验加载失败: ' + esc(e.message || "") + '</div>';
   });
 }
 
@@ -5307,8 +5310,8 @@ function paintCards(my){
   var cards = cardsCache || [];
   if (!cards.length){
     $(".content-inner").innerHTML = '<div class="list-head"><div class="list-head-actions"></div></div>'
-      + '<div class="cards-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索偏好（全文检索）" style="max-width:400px" aria-label="搜索偏好"></div></div>'
-      + '<div class="pref-list"><div class="empty-state"><div class="es-t">还没有 Preference</div><div class="es-s">完成 Matter 后,从验收反馈中自动提炼行为规则</div></div></div>';
+      + '<div class="cards-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索经验（全文检索）" style="max-width:400px" aria-label="搜索经验"></div></div>'
+      + '<div class="pref-list"><div class="empty-state"><div class="es-t">还没有经验记录</div><div class="es-s">完成回路后,从反馈中总结可复用的行为规则</div></div></div>';
     paintCardsBindSearch(my);
     return;
   }
@@ -5346,8 +5349,8 @@ function paintCards(my){
     html += '</div>';
   });
 
-  $(".content-inner").innerHTML = '<div class="list-head"><div class="list-title">Preference</div><div class="list-head-actions"><button class="new-btn" id="newCardBtn" type="button">+ 新建</button></div></div>'
-    + '<div class="cards-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索偏好（全文检索）" style="max-width:400px" aria-label="搜索偏好"></div></div>'
+  $(".content-inner").innerHTML = '<div class="list-head"><div class="list-title">经验</div><div class="list-head-actions"><button class="new-btn" id="newCardBtn" type="button">+ 新建</button></div></div>'
+    + '<div class="cards-toolbar"><div style="margin:0"><input class="list-search" id="cardSearch" type="search" placeholder="搜索经验（全文检索）" style="max-width:400px" aria-label="搜索经验"></div></div>'
     + '<div class="pref-list">' + html + '</div>';
 
   // Bind click handlers for expand/collapse + actions
@@ -5481,7 +5484,7 @@ function cardFormHTML(c){
 function openEditCardModal(my, c){
   var mo = $("#modal");
   mo.className = "modal";
-  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">编辑 Preference</div></div>'
+  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">编辑经验</div></div>'
     + '<button class="modal-x" id="mx" type="button">×</button></div>'
     + '<div class="modal-body">' + cardFormHTML(c) + '</div>'
     + '<div class="modal-foot">'
@@ -5492,7 +5495,7 @@ function openEditCardModal(my, c){
   $("#modalScrim").classList.add("open");
   $("#mx").onclick = $("#ncCancel").onclick = function(){ closeModal(); };
   $("#ncDelete").onclick = function(){
-    if (!confirm("确定删除这张 Preference？")) return;
+    if (!confirm("确定删除这条经验？")) return;
     api("/preference-cards/" + c.id, { method: "DELETE" }).then(function(){
       closeModal(); toast("已删除"); renderCards(my);
     }).catch(function(e){ errToast(e); });
@@ -5513,7 +5516,7 @@ function openEditCardModal(my, c){
 function openNewCardModal(my){
   var mo = $("#modal");
   mo.className = "modal";
-  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">新建 Preference</div></div>'
+  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">新建经验</div></div>'
     + '<button class="modal-x" id="mx" type="button">×</button></div>'
     + '<div class="modal-body">' + cardFormHTML({ scope: "project" }) + '</div>'
     + '<div class="modal-foot"><button class="ff-cancel" id="ncCancel" type="button">取消</button>'
@@ -5529,7 +5532,7 @@ function openNewCardModal(my){
     if (ev) body.evidence = ev;
     if (av) body.avoid = av;
     api("/preference-cards", { method: "POST", body: body }).then(function(){
-      closeModal(); toast("Preference已创建"); renderCards(my);
+      closeModal(); toast("经验已创建"); renderCards(my);
     }).catch(function(e){ errToast(e); });
   };
 }
@@ -6865,6 +6868,7 @@ function loadDetailContextLater(my, id, m){
       if (ctx.summary && ctx.summary.ok && ctx.summary.data){
         cur.summary = summaryRow(ctx.summary.data);
       }
+      cur.feedbackCount = Number(ctx.feedback_count) || 0;
       paintInspector();
     });
   }, 400);
@@ -7839,7 +7843,7 @@ function actHuman(a){
     case "channel_linked": return "关联了会话";
     case "channel_unlinked": return "解开了会话";
     default:
-      if (String(a.action).indexOf("summary") >= 0) return "把这单的偏好沉淀为 Preference";
+      if (String(a.action).indexOf("summary") >= 0) return "总结了这次的经验";
       return "更新了";
   }
 }
@@ -7863,7 +7867,7 @@ function actTagWord(a){
       if (d.to === "in_progress") return "开始";
       return "更新";
   }
-  if (String(a.action).indexOf("summary") >= 0) return "偏好沉淀";
+  if (String(a.action).indexOf("summary") >= 0) return "经验总结";
   return "更新";
 }
 function actTagCls(a){
@@ -7881,27 +7885,60 @@ function actTagCls(a){
     || a.action === "assignee_added" || a.action === "reassigned") return "h2a";
   return "sys";
 }
-function preferencePanelHTML(){
+function experiencePanelHTML(){
   if (!cur || !cur.m) return "";
   var m = cur.m;
+  var isTerminal = m.status === "done" || m.status === "cancelled";
+  if (!isTerminal) return "";
   var row = cur.summary;
-  var canDistill = isMe(m.creator_id) || (m.leader && isMe(m.leader));
-  var statusText = row
-    ? (row.status === "authorized" ? "偏好已生效" : row.status === "draft" ? "草稿待确认" : "已弃用")
-    : (m.status === "done" ? "可以沉淀这次的经验" : "暂无偏好记录");
-  var actions = "";
-  if (row && row.status === "draft" && canDistill)
-    actions = '<div style="display:flex;gap:8px;margin-top:8px"><button class="pref-act" id="prefAuthBtn" type="button" style="color:var(--done)">生效</button><button class="pref-act pref-act-warn" id="prefDiscardBtn" type="button">弃用</button></div>';
-  var distillBtn = canDistill && !row && m.status === "done"
-    ? '<button class="pref-open" id="prefPanelOpen" type="button">沉淀偏好</button>' : "";
-  var viewBtn = row ? '<button class="pref-open" id="prefPanelOpen" type="button">查看详情</button>' : "";
-  var manageBtn = '<button class="pref-open" id="prefManageOpen" type="button" data-pref-bot="' + esc((row && row.target_bot_uid) || m.leader || "") + '">管理</button>';
+  var isCreator = isMe(m.creator_id);
+  var body = "";
+  if (row && row.status === "authorized"){
+    var content = row.content || "";
+    var truncated = content.length > 120;
+    var shown = truncated ? content.substring(0, 120) + "…" : content;
+    body = '<div class="exp-status" style="color:var(--done)">✓ 已生效</div>'
+      + '<div class="exp-content" id="expContent">' + mdInline(shown) + '</div>'
+      + (row.scope_type ? '<div class="exp-meta">范围: ' + esc(expScopeLabel(row)) + (row.task_type ? ' · 类型: ' + esc(row.task_type) : '') + '</div>' : '')
+      + (truncated ? '<button class="exp-toggle" id="expToggle" type="button" data-full="' + esc(content) + '" data-short="' + esc(shown) + '" data-expanded="0">▾ 展开全部</button>' : '');
+  } else if (row && row.status === "draft" && isCreator){
+    var content = row.content || "";
+    var truncated = content.length > 120;
+    var shown = truncated ? content.substring(0, 120) + "…" : content;
+    body = '<div class="exp-status" style="color:var(--amber-text)">● 待确认</div>'
+      + '<div class="exp-content" id="expContent">' + mdInline(shown) + '</div>'
+      + (row.scope_type ? '<div class="exp-meta">范围: ' + esc(expScopeLabel(row)) + (row.task_type ? ' · 类型: ' + esc(row.task_type) : '') + '</div>' : '')
+      + (truncated ? '<button class="exp-toggle" id="expToggle" type="button" data-full="' + esc(content) + '" data-short="' + esc(shown) + '" data-expanded="0">▾ 展开全部</button>' : '')
+      + '<div style="display:flex;gap:8px;margin-top:8px"><button class="pref-act" id="prefAuthBtn" type="button" style="color:var(--done)">生效</button><button class="pref-act pref-act-warn" id="prefDiscardBtn" type="button">弃用</button></div>';
+  } else if (row && row.status === "discarded"){
+    body = '<div class="exp-status" style="color:var(--text-3)">✗ 已弃用</div>'
+      + (isCreator ? '<button class="pref-open" id="prefPanelOpen" type="button">重新总结</button>' : '');
+  } else if (!row && isCreator){
+    var fc = cur.feedbackCount || 0;
+    if (fc > 0){
+      body = '<div class="exp-status">这次任务有 ' + fc + ' 条反馈</div>'
+        + '<button class="pref-open" id="expDistillBtn" type="button">总结经验</button>';
+    } else {
+      body = '<div class="exp-status">为了下次做得更好，点评一下？</div>'
+        + '<textarea class="exp-review-input" id="expReviewInput" rows="2" placeholder="写几句对这次任务的评价..." maxlength="4000"></textarea>'
+        + '<button class="pref-open" id="expReviewSubmit" type="button" style="margin-top:6px">提交</button>';
+    }
+  } else if (row) {
+    body = '<div class="exp-status" style="color:var(--text-3)">经验状态: ' + esc(row.status || "未知") + '</div>';
+  } else {
+    body = '<div class="exp-status" style="color:var(--text-3)">暂无经验记录</div>';
+  }
   return '<section class="panel"><div class="panel-h" data-fold>'
-    + '<span class="chev">▾</span><span class="ph-title">Preference</span></div>'
-    + '<div class="panel-body"><div class="pref-inspector">'
-    + '<div class="pref-status" style="font-size:13px;color:var(--text-2);margin-bottom:8px">' + esc(statusText) + '</div>'
-    + actions + distillBtn + viewBtn + manageBtn
+    + '<span class="chev">▾</span><span class="ph-title">经验</span></div>'
+    + '<div class="panel-body"><div class="pref-inspector">' + body
     + '</div></div></section>';
+}
+function expScopeLabel(row){
+  if (!row) return "";
+  var t = row.scope_type || "";
+  if (t === "project") return "项目";
+  if (t === "global" || t === "space") return "普适";
+  return t || "普适";
 }
 /* ---- simple inline markdown renderer (no external deps) ---- */
 function isSafeHref(href){
@@ -8034,7 +8071,7 @@ function paintInspector(){
     + srcRow
     + attachRowHTML(m)
     + "</div></section>"
-    + preferencePanelHTML()
+    + experiencePanelHTML()
     + '<section class="panel"><div class="panel-h" data-fold><span class="chev">▾</span><span class="ph-title">迭代</span></div><div class="panel-body"><div id="iterBody" class="iter-empty">加载中...</div></div></section>';
   bindInspector();
   fetchIterations(m.id);
@@ -8187,9 +8224,31 @@ function bindInspector(){
   });
   var prefOpen = $("#prefPanelOpen");
   if (prefOpen) prefOpen.addEventListener("click", function(){ openSummaryFlow(cur.id); });
-  var prefManage = $("#prefManageOpen");
-  if (prefManage) prefManage.addEventListener("click", function(){
-    openPreferenceManager(prefManage.getAttribute("data-pref-bot") || "");
+  var expDistill = $("#expDistillBtn");
+  if (expDistill) expDistill.addEventListener("click", function(){ openDistillRequestFlow(cur.id); });
+  var expReviewSubmit = $("#expReviewSubmit");
+  if (expReviewSubmit) expReviewSubmit.addEventListener("click", function(){
+    var input = $("#expReviewInput");
+    var content = input ? input.value.trim() : "";
+    if (!content){ toast("请写几句评价"); return; }
+    expReviewSubmit.disabled = true; expReviewSubmit.textContent = "提交中…";
+    api("/matters/" + cur.id + "/post-review", { method: "POST", body: { content: content } }).then(function(){
+      toast("点评已记录"); render();
+    }).catch(function(e){ errToast(e); expReviewSubmit.disabled = false; expReviewSubmit.textContent = "提交"; });
+  });
+  var expToggle = $("#expToggle");
+  if (expToggle) expToggle.addEventListener("click", function(){
+    var ec = $("#expContent");
+    var expanded = expToggle.getAttribute("data-expanded") === "1";
+    if (expanded){
+      ec.innerHTML = mdInline(expToggle.getAttribute("data-short") || "");
+      expToggle.textContent = "▾ 展开全部";
+      expToggle.setAttribute("data-expanded", "0");
+    } else {
+      ec.innerHTML = mdInline(expToggle.getAttribute("data-full") || "");
+      expToggle.textContent = "▴ 收起";
+      expToggle.setAttribute("data-expanded", "1");
+    }
   });
   var prefAuth = $("#prefAuthBtn");
   if (prefAuth && cur.summary) prefAuth.addEventListener("click", function(){
@@ -8450,7 +8509,7 @@ function calibrateSummary(matterId, row, action, btn){
         render();
       }
       summaryWrittenView(matterId, next);
-      toast(action === "hit" ? "已记录这条 Preference 有用" : "已记录这条 Preference 失准");
+      toast(action === "hit" ? "已记录这条经验有用" : "已记录这条经验失准");
     })
     .catch(function(e){
       if (btn){ btn.disabled = false; btn.textContent = action === "hit" ? "这条有用" : "失准一次"; }
@@ -8523,7 +8582,7 @@ function prefManagerRowHTML(row){
   }
   return '<div class="pref-manager-row ' + esc(status) + '" data-pref-search="' + esc(prefManagerSearchText(row)) + '">'
     + '<div class="pmr-top"><span class="pmr-status ' + esc(status) + '">' + esc(prefRecordStatusLabel(status)) + '</span>'
-    + (dupCount > 1 ? '<span class="pmr-dup" title="同内容 Preference 在账本中出现 ' + dupCount + ' 条">重复 ' + dupCount + "</span>" : "")
+    + (dupCount > 1 ? '<span class="pmr-dup" title="同内容经验在账本中出现 ' + dupCount + ' 条">重复 ' + dupCount + "</span>" : "")
     + (preferred ? '<span class="pmr-keep" title="' + esc(reason) + '">建议保留</span>' : "")
     + '<div class="pmr-human"><div class="pmr-title" title="' + esc(rule) + '">' + esc(rule) + "</div>"
     + (explain ? '<div class="pmr-explain">' + esc(explain) + "</div>" : "")
@@ -8572,11 +8631,11 @@ function sortDuplicatePreferenceRows(rows){
 }
 function prefManagerEmptyHTML(status){
   var copy = {
-    all: { t: "还没有 Preference", s: "完成回路后,从验收、圈点或手动授权里沉淀可复用偏好。" },
-    authorized: { t: "还没有已授权 Preference", s: "授权后才会在后续回路中被召回;草稿和建议不会自动生效。" },
-    discarded: { t: "还没有撤销记录", s: "被撤销的偏好会留在这里,方便恢复或审计为什么不用。" },
-    duplicates: { t: "暂无重复 Preference", s: "系统会把同内容或高度相似的偏好聚在这里,优先保留证据更强的一条。" }
-  }[status] || { t: "还没有 Preference", s: "真实验收和圈点之后才应该沉淀。" };
+    all: { t: "还没有经验记录", s: "完成回路后,从验收、圈点或手动授权里总结可复用经验。" },
+    authorized: { t: "还没有已生效的经验", s: "授权后才会在后续回路中被召回;草稿和建议不会自动生效。" },
+    discarded: { t: "还没有撤销记录", s: "被撤销的经验会留在这里,方便恢复或审计为什么不用。" },
+    duplicates: { t: "暂无重复经验", s: "系统会把同内容或高度相似的经验聚在这里,优先保留证据更强的一条。" }
+  }[status] || { t: "还没有经验记录", s: "真实验收和圈点之后才应该沉淀。" };
   return '<div class="empty-state actionable pref-manager-empty"><div class="es-t">' + esc(copy.t) + '</div><div class="es-s">' + esc(copy.s) + "</div></div>";
 }
 function prefManagerBody(botUID, status, res){
@@ -8600,7 +8659,7 @@ function prefManagerBody(botUID, status, res){
     + "</div>"
     + '<div class="pref-manager-tools"><input class="pref-manager-search" id="prefManagerSearch" type="search" placeholder="搜索规则、来源、范围、状态" autocomplete="off">'
     + '<span class="pref-manager-count" id="prefManagerCount">' + rows.length + " 条</span></div>"
-    + (dupGroups ? '<div class="pref-manager-alert">发现 ' + dupGroups + ' 组重复 Preference。优先保留标记为“建议保留”的一条,其余可以收窄或撤销。</div>' : "")
+    + (dupGroups ? '<div class="pref-manager-alert">发现 ' + dupGroups + ' 组重复经验。优先保留标记为“建议保留”的一条,其余可以收窄或撤销。</div>' : "")
     + (rows.length
       ? '<div class="pref-manager-list">' + rows.map(prefManagerRowHTML).join("") + "</div>"
       : prefManagerEmptyHTML(status));
@@ -8613,7 +8672,7 @@ function bindPreferenceManagerSearch(mo){
   var empty = document.createElement("div");
   empty.className = "empty-state actionable pref-manager-empty";
   empty.id = "prefManagerNoMatch";
-  empty.innerHTML = '<div class="es-t">没有匹配的 Preference</div><div class="es-s">换个关键词,或清空搜索回到当前列表。</div><button class="es-action" id="prefManagerClearSearch" type="button">清空搜索</button>';
+  empty.innerHTML = '<div class="es-t">没有匹配的经验</div><div class="es-s">换个关键词,或清空搜索回到当前列表。</div><button class="es-action" id="prefManagerClearSearch" type="button">清空搜索</button>';
   empty.style.display = "none";
   var list = $(".pref-manager-list", mo);
   if (list && list.parentNode) list.parentNode.insertBefore(empty, list.nextSibling);
@@ -8639,7 +8698,7 @@ function resolvePreferenceRecord(botUID, summaryId, action, btn, status){
   if (!botUID || !summaryId) return;
   var reset = setPreferenceRecordPending(btn, action);
   api("/bots/" + encodeURIComponent(botUID) + "/preferences/" + encodeURIComponent(summaryId), { method: "PUT", body: { action: action } }).then(function(){
-    toast(action === "restore" ? "已恢复这条 Preference" : (action === "scope_source" ? "已收窄到来源回路" : "已撤销这条 Preference"));
+    toast(action === "restore" ? "已恢复这条经验" : (action === "scope_source" ? "已收窄到来源回路" : "已撤销这条经验"));
     openPreferenceManager(botUID, status || "all");
     render();
   }).catch(function(e){
@@ -8659,10 +8718,10 @@ function openPreferenceManager(botUID, status){
   var botName = uname(botUID);
   if (!botName || botName === botUID) botName = "这个 bot";
   mo.className = "modal pref-manager";
-  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">Preference 管理 · ' + esc(botName) + '</div>'
+  mo.innerHTML = '<div class="modal-h"><div><div class="modal-title">经验管理 ·' + esc(botName) + '</div>'
     + '<div class="modal-sub">owner</div></div>'
     + '<button class="modal-x" id="mx" type="button">×</button></div>'
-    + '<div class="modal-body"><div class="ap-loading">读取 Preference…</div></div>'
+    + '<div class="modal-body"><div class="ap-loading">读取经验…</div></div>'
     + '<div class="modal-foot"><button class="ff-cancel" id="pmClose" type="button">关闭</button></div>';
   openModal();
   $("#mx").onclick = closeModal;
@@ -8694,13 +8753,13 @@ function openPreferenceManager(botUID, status){
     });
   }).catch(function(e){
     var body = $(".modal-body", mo);
-    if (body) body.innerHTML = '<div class="err-state"><b>Preference 读取失败</b> — ' + esc(e.message || "") + '<br><button class="retry" id="prefManagerRetry" type="button">重试读取</button></div>';
+    if (body) body.innerHTML = '<div class="err-state"><b>经验读取失败</b> — ' + esc(e.message || "") + '<br><button class="retry" id="prefManagerRetry" type="button">重试读取</button></div>';
     var retry = $("#prefManagerRetry", mo);
     if (retry) retry.addEventListener("click", function(){ openPreferenceManager(botUID, status); });
   });
 }
 function prefHeadHTML(sub){
-  return '<div class="modal-h"><div><div class="modal-title">AI 提炼 Preference</div>'
+  return '<div class="modal-h"><div><div class="modal-title">总结经验</div>'
     + '<div class="modal-sub">' + esc(sub) + "</div></div>"
     + '<button class="modal-x" id="mx" type="button">×</button></div>';
 }
@@ -8757,13 +8816,13 @@ function openSummaryFlow(matterId){
 }
 function showDistillConfirm(matterId, bot){
   var mo = $("#modal");
-  mo.innerHTML = prefHeadHTML("提炼 Preference")
+  mo.innerHTML = prefHeadHTML("总结经验")
     + '<div class="modal-body" style="text-align:center;padding:24px 22px">'
-    + '<div style="font-size:14px;color:var(--text);margin-bottom:8px">通知 ' + esc(bot.name) + ' 提炼这单的偏好？</div>'
+    + '<div style="font-size:14px;color:var(--text);margin-bottom:8px">通知 ' + esc(bot.name) + ' 总结这单的经验？</div>'
     + '</div>'
     + '<div class="modal-foot">'
     + '<button class="ff-cancel" id="distillCancel" type="button">取消</button>'
-    + '<button class="ff-save" id="distillGo" type="button">通知提炼</button></div>';
+    + '<button class="ff-save" id="distillGo" type="button">开始总结</button></div>';
   openModal();
   var x = $(".modal-x", mo);
   if (x) x.onclick = closeModal;
@@ -8783,14 +8842,14 @@ function showDistillSelector(matterId, bots){
       + '<span class="ac-tag" style="margin-left:auto">你的 bot</span>'
       + "</div>";
   }).join("") + "</div>";
-  mo.innerHTML = prefHeadHTML("提炼 Preference")
+  mo.innerHTML = prefHeadHTML("总结经验")
     + '<div class="modal-body">'
     + '<div style="font-size:13px;color:var(--text-2);margin-bottom:12px">选择要提炼的 Agent：</div>'
     + botRows
     + '</div>'
     + '<div class="modal-foot">'
     + '<button class="ff-cancel" id="distillCancel" type="button">取消</button>'
-    + '<button class="ff-save" id="distillGo" type="button">通知提炼</button></div>';
+    + '<button class="ff-save" id="distillGo" type="button">开始总结</button></div>';
   openModal();
   var x = $(".modal-x", mo);
   if (x) x.onclick = closeModal;
@@ -8813,24 +8872,108 @@ function showDistillSelector(matterId, bots){
     triggerDistill(matterId, chosen.uid, chosen.name);
   };
 }
+// DEPRECATED — old path that writes to timeline+feedback; kept for openSummaryFlow fallback
 function triggerDistill(matterId, botUid, botName){
-  var content = "@" + (botName || botUid) + " 请按 SKILL.md §8 提炼这单的 Preference";
+  var content = "@" + (botName || botUid) + " 请按 SKILL.md §8 总结这单的经验";
   api("/matters/" + matterId + "/timeline", { method: "POST", body: { content: content } })
     .then(function(){
       return api("/matters/" + matterId + "/feedback", { method: "POST", body: { content: content, target_uid: botUid } });
     })
     .then(function(){
       closeModal();
-      toast("已通知 " + (botName || botUid) + " 提炼 Preference");
+      toast("已通知 " + (botName || botUid) + " 总结经验");
     })
     .catch(function(e){
       closeModal();
       errToast(e);
     });
 }
+function openDistillRequestFlow(matterId){
+  var ob = ownedBotInfo();
+  var allBots = members.list.filter(function(it){
+    return it && it.robot && it.uid && ob.owned && ob.owned[it.uid];
+  }).map(function(it){ return { uid: it.uid, name: it.name || it.uid }; });
+  if (!allBots.length){ toast("你还没有 Bot，需要先创建一个"); return; }
+  var mo = $("#modal");
+  if (allBots.length === 1){
+    var bot = allBots[0];
+    mo.innerHTML = prefHeadHTML("总结经验")
+      + '<div class="modal-body" style="text-align:center;padding:24px 22px">'
+      + '<div style="font-size:14px;color:var(--text);margin-bottom:8px">由 ' + esc(bot.name) + ' 总结这次的经验？</div></div>'
+      + '<div class="modal-foot"><button class="ff-cancel" id="distillCancel" type="button">取消</button>'
+      + '<button class="ff-save" id="distillGo" type="button">开始总结</button></div>';
+    openModal();
+    $(".modal-x", mo) && ($(".modal-x", mo).onclick = closeModal);
+    $("#distillCancel").onclick = closeModal;
+    $("#distillGo").onclick = function(){
+      var btn = $("#distillGo"); btn.disabled = true; btn.textContent = "通知中…";
+      fireDistillRequest(matterId, bot.uid, bot.name);
+    };
+  } else {
+    var selBot = allBots[0].uid;
+    var rows = '<div class="pref-who" id="distillWho">' + allBots.map(function(b){
+      return '<div class="pref-bot' + (b.uid === selBot ? " sel" : "") + '" data-bot="' + esc(b.uid) + '" role="radio" aria-checked="' + (b.uid === selBot) + '" tabindex="0">'
+        + '<span class="pb-radio"></span>' + av(b.uid) + '<span class="nm">' + esc(b.name) + '</span><span class="ai-tag">AI</span>'
+        + '<span class="ac-tag" style="margin-left:auto">你的 bot</span></div>';
+    }).join("") + "</div>";
+    mo.innerHTML = prefHeadHTML("总结经验")
+      + '<div class="modal-body"><div style="font-size:13px;color:var(--text-2);margin-bottom:12px">选择要总结经验的 Agent：</div>' + rows + '</div>'
+      + '<div class="modal-foot"><button class="ff-cancel" id="distillCancel" type="button">取消</button>'
+      + '<button class="ff-save" id="distillGo" type="button">开始总结</button></div>';
+    openModal();
+    $(".modal-x", mo) && ($(".modal-x", mo).onclick = closeModal);
+    $("#distillCancel").onclick = closeModal;
+    $$(".pref-bot", mo).forEach(function(el){
+      el.addEventListener("click", function(){
+        selBot = el.getAttribute("data-bot");
+        $$(".pref-bot", mo).forEach(function(o){
+          var isSel = o.getAttribute("data-bot") === selBot;
+          o.classList.toggle("sel", isSel); o.setAttribute("aria-checked", isSel);
+        });
+      });
+    });
+    $("#distillGo").onclick = function(){
+      var btn = $("#distillGo"); btn.disabled = true; btn.textContent = "通知中…";
+      var chosen = allBots.filter(function(b){ return b.uid === selBot; })[0] || allBots[0];
+      fireDistillRequest(matterId, chosen.uid, chosen.name);
+    };
+  }
+}
+function fireDistillRequest(matterId, botUid, botName){
+  api("/matters/" + matterId + "/distill-request", { method: "POST", body: { bot_uid: botUid } })
+    .then(function(){
+      closeModal();
+      toast("已通知 " + (botName || botUid) + " 总结经验");
+    })
+    .catch(function(e){ closeModal(); errToast(e); });
+}
+function showCancelConfirm(matterId, onDone){
+  var mo = $("#modal");
+  mo.className = "modal";
+  mo.innerHTML = prefHeadHTML("取消任务")
+    + '<div class="modal-body" style="padding:18px 22px">'
+    + '<div style="font-size:14px;color:var(--text);margin-bottom:12px">确定要取消这个任务吗？</div>'
+    + '<div style="font-size:12px;color:var(--text-3);margin-bottom:8px">取消原因（可选）</div>'
+    + '<textarea id="cancelReasonInput" rows="2" style="width:100%;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px" placeholder="写几句取消的原因..." maxlength="2000"></textarea>'
+    + '</div><div class="modal-foot">'
+    + '<button class="ff-cancel" id="cancelBack" type="button">返回</button>'
+    + '<button class="ff-save" id="cancelConfirm" type="button" style="background:var(--danger,#e53935);color:#fff">确认取消</button></div>';
+  openModal();
+  $(".modal-x", mo) && ($(".modal-x", mo).onclick = closeModal);
+  $("#cancelBack").onclick = closeModal;
+  $("#cancelConfirm").onclick = function(){
+    var btn = $("#cancelConfirm"); btn.disabled = true; btn.textContent = "取消中…";
+    var reason = ($("#cancelReasonInput") || {}).value || "";
+    var body = { status: "cancelled" };
+    if (reason.trim()) body.cancel_reason = reason.trim();
+    api("/matters/" + matterId + "/status", { method: "PUT", body: body })
+      .then(function(){ closeModal(); toast("已取消"); if (onDone) onDone(); })
+      .catch(function(e){ btn.disabled = false; btn.textContent = "确认取消"; errToast(e); });
+  };
+}
 function prefFileCardHTML(matterId, row, botName){
   var m = (cur && cur.id === matterId) ? cur.m : null;
-  var fname = "Preference · " + (botName || "?");
+  var fname = "经验 · " + (botName || "?");
   var sub = prefScopeLabel(matterId, row) + (m ? " · " + seqLabel(m) : "");
   return '<div class="pref-file"><span class="pf-ic">PF</span><div class="pf-main">'
     + '<div class="pf-name">' + esc(fname) + "</div>"
@@ -8846,7 +8989,7 @@ function summaryWrittenView(matterId, row){
     + '<textarea class="smart-draft" readonly>' + esc(row.content || "") + "</textarea>"
     + '<div class="pref-feedback-row"><button class="pref-feedback" id="prefHit" type="button">这条有用</button>'
     + '<button class="pref-feedback" id="prefMiss" type="button">失准一次</button></div>'
-    + '<div class="smart-quiet">已授权为可复用 Preference。后续使用时可用命中/失准继续校准。</div>'
+    + '<div class="smart-quiet">已授权为可复用经验。后续使用时可用命中/失准继续校准。</div>'
     + "</div>"
     + '<div class="modal-foot"><button class="ff-cancel" id="smClose" type="button">关闭</button></div>';
   $("#mx") && ($("#mx").onclick = closeModal);
@@ -8862,25 +9005,25 @@ function summaryDiscardedView(matterId, row){
   mo.innerHTML = prefHeadHTML((who ? who + " · " : "") + "已跳过")
     + '<div class="modal-body">'
     + '<div class="pref-discarded-msg" style="text-align:center;padding:24px 0">'
-    + '<div style="font-size:14px;color:var(--text-3);margin-bottom:16px">已跳过的偏好候选</div>'
+    + '<div style="font-size:14px;color:var(--text-3);margin-bottom:16px">已跳过的经验候选</div>'
     + (row.content ? '<div style="font-size:12px;color:var(--text-4);margin-bottom:16px;white-space:pre-wrap;text-align:left;background:var(--fill-1);border-radius:8px;padding:10px 12px">' + esc(row.content) + '</div>' : '')
     + '</div></div>'
     + '<div class="modal-foot">'
     + '<button class="ff-cancel" id="smClose" type="button">关闭</button>'
-    + '<button class="ff-save" id="smRegen" type="button">重新蒸馏</button></div>';
+    + '<button class="ff-save" id="smRegen" type="button">重新总结</button></div>';
   var x = $(".modal-x", mo);
   if (x) x.onclick = closeModal;
   $("#smClose").onclick = closeModal;
   $("#smRegen").onclick = function(){
     var btn = $("#smRegen");
-    btn.disabled = true; btn.textContent = "蒸馏中…";
+    btn.disabled = true; btn.textContent = "总结中…";
     api("/matters/" + matterId + "/summary", { method: "POST" }).then(function(json){
       if (!$("#modalScrim").classList.contains("open")) return;
       var fresh = summaryRow(json);
-      if (!fresh){ btn.disabled = false; btn.textContent = "重新蒸馏"; errToast({ message: "服务端没有返回草稿" }); return; }
+      if (!fresh){ btn.disabled = false; btn.textContent = "重新总结"; errToast({ message: "服务端没有返回草稿" }); return; }
       summaryEditStep(matterId, fresh);
     }).catch(function(e){
-      btn.disabled = false; btn.textContent = "重新蒸馏";
+      btn.disabled = false; btn.textContent = "重新总结";
       errToast(e);
     });
   };
@@ -8978,10 +9121,10 @@ function summaryEditStep(matterId, row){
       body: { action: "authorize", target_bot_uid: selBot, content: edited, scope_type: scopeType, scope: prefScopeChoiceLabel(scopeType, m) }
     }).then(function(json){
       closeModal();
-      toast("已授权 " + uname(selBot) + " 的 Preference", { icon: "✦" });
+      toast("已授权 " + uname(selBot) + " 的经验", { icon: "✦" });
       if (cur && cur.id === matterId){
         cur.summary = summaryRow(json) || { id: row.id, status: "authorized", content: edited, target_bot_uid: selBot, scope_type: scopeType, scope: prefScopeChoiceLabel(scopeType, m) };
-        render(); // 刷掉经过/推进记录,偏好沉淀入档
+        render(); // 刷掉经过/推进记录,经验总结入档
       }
     }).catch(function(e){
       btn.disabled = false; btn.textContent = "✓ 授权";
@@ -9525,7 +9668,7 @@ function agentCardLedgerHTML(bot, curList, recent, prefs, stats, rowM){
     + '<div class="ac-sec"><div class="ac-sec-title"><span>已验证记录</span>' + (stats.done ? "<span>" + stats.done + " 件</span>" : "") + "</div>"
     + (recent.length ? acRowsHTML(recent.slice(0, 5), rowM) : '<div class="ac-empty">还没有验证过的交回</div>') + "</div>";
   if (bot){
-    html += '<div class="ac-sec wide"><div class="ac-sec-title"><span>Preference</span>' + (prefs.length ? "<span>" + prefs.length + " 条</span>" : "") + "</div>"
+    html += '<div class="ac-sec wide"><div class="ac-sec-title"><span>经验</span>' + (prefs.length ? "<span>" + prefs.length + " 条</span>" : "") + "</div>"
       + (prefs.length
         ? acRowsHTML(prefs, function(p){
             var rule = prefRulePreview(p.content) || compactOneLine(p.content) || "";
@@ -9540,12 +9683,12 @@ function agentCardLedgerHTML(bot, curList, recent, prefs, stats, rowM){
               + '<div class="apf-top"><span class="apf-scope" title="' + esc(scope) + '">' + esc(scope) + "</span>"
               + '<span class="apf-score">' + esc(score) + "</span>"
               + (p.updated_at ? '<span class="ar-when">' + esc(fmtShortDate(p.updated_at)) + "</span>" : "") + "</div>"
-              + (rule ? '<div class="apf-rule" title="' + esc(rule) + '">' + esc(rule) + "</div>" : '<div class="apf-rule none">点开看完整偏好</div>')
+              + (rule ? '<div class="apf-rule" title="' + esc(rule) + '">' + esc(rule) + "</div>" : '<div class="apf-rule none">点开看完整经验</div>')
               + (explain ? '<div class="apf-explain">' + esc(explain) + "</div>" : "")
               + (sourceLabel ? '<div class="apf-context"><span>来源</span><b title="' + esc(sourceLabel) + '">' + esc(sourceLabel) + "</b></div>" : "")
               + "</div>";
           })
-        : '<div class="ac-empty">还没有授权的 Preference</div>')
+        : '<div class="ac-empty">还没有已生效的经验</div>')
       + "</div>";
   }
   return html + "</div></details>";

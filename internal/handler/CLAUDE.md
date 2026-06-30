@@ -32,6 +32,8 @@ GET  /modes/:name                    协作模式指南 (无鉴权)
 POST /api/v1/matters                 创建 matter (支持 status=backlog|open)
 PUT  /api/v1/matters/:id/status      状态转换 (全守卫)
 POST /api/v1/matters/:id/feedback    圈一笔 (仅人类)
+POST /api/v1/matters/:id/post-review 事后点评 (仅人类, 终态 matter, 不发门铃)
+POST /api/v1/matters/:id/distill-request 总结经验 (creator only, 终态, ownedBots 守卫)
 POST /api/v1/matters/:id/timeline    写 timeline
 POST /api/v1/matters/:id/bots        添加 bot 资源 (主人主权)
 GET  /api/v1/matters/:id/iterations  迭代轮次 (提交/反馈周期历史)
