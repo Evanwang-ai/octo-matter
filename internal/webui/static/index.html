@@ -8001,9 +8001,16 @@ function experiencePanelHTML(){
     var content = cardFirstLine(row.content || "");
     var truncated = content.length > 100;
     var shown = truncated ? content.substring(0, 100) + "…" : content;
+    var scopeSelect = isCreator && row.id
+      ? '<select class="matter-select" id="expScopeSelect" style="font-size:11px;height:24px;padding:0 4px;width:auto;display:inline;margin-left:4px" data-summary-id="' + esc(row.id) + '">'
+        + '<option value="matter"' + (row.scope_type === "matter" ? " selected" : "") + '>当前回路</option>'
+        + '<option value="project"' + (row.scope_type === "project" ? " selected" : "") + '>项目</option>'
+        + '<option value="global"' + (row.scope_type === "global" || row.scope_type === "space" ? " selected" : "") + '>普适</option>'
+        + '</select>'
+      : ' ' + esc(expScopeLabel(row));
     body = '<div class="exp-status" style="color:var(--done)">✓ 已生效</div>'
       + '<div class="exp-content" id="expContent">' + mdInline(shown) + '</div>'
-      + (row.scope_type ? '<div class="exp-meta">范围: ' + esc(expScopeLabel(row)) + (row.task_type ? ' · 类型: ' + esc(row.task_type) : '') + '</div>' : '')
+      + '<div class="exp-meta">范围:' + scopeSelect + (row.task_type ? ' · 类型: ' + esc(row.task_type) : '') + '</div>'
       + (truncated ? '<button class="exp-toggle" id="expToggle" type="button" data-full="' + esc(content) + '" data-short="' + esc(shown) + '" data-expanded="0">▾ 展开全部</button>' : '');
   } else if (row && row.status === "draft" && isCreator){
     var content = cardFirstLine(row.content || "");
@@ -8363,6 +8370,14 @@ function bindInspector(){
       expToggle.textContent = "▴ 收起";
       expToggle.setAttribute("data-expanded", "1");
     }
+  });
+  var expScope = $("#expScopeSelect");
+  if (expScope && cur.summary) expScope.addEventListener("change", function(){
+    var newScope = expScope.value;
+    api("/matters/" + cur.id + "/summary/" + cur.summary.id, { method: "PUT", body: { action: "authorize", scope_type: newScope, target_bot_uid: cur.summary.target_bot_uid || cur.m.leader || "" } }).then(function(){
+      toast("范围已更新为「" + expScopeLabel({ scope_type: newScope }) + "」");
+      if (cur.summary) cur.summary.scope_type = newScope;
+    }).catch(errToast);
   });
   var prefAuth = $("#prefAuthBtn");
   if (prefAuth && cur.summary) prefAuth.addEventListener("click", function(){
